@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tides</title>
+<style>
+/* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
+:root {
+  --black: #262626;
+  --g200: #eee; --g300: #ddd; --g400: #ccc; --g500: #bbb; --g600: #999;
+  --hl: #333399;
+  --font: "Charcoal", "Chicago", "Geneva", "Lucida Grande", "Lucida Sans", Geneva, Verdana, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; font: 12px/1.45 var(--font); color: var(--black); background: var(--g200);
+  user-select: none; cursor: default; overflow: hidden; display: flex; flex-direction: column; }
+
+#bar { display: flex; gap: 8px; padding: 10px 10px 8px; align-items: center; }
+input[type=text] { background: #fff; color: var(--black);
+  border: 1px solid var(--black); border-radius: 0; padding: 2px 5px; font: inherit; font-size: 12px;
+  height: 20px; line-height: 14px;
+  box-shadow: -1px -1px 0 var(--g600), -1px 0 0 var(--g600), 0 -1px 0 var(--g600),
+    1px 1px 0 #fff, 1px 0 0 #fff, 0 1px 0 #fff; }
+input[type=text]:focus { outline: 2px solid #9999fe; outline-offset: 0; }
+
+button { font: inherit; cursor: default; }
+button.ghost { background: var(--g300); color: var(--black);
+  border: 1px solid var(--black); border-radius: 3px;
+  padding: 2px 13px; font-size: 12px; line-height: 14px; font-weight: bold; height: 20px;
+  box-shadow: inset 1px 1px 0 var(--g300), inset -1px -1px 0 #777,
+    inset 2px 2px 0 #fff, inset -2px -2px 0 #aaa; }
+button.ghost:active { background: #666; color: #fff;
+  box-shadow: inset 1px 1px 0 #444, inset -1px -1px 0 #888,
+    inset 2px 2px 0 #555, inset -2px -2px 0 #777; }
+/* the selected range stays depressed, like a Platinum segmented control */
+button.ghost.on { background: #888; color: #fff;
+  box-shadow: inset 1px 1px 0 #666, inset -1px -1px 0 #aaa,
+    inset 2px 2px 0 #777, inset -2px -2px 0 #999; }
+#seg { display: flex; gap: 0; }
+#seg button { border-radius: 0; border-right-width: 0; }
+#seg button:first-child { border-radius: 3px 0 0 3px; }
+#seg button:last-child { border-radius: 0 3px 3px 0; border-right-width: 1px; }
+
+#loc-wrap { position: relative; flex: 1; min-width: 0; }
+#loc { width: 100%; }
+#drop { position: absolute; left: 0; right: 0; top: 21px; z-index: 5;
+  background: #fff; border: 1px solid var(--black); box-shadow: 2px 2px 0 rgba(0,0,0,.35);
+  max-height: 208px; overflow-y: auto; overflow-x: hidden; }
+#drop .opt { padding: 3px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#drop .opt .id { color: #777; font-size: 10px; margin-left: 4px; }
+#drop .opt.hot, #drop .opt:hover { background: var(--hl); color: #fff; }
+#drop .opt.hot .id, #drop .opt:hover .id { color: #ccf; }
+#drop .note { padding: 4px 6px; color: #555; font-size: 11px; }
+
+/* chart is a document area: flush left/right/bottom, separator on top */
+#chart-box { flex: 1; position: relative; background: #fff; border-top: 1px solid var(--black);
+  min-height: 0; }
+/* canvas is a replaced element: inset alone doesn't stretch it */
+#cv { position: absolute; inset: 0; width: 100%; height: 100%; }
+#tip { position: absolute; z-index: 4; pointer-events: none; background: #ffffcc;
+  border: 1px solid var(--black); box-shadow: 1px 1px 0 rgba(0,0,0,.35);
+  font-size: 10px; line-height: 1.3; padding: 2px 6px; white-space: nowrap; display: none; }
+
+#status { display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--black);
+  background: var(--g300); font-size: 10px; color: #333; padding: 0 20px 0 8px; height: 19px;
+  box-shadow: inset 0 1px 0 #fff; }
+#st-station { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#st-next { flex: none; }
+
+#grow { position: fixed; right: 0; bottom: 0; width: 15px; height: 15px;
+  touch-action: none; z-index: 6; }
+
+/* Mac OS 9 scrollbars — the desktop's pixel-sampled spec, adapted for a
+   document window: the host frame draws the outer black line, so bars are
+   15px (1px leading separator + the sampled 14px face) with no trailing
+   border of their own — otherwise the edge doubles to 2px. */
+::-webkit-scrollbar { width: 15px; height: 15px; }
+::-webkit-scrollbar-track:vertical { border-left: 1px solid var(--black);
+  background: linear-gradient(to right, #777 0, #777 1px, #888 1px, #888 2px, #aaa 2px, #aaa 12px, #bbb 12px, #bbb 13px, #ccc 13px, #ccc 14px); }
+::-webkit-scrollbar-thumb:vertical { border: 1px solid var(--black); border-right: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="0" width="6" height="1" fill="%23ccccff"/><rect x="4" y="1" width="7" height="1" fill="%23333399"/><rect x="3" y="2" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="2" width="6" height="1" fill="%23ccccff"/><rect x="4" y="3" width="7" height="1" fill="%23333399"/><rect x="3" y="4" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="4" width="6" height="1" fill="%23ccccff"/><rect x="4" y="5" width="7" height="1" fill="%23333399"/><rect x="3" y="6" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="6" width="6" height="1" fill="%23ccccff"/><rect x="4" y="7" width="7" height="1" fill="%23333399"/></svg>') center no-repeat,
+    linear-gradient(to right, #ccccff 0 1px, #9999ff 1px 13px, #6666cc 13px 14px);
+  box-shadow: inset 0 1px 0 #ccccff, inset 0 -1px 0 #6666cc; }
+::-webkit-scrollbar-thumb:vertical:active {
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23ccccff"/><rect x="4" y="0" width="6" height="1" fill="%239999ff"/><rect x="4" y="1" width="7" height="1" fill="%23000066"/><rect x="3" y="2" width="1" height="1" fill="%23ccccff"/><rect x="4" y="2" width="6" height="1" fill="%239999ff"/><rect x="4" y="3" width="7" height="1" fill="%23000066"/><rect x="3" y="4" width="1" height="1" fill="%23ccccff"/><rect x="4" y="4" width="6" height="1" fill="%239999ff"/><rect x="4" y="5" width="7" height="1" fill="%23000066"/><rect x="3" y="6" width="1" height="1" fill="%23ccccff"/><rect x="4" y="6" width="6" height="1" fill="%239999ff"/><rect x="4" y="7" width="7" height="1" fill="%23000066"/></svg>') center no-repeat,
+    linear-gradient(to right, #9999ff 0 1px, #6666cc 1px 13px, #333399 13px 14px);
+  box-shadow: inset 0 1px 0 #9999ff, inset 0 -1px 0 #333399; }
+:not(.scrolled-y)::-webkit-scrollbar-thumb:vertical {
+  border-top-color: #ccccff; box-shadow: inset 0 -1px 0 #6666cc; }
+:not(.scrolled-y)::-webkit-scrollbar-thumb:vertical:active {
+  border-top-color: #9999ff; box-shadow: inset 0 -1px 0 #333399; }
+.at-y-end::-webkit-scrollbar-thumb:vertical {
+  border-bottom-color: #6666cc; box-shadow: inset 0 1px 0 #ccccff; }
+.at-y-end::-webkit-scrollbar-thumb:vertical:active {
+  border-bottom-color: #333399; box-shadow: inset 0 1px 0 #9999ff; }
+::-webkit-scrollbar-button { display: block; width: 16px; height: 16px;
+  background: #ddd; border: 1px solid var(--black);
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #bbb;
+  background-position: center; background-repeat: no-repeat; }
+::-webkit-scrollbar-button:vertical { border-right: 0; }
+::-webkit-scrollbar-button:vertical:end:increment:enabled { height: 14px; border-top: 0; border-bottom: 0; }
+::-webkit-scrollbar-button:vertical:decrement {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M3 0h2v1h-2z M2 1h4v1h-4z M1 2h6v1h-6z M0 3h8v1h-8z"/></svg>'); }
+::-webkit-scrollbar-button:vertical:increment {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M0 0h8v1h-8z M1 1h6v1h-6z M2 2h4v1h-4z M3 3h2v1h-2z"/></svg>'); }
+::-webkit-scrollbar-button:active { background-color: #777;
+  box-shadow: inset 1px 1px 0 #555, inset -1px -1px 0 #999; }
+::-webkit-scrollbar-button:vertical:start:decrement,
+::-webkit-scrollbar-button:vertical:start:increment,
+::-webkit-scrollbar-button:horizontal:start:decrement,
+::-webkit-scrollbar-button:horizontal:start:increment { display: none; }
+::-webkit-scrollbar-corner { background: var(--g300); }
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <div id="seg">
+    <button class="ghost" data-range="1">Today</button>
+    <button class="ghost" data-range="3">3 Days</button>
+    <button class="ghost" data-range="7">7 Days</button>
+  </div>
+  <div id="loc-wrap">
+    <input type="text" id="loc" placeholder="Search location…" autocomplete="off" spellcheck="false">
+    <div id="drop" hidden></div>
+  </div>
+</div>
+<div id="chart-box">
+  <canvas id="cv"></canvas>
+  <div id="tip"></div>
+</div>
+<div id="status">
+  <span id="st-station">…</span>
+  <span id="st-next"></span>
+</div>
+<!-- grow box sampled pixel-for-pixel from Mac OS 9 (Infinite Mac) -->
+<svg id="grow" width="15" height="15" viewBox="0 0 15 15" shape-rendering="crispEdges">
+  <rect width="15" height="15" fill="#ccc"/>
+  <path fill="#000" d="M0 0h15v1H0zM0 1h1v14H0z"/>
+  <path fill="#fff" d="M1 1h14v1H1zM1 2h1v13H1z"/>
+  <path fill="#fff" d="M9 4h2v1H9zM8 5h1v1H8zM7 6h1v1H7zM6 7h1v1H6zM5 8h1v1H5zM4 9h1v1H4zM11 6h2v1h-2zM10 7h1v1h-1zM9 8h1v1H9zM8 9h1v1H8zM7 10h1v1H7zM6 11h1v1H6zM13 8h2v1h-2zM12 9h1v1h-1zM11 10h1v1h-1zM10 11h1v1h-1zM9 12h1v1H9zM8 13h1v1H8z"/>
+  <path fill="#777" d="M10 5h1v1h-1zM9 6h1v1H9zM8 7h1v1H8zM7 8h1v1H7zM6 9h1v1H6zM5 10h1v1H5zM12 7h1v1h-1zM11 8h1v1h-1zM10 9h1v1h-1zM9 10h1v1H9zM8 11h1v1H8zM7 12h1v1H7zM14 9h1v1h-1zM13 10h1v1h-1zM12 11h1v1h-1zM11 12h1v1h-1zM10 13h1v1h-1zM9 14h1v1H9z"/>
+  <path fill="#aaa" d="M4 10h1v1H4zM6 12h1v1H6zM8 14h1v1H8z"/>
+</svg>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+
+// The desktop passes its API token in the iframe URL; the app name comes
+// from the path so a renamed bundle folder keeps working.
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+const APP = decodeURIComponent(location.pathname.split("/")[2] || "Tides");
+const SETTINGS_URL = "/v1/apps/" + encodeURIComponent(APP) + "/data/settings.json";
+
+// NOAA CO-OPS: predictions in GMT (converted to the viewer's clock for
+// display, so "Today" and the now-line are exact in any timezone) from the
+// data API; the station directory comes from the metadata API. Both send
+// Access-Control-Allow-Origin: * — no proxy needed.
+const NOAA = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter";
+const MDAPI = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions";
+const DEFAULT_STATION = { id: "9410580", name: "Newport Bay Entrance, Corona del Mar", state: "CA", type: "R" };
+
+async function api(url, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers);
+  if (TOKEN) opts.headers["Authorization"] = "Bearer " + TOKEN;
+  const r = await fetch(url, opts);
+  if (!r.ok && r.status !== 404) throw new Error("HTTP " + r.status);
+  return r;
+}
+
+let st = { station: DEFAULT_STATION, range: 1 };
+let curve = [];        // [{t: ms, v: ft}] the drawn water line
+let extremes = [];     // [{t: ms, v: ft, type: "H"|"L"}] incl. a day beyond each edge
+let loadErr = "";
+let fetchedKey = "";   // station|range|startMs of the data on screen
+let stations = null;   // slim searchable list
+let saveT = null;
+
+function saveSettings() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    api(SETTINGS_URL, { method: "PUT", body: JSON.stringify({ station: st.station, range: st.range }, null, 2) })
+      .catch(e => console.error("tides save failed:", e));
+  }, 250);
+}
+
+// ---- time helpers ----
+const pad2 = n => String(n).padStart(2, "0");
+const DAY = 86400000;
+function gmtParam(d) {
+  return d.getUTCFullYear() + pad2(d.getUTCMonth() + 1) + pad2(d.getUTCDate()) +
+    " " + pad2(d.getUTCHours()) + ":" + pad2(d.getUTCMinutes());
+}
+const parseGmt = s => Date.parse(s.replace(" ", "T") + ":00Z");
+function rangeSpan() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return { start, end: start + st.range * DAY };
+}
+const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function fmtClock(t) {
+  const d = new Date(t);
+  let h = d.getHours() % 12; if (h === 0) h = 12;
+  return h + ":" + pad2(d.getMinutes()) + " " + (d.getHours() < 12 ? "AM" : "PM");
+}
+const fmtDay = t => { const d = new Date(t); return WD[d.getDay()] + " " + (d.getMonth() + 1) + "/" + d.getDate(); };
+const fmtFt = v => (Math.abs(v) < 0.05 ? 0 : v).toFixed(1); // never "-0.0"
+
+// ---- NOAA fetches ----
+async function noaa(extra) {
+  const q = new URLSearchParams(Object.assign({
+    product: "predictions", application: "exe-tides", datum: "MLLW",
+    time_zone: "gmt", units: "english", format: "json", station: st.station.id,
+  }, extra));
+  const r = await fetch(NOAA + "?" + q);
+  if (!r.ok) throw new Error("NOAA HTTP " + r.status);
+  const d = await r.json();
+  if (d.error) throw new Error(d.error.message || "no data");
+  return d.predictions || [];
+}
+
+// Subordinate stations only publish high/low times, so the water line is the
+// standard cosine interpolation between consecutive extremes.
+function cosineCurve(ex, start, end) {
+  const pts = [];
+  for (let i = 0; i < ex.length - 1; i++) {
+    const a = ex[i], b = ex[i + 1];
+    if (b.t < start || a.t > end) continue;
+    for (let t = Math.max(a.t, start); t <= Math.min(b.t, end); t += 360000) {
+      const f = (1 - Math.cos(Math.PI * (t - a.t) / (b.t - a.t))) / 2;
+      pts.push({ t, v: a.v + (b.v - a.v) * f });
+    }
+  }
+  return pts;
+}
+
+async function loadTides() {
+  const { start, end } = rangeSpan();
+  const key = st.station.id + "|" + st.range + "|" + start;
+  fetchedKey = key;
+  loadErr = "";
+  $("#st-station").textContent = stationLabel() + " — loading…";
+  try {
+    // extremes a day past each edge: they anchor the interpolated curve and
+    // the "next tide" readout even at the range boundary
+    const hiloP = noaa({ interval: "hilo",
+      begin_date: gmtParam(new Date(start - DAY)), end_date: gmtParam(new Date(end + DAY)) });
+    let six = null;
+    try {
+      six = await noaa({ interval: "6", begin_date: gmtParam(new Date(start)), end_date: gmtParam(new Date(end)) });
+    } catch (e) { /* subordinate station: fall back to interpolation */ }
+    const hilo = await hiloP;
+    if (fetchedKey !== key) return; // a newer request superseded this one
+    extremes = hilo.map(p => ({ t: parseGmt(p.t), v: +p.v, type: p.type }));
+    curve = six ? six.map(p => ({ t: parseGmt(p.t), v: +p.v })) : cosineCurve(extremes, start, end);
+  } catch (e) {
+    if (fetchedKey !== key) return;
+    curve = []; extremes = [];
+    loadErr = e.message;
+  }
+  draw();
+  updateStatus();
+}
+
+function stationLabel() {
+  return st.station.name + (st.station.state ? ", " + st.station.state : "");
+}
+
+function updateStatus() {
+  $("#st-station").textContent = stationLabel() + "  ·  " + st.station.id;
+  const now = Date.now();
+  const next = extremes.find(e => e.t > now);
+  $("#st-next").textContent = loadErr ? "" :
+    next ? "Next: " + (next.type === "H" ? "High" : "Low") + " " + fmtFt(next.v) +
+      " ft at " + fmtClock(next.t) + "  ·  ft MLLW" : "ft MLLW";
+}
+
+// ---- chart ----
+const box = $("#chart-box"), cv = $("#cv"), ctx = cv.getContext("2d");
+const M = { l: 32, r: 10, t: 16, b: 20 };
+
+function draw() {
+  const W = box.clientWidth, H = box.clientHeight, dpr = devicePixelRatio || 1;
+  if (W < 40 || H < 40) return;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.textBaseline = "alphabetic";
+  const { start, end } = rangeSpan();
+
+  if (!curve.length) {
+    ctx.fillStyle = "#555"; ctx.font = "11px Geneva, Verdana, sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(loadErr ? "No tide data: " + loadErr : "Loading…", W / 2, H / 2);
+    return;
+  }
+
+  const exIn = extremes.filter(e => e.t >= start && e.t <= end);
+  let vmin = Infinity, vmax = -Infinity;
+  for (const p of curve) { if (p.v < vmin) vmin = p.v; if (p.v > vmax) vmax = p.v; }
+  for (const e of exIn) { if (e.v < vmin) vmin = e.v; if (e.v > vmax) vmax = e.v; }
+  vmin = Math.floor(vmin - 0.5); vmax = Math.ceil(vmax + 0.5);
+  const X = t => M.l + (t - start) / (end - start) * (W - M.l - M.r);
+  const Y = v => M.t + (vmax - v) / (vmax - vmin) * (H - M.t - M.b);
+
+  // vertical grid: 3-hour lines for a single day, midnights across several
+  ctx.font = "9px Geneva, Verdana, sans-serif";
+  ctx.textAlign = "center";
+  if (st.range === 1) {
+    for (let h = 3; h < 24; h += 3) {
+      const t = start + h * 3600000, x = Math.round(X(t)) + .5;
+      ctx.strokeStyle = "#e4e4e4";
+      ctx.beginPath(); ctx.moveTo(x, M.t); ctx.lineTo(x, H - M.b); ctx.stroke();
+      ctx.fillStyle = "#555";
+      const lbl = h === 12 ? "12PM" : (h % 12) + (h < 12 ? "AM" : "PM");
+      ctx.fillText(lbl, x, H - M.b + 13);
+    }
+    ctx.fillStyle = "#555";
+    ctx.textAlign = "left"; ctx.fillText("12AM", M.l + 2, H - M.b + 13); ctx.textAlign = "center";
+  } else {
+    for (let d = 0; d < st.range; d++) {
+      const t = start + d * DAY, x = Math.round(X(t)) + .5;
+      if (d > 0) {
+        ctx.strokeStyle = "#d4d4d4";
+        ctx.beginPath(); ctx.moveTo(x, M.t); ctx.lineTo(x, H - M.b); ctx.stroke();
+      }
+      if (st.range === 3) {
+        const xn = Math.round(X(t + DAY / 2)) + .5;
+        ctx.strokeStyle = "#efefef";
+        ctx.beginPath(); ctx.moveTo(xn, M.t); ctx.lineTo(xn, H - M.b); ctx.stroke();
+      }
+      ctx.fillStyle = "#555";
+      ctx.fillText(fmtDay(t), X(t + DAY / 2), H - M.b + 13);
+    }
+  }
+
+  // water: solid Platinum lavender under a 2px highlight-blue line
+  ctx.beginPath();
+  curve.forEach((p, i) => { const x = X(p.t), y = Y(p.v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+  ctx.lineTo(X(curve[curve.length - 1].t), H - M.b);
+  ctx.lineTo(X(curve[0].t), H - M.b);
+  ctx.closePath();
+  ctx.fillStyle = "#ccccff";
+  ctx.fill();
+  ctx.beginPath();
+  curve.forEach((p, i) => { const x = X(p.t), y = Y(p.v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+  ctx.strokeStyle = "#333399"; ctx.lineWidth = 2; ctx.lineJoin = "round"; ctx.stroke();
+  ctx.lineWidth = 1;
+
+  // horizontal grid over the water so depth stays readable, labels in ink
+  const step = (vmax - vmin) > 9 ? 2 : 1;
+  ctx.textAlign = "right";
+  for (let v = vmin; v <= vmax; v += step) {
+    const y = Math.round(Y(v)) + .5;
+    ctx.strokeStyle = v === 0 ? "rgba(0,0,0,.28)" : "rgba(0,0,0,.10)";
+    ctx.beginPath(); ctx.moveTo(M.l, y); ctx.lineTo(W - M.r, y); ctx.stroke();
+    ctx.fillStyle = "#555";
+    ctx.fillText(String(v), M.l - 5, y + 3);
+  }
+  ctx.fillStyle = "#555"; ctx.fillText("ft", M.l - 5, M.t - 5);
+
+  // frame line at the bottom of the plot
+  ctx.strokeStyle = "#999";
+  ctx.beginPath(); ctx.moveTo(M.l, Math.round(H - M.b) + .5); ctx.lineTo(W - M.r, Math.round(H - M.b) + .5); ctx.stroke();
+
+  // high/low markers: the chart's only direct labels (dataviz: selective).
+  // Labels clamp inside the plot: lows sit close to the bottom edge and
+  // their text would otherwise run into the hour band or off the canvas.
+  ctx.textAlign = "center";
+  for (const e of exIn) {
+    const x = X(e.t), y = Y(e.v);
+    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = "#fff"; ctx.fill();
+    ctx.strokeStyle = "#333399"; ctx.lineWidth = 2; ctx.stroke(); ctx.lineWidth = 1;
+    const above = e.type === "H";
+    const lx = Math.min(Math.max(x, M.l + 12), W - M.r - 12);
+    const vy = above ? Math.max(y - 16, M.t + 10) : Math.min(y + 16, H - M.b - 11);
+    ctx.fillStyle = "#262626";
+    ctx.font = "bold 10px Geneva, Verdana, sans-serif";
+    ctx.fillText(fmtFt(e.v), lx, vy);
+    if (st.range < 7) {
+      ctx.fillStyle = "#555";
+      ctx.font = "9px Geneva, Verdana, sans-serif";
+      ctx.fillText(fmtClock(e.t).replace(" ", ""), lx, vy + 9);
+    }
+  }
+
+  // now-line with a dot riding the water line
+  const now = Date.now();
+  if (now >= start && now <= end) {
+    const x = Math.round(X(now)) + .5;
+    ctx.strokeStyle = "#cc0000";
+    ctx.beginPath(); ctx.moveTo(x, M.t); ctx.lineTo(x, H - M.b); ctx.stroke();
+    const v = valueAt(now);
+    if (v != null) {
+      ctx.beginPath(); ctx.arc(X(now), Y(v), 3, 0, Math.PI * 2);
+      ctx.fillStyle = "#cc0000"; ctx.fill();
+      ctx.fillStyle = "#cc0000"; ctx.font = "9px Geneva, Verdana, sans-serif";
+      const tx = Math.min(Math.max(x, M.l + 12), W - M.r - 12);
+      ctx.textAlign = x > W - 60 ? "right" : "left";
+      ctx.fillText(fmtFt(v) + " ft now", tx + (x > W - 60 ? -4 : 4), M.t + 9);
+    }
+  }
+  drawHover();
+}
+
+function valueAt(t) {
+  if (!curve.length || t < curve[0].t || t > curve[curve.length - 1].t) return null;
+  let lo = 0, hi = curve.length - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; (curve[m].t <= t ? lo = m : hi = m); }
+  const a = curve[lo], b = curve[hi];
+  return b.t === a.t ? a.v : a.v + (b.v - a.v) * (t - a.t) / (b.t - a.t);
+}
+
+// ---- hover: crosshair + balloon tooltip ----
+let hover = null; // {x,y,t,v} in CSS px
+const tip = $("#tip");
+cv.addEventListener("mousemove", e => {
+  const r = cv.getBoundingClientRect();
+  const { start, end } = rangeSpan();
+  const W = box.clientWidth;
+  const t = start + (e.clientX - r.left - M.l) / (W - M.l - M.r) * (end - start);
+  const v = valueAt(t);
+  if (v == null || e.clientX - r.left < M.l) { clearHover(); return; }
+  hover = { x: e.clientX - r.left, t, v };
+  tip.textContent = (st.range > 1 ? fmtDay(t) + " " : "") + fmtClock(t) + " · " + v.toFixed(2) + " ft";
+  tip.style.display = "block";
+  const tw = tip.offsetWidth;
+  tip.style.left = Math.min(hover.x + 10, box.clientWidth - tw - 4) + "px";
+  tip.style.top = Math.max(4, e.clientY - r.top - 26) + "px";
+  draw();
+});
+cv.addEventListener("mouseleave", clearHover);
+function clearHover() {
+  if (!hover) return;
+  hover = null; tip.style.display = "none"; draw();
+}
+function drawHover() {
+  if (!hover) return;
+  const H = box.clientHeight;
+  const x = Math.round(hover.x) + .5;
+  ctx.strokeStyle = "#888"; ctx.setLineDash([2, 2]);
+  ctx.beginPath(); ctx.moveTo(x, M.t); ctx.lineTo(x, H - M.b); ctx.stroke();
+  ctx.setLineDash([]);
+  // dot on the water line at the hovered time
+  const vsY = yScale(); if (!vsY) return;
+  ctx.beginPath(); ctx.arc(hover.x, vsY(hover.v), 3.5, 0, Math.PI * 2);
+  ctx.fillStyle = "#fff"; ctx.fill();
+  ctx.strokeStyle = "#262626"; ctx.stroke();
+}
+// yScale mirrors draw()'s Y for the hover dot without re-deriving inline
+function yScale() {
+  if (!curve.length) return null;
+  const { start, end } = rangeSpan();
+  const exIn = extremes.filter(e => e.t >= start && e.t <= end);
+  let vmin = Infinity, vmax = -Infinity;
+  for (const p of curve) { if (p.v < vmin) vmin = p.v; if (p.v > vmax) vmax = p.v; }
+  for (const e of exIn) { if (e.v < vmin) vmin = e.v; if (e.v > vmax) vmax = e.v; }
+  vmin = Math.floor(vmin - 0.5); vmax = Math.ceil(vmax + 0.5);
+  const H = box.clientHeight;
+  return v => M.t + (vmax - v) / (vmax - vmin) * (H - M.t - M.b);
+}
+
+// ---- range control ----
+function syncSeg() {
+  document.querySelectorAll("#seg button").forEach(b =>
+    b.classList.toggle("on", +b.dataset.range === st.range));
+}
+document.querySelectorAll("#seg button").forEach(b => b.addEventListener("click", () => {
+  st.range = +b.dataset.range;
+  syncSeg(); saveSettings(); loadTides();
+}));
+
+// ---- station search ----
+const loc = $("#loc"), drop = $("#drop");
+let hot = -1, results = [];
+
+async function ensureStations() {
+  if (stations) return stations;
+  try {
+    const c = JSON.parse(localStorage.getItem("tides-stations-v1"));
+    if (c && Date.now() - c.at < 7 * DAY && Array.isArray(c.list)) return stations = c.list;
+  } catch (e) {}
+  const r = await fetch(MDAPI);
+  if (!r.ok) throw new Error("station list HTTP " + r.status);
+  const d = await r.json();
+  stations = (d.stations || []).map(s => ({ id: s.id, name: s.name, state: s.state || "", type: s.type }));
+  try { localStorage.setItem("tides-stations-v1", JSON.stringify({ at: Date.now(), list: stations })); } catch (e) {}
+  return stations;
+}
+
+function note(msg) {
+  drop.replaceChildren(Object.assign(document.createElement("div"), { className: "note", textContent: msg }));
+  drop.hidden = false;
+}
+
+async function search() {
+  const q = loc.value.trim().toLowerCase();
+  if (q.length < 2) { drop.hidden = true; results = []; hot = -1; return; }
+  try {
+    if (!stations) note("Loading NOAA station list…");
+    await ensureStations();
+  } catch (e) { note("Station list unavailable: " + e.message); return; }
+  const terms = q.split(/\s+/);
+  results = stations.filter(s => {
+    const hay = (s.name + " " + s.state + " " + s.id).toLowerCase();
+    return terms.every(t => hay.includes(t));
+  });
+  // reference stations first (real 6-minute curves), then name matches
+  results.sort((a, b) =>
+    (a.name.toLowerCase().startsWith(q) ? 0 : 1) - (b.name.toLowerCase().startsWith(q) ? 0 : 1) ||
+    (a.type === "R" ? 0 : 1) - (b.type === "R" ? 0 : 1) ||
+    a.name.localeCompare(b.name));
+  results = results.slice(0, 30);
+  hot = -1;
+  if (!results.length) { note("No stations match “" + loc.value.trim() + "”"); return; }
+  drop.replaceChildren(...results.map((s, i) => {
+    const o = document.createElement("div");
+    o.className = "opt";
+    o.innerHTML = "<b></b><span class='id'></span>";
+    o.firstChild.textContent = s.name + (s.state ? ", " + s.state : "");
+    o.lastChild.textContent = s.id;
+    o.addEventListener("mousedown", e => { e.preventDefault(); pick(i); });
+    return o;
+  }));
+  drop.hidden = false;
+  drop.scrollTop = 0;
+}
+
+function pick(i) {
+  const s = results[i];
+  if (!s) return;
+  st.station = s;
+  loc.value = "";
+  drop.hidden = true;
+  saveSettings();
+  updateStatus();
+  loadTides();
+}
+
+let searchT = null;
+loc.addEventListener("input", () => { clearTimeout(searchT); searchT = setTimeout(search, 150); });
+loc.addEventListener("focus", () => { if (loc.value.trim().length >= 2) search(); });
+loc.addEventListener("blur", () => setTimeout(() => { drop.hidden = true; }, 150));
+loc.addEventListener("keydown", e => {
+  if (drop.hidden || !results.length) { if (e.key === "Escape") { drop.hidden = true; } return; }
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    hot = e.key === "ArrowDown" ? Math.min(hot + 1, results.length - 1) : Math.max(hot - 1, 0);
+    drop.querySelectorAll(".opt").forEach((o, i) => o.classList.toggle("hot", i === hot));
+    const o = drop.querySelectorAll(".opt")[hot];
+    if (o) o.scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter") {
+    e.preventDefault(); pick(hot >= 0 ? hot : 0);
+  } else if (e.key === "Escape") {
+    drop.hidden = true;
+  }
+});
+
+// ---- desktop window plumbing (same bridge as the Todo app) ----
+window.addEventListener("pointerdown", () => {
+  if (window.parent !== window) parent.postMessage({ exe: "focus" }, location.origin);
+}, { capture: true, passive: true });
+
+const grow = $("#grow");
+if (window.parent === window) grow.style.display = "none";
+grow.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  grow.setPointerCapture(e.pointerId);
+  const sx = e.clientX, sy = e.clientY;
+  const move = ev =>
+    parent.postMessage({ exe: "grow", dx: ev.clientX - sx, dy: ev.clientY - sy }, location.origin);
+  const up = () => {
+    grow.removeEventListener("pointermove", move);
+    grow.removeEventListener("pointerup", up);
+    parent.postMessage({ exe: "grow-end" }, location.origin);
+  };
+  grow.addEventListener("pointermove", move);
+  grow.addEventListener("pointerup", up);
+  parent.postMessage({ exe: "grow-start" }, location.origin);
+});
+
+// OS 9 scrollbar end-merges need the same scrolled/at-end flags as the desktop
+document.addEventListener("scroll", e => {
+  const el = e.target;
+  if (!(el instanceof Element)) return;
+  el.classList.toggle("scrolled-y", el.scrollTop >= 1);
+  el.classList.toggle("at-y-end", el.scrollTop >= 1 && el.scrollTop >= el.scrollHeight - el.clientHeight - 1);
+}, { capture: true, passive: true });
+
+new ResizeObserver(() => draw()).observe(box);
+
+// redraw keeps the now-line moving; a date rollover refetches the range
+setInterval(() => {
+  const { start } = rangeSpan();
+  if (fetchedKey && fetchedKey !== st.station.id + "|" + st.range + "|" + start) loadTides();
+  else { draw(); updateStatus(); }
+}, 60000);
+
+(async () => {
+  try {
+    const r = await api(SETTINGS_URL);
+    if (r.status !== 404) {
+      const data = await r.json();
+      if (data && data.station && data.station.id) st.station = data.station;
+      if (data && [1, 3, 7].includes(data.range)) st.range = data.range;
+    }
+  } catch (e) {}
+  syncSeg();
+  updateStatus();
+  loadTides();
+})();
+</script>
+</body>
+</html>
