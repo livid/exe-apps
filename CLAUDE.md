@@ -1,0 +1,55 @@
+# exe-apps
+
+Experimental web apps for the exe desktop (~/Developer/exe — a personal VM
+cloud whose embedded web UI is a Mac OS 9 Platinum desktop). This repo is
+deliberately separate from exe: apps here are mounted via `apps_dirs` in
+`~/.exe/config.json` and show up as desktop icons next to the built-in ones.
+
+## Dev loop
+
+- Apps are served **live from this checkout** at `http://127.0.0.1:7777/apps/<Name>/`
+  — edit, reload the desktop window, done. No build step, no daemon restart.
+- Only changes to the exe daemon itself need `make build` + POST
+  /v1/daemon/restart (in ~/Developer/exe; restarting kills running VMs).
+- API token: `api_token` in `~/.exe/config.json`. The desktop passes it to
+  apps as `?token=`; for curl use `Authorization: Bearer <token>`.
+- Visual checks: headless Chrome + CDP (`--headless=new
+  --remote-debugging-port`, PUT /json/new, Page.captureScreenshot) against
+  `/apps/<Name>/?token=…`. Screenshot and LOOK at every UI change.
+
+## Bundle layout
+
+```
+AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-9 ._-]*$)
+  app.json          { "title", "icon": "icon.svg", "window": { "width", "height", "grow": true } }
+  index.html        the whole app, opened in an iframe by the desktop
+  icon.svg          32×32 pixel-art desktop icon (render at exactly 32 CSS px, crispEdges)
+```
+
+- Per-app persistent state: `GET/PUT/DELETE /v1/apps/<Name>/data/<file>`
+  (lives in `~/.exe/appdata/<Name>/`, outside the served tree; 10 MB/file cap).
+- `~/.exe/apps` wins name collisions with this repo.
+
+## Conventions (see Tides/index.html for a worked example)
+
+- **Look**: Mac OS 9 Platinum. Copy the CSS blocks from an existing app —
+  root color vars, beveled buttons, sunken text fields, and the pixel-sampled
+  OS 9 scrollbar block. Only the Return-triggered default button gets the
+  black ring; others stay plain. Bordered scroll containers share 1px edges
+  with the scrollbar — reuse the existing block verbatim, don't restyle.
+- **Desktop bridge** (postMessage, same-origin): send `{exe:"focus"}` on
+  pointerdown so clicks raise the window; if `window.grow` is true, include
+  the 15px grow-box SVG and stream `{exe:"grow", dx, dy}` / `grow-start` /
+  `grow-end` so the desktop resizes the window. Copy both blocks as-is.
+- App name comes from `location.pathname.split("/")[2]`, token from
+  `?token=` — don't hardcode either.
+- Vanilla JS + inline CSS in one index.html; no frameworks, no CDNs.
+- `<canvas>` gotcha: `inset:0` doesn't stretch a replaced element — set
+  `width/height:100%` too, and scale the backing store by devicePixelRatio.
+
+## Apps
+
+- **Tides** — NOAA CO-OPS tide charts (fetches NOAA directly; CORS is open).
+  Gotchas encoded there: only type-R stations serve 6-minute curves (type-S
+  fall back to cosine fit between hi/lo); fetch `time_zone=gmt`, render in
+  viewer-local time; station list cached slim in localStorage for a week.
