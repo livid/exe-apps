@@ -66,13 +66,22 @@ input[type=text]:focus { outline: 2px solid #9999fe; outline-offset: 0; }
 .tcell.on { background: var(--black); }
 .tcell.on svg { fill: #fff; }
 
-/* line-width picker, MacPaint style: sample lines, chosen row inverted */
+/* line-width picker, MacPaint style: sample lines, chosen row inverted;
+   the top row is MacPaint's dotted "no line" */
 #widths { border-bottom: 1px solid var(--black); }
 .wrow { height: 12px; display: flex; align-items: center; padding: 0 6px; background: #fff; }
 .wrow .ln { background: var(--black); width: 100%; }
+.wrow .ln.none { background: repeating-linear-gradient(to right, var(--black) 0 1px, transparent 1px 3px); }
 .wrow.on { background: var(--black); }
 .wrow.on .ln { background: #fff; }
+.wrow.on .ln.none { background: repeating-linear-gradient(to right, #fff 0 1px, transparent 1px 3px); }
 #side .fill { flex: 1; background: #fff; }
+
+/* balloon-help style tooltip for the left palette */
+#tip { position: fixed; display: none; z-index: 9; background: #ffffcc;
+  border: 1px solid var(--black); border-radius: 3px; padding: 1px 6px 2px;
+  font: 12px Geneva, Verdana, sans-serif; color: var(--black);
+  box-shadow: 1px 1px 0 rgba(0,0,0,.3); pointer-events: none; white-space: nowrap; }
 
 #doc { flex: 1; overflow: auto; background: var(--g500); min-width: 0; }
 #page { position: relative; width: 512px; margin: 10px auto; background: #fff;
@@ -302,6 +311,28 @@ function syncPats() {
   drawPatInto(patcur.getContext("2d"), patIdx, 34, 26);
 }
 
+// ---- tooltips --------------------------------------------------------------
+// balloon-help labels for the left palette, shown after a short hover
+const tip = document.createElement("div");
+tip.id = "tip";
+document.body.appendChild(tip);
+let tipT = null;
+function hideTip() { clearTimeout(tipT); tip.style.display = "none"; }
+function addTip(el, text) {
+  el.addEventListener("pointerenter", () => {
+    clearTimeout(tipT);
+    tipT = setTimeout(() => {
+      const r = el.getBoundingClientRect();
+      tip.textContent = text;
+      tip.style.left = (r.right + 5) + "px";
+      tip.style.top = Math.round(r.top + r.height / 2 - 9) + "px";
+      tip.style.display = "block";
+    }, 400);
+  });
+  el.addEventListener("pointerleave", hideTip);
+  el.addEventListener("pointerdown", hideTip);
+}
+
 // ---- tools ----------------------------------------------------------------
 // MacPaint's two-column palette, minus lasso/grabber/polygons. 16x16
 // pixel-art glyphs, filled by CSS so the selected cell can invert.
@@ -321,6 +352,12 @@ const ICONS = {
   oval:  '<path d="M6 4h4v1H6zM4 5h2v1H4zM10 5h2v1h-2zM3 6h1v1H3zM12 6h1v1h-1zM2 7h1v2H2zM13 7h1v2h-1zM3 9h1v1H3zM12 9h1v1h-1zM4 10h2v1H4zM10 10h2v1h-2zM6 11h4v1H6z"/>',
   ovalF: '<path d="M6 4h4v1H6zM4 5h8v1H4zM3 6h10v1H3zM2 7h12v2H2zM3 9h10v1H3zM4 10h8v1H4zM6 11h4v1H6z"/>',
 };
+const NAMES = {
+  sel: "Selection", text: "Text", bucket: "Paint Bucket", spray: "Spray Can",
+  brush: "Brush", pencil: "Pencil", line: "Line", eraser: "Eraser",
+  rect: "Rectangle", rectF: "Filled Rectangle", rrect: "Rounded Rectangle",
+  rrectF: "Filled Rounded Rectangle", oval: "Oval", ovalF: "Filled Oval",
+};
 const TOOLS = ["sel", "text", "bucket", "spray", "brush", "pencil", "line", "eraser",
   "rect", "rectF", "rrect", "rrectF", "oval", "ovalF"];
 let tool = "pencil";
@@ -330,6 +367,7 @@ TOOLS.forEach(t => {
   d.className = "tcell"; d.dataset.tool = t;
   d.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" shape-rendering="crispEdges">' + ICONS[t] + "</svg>";
   d.addEventListener("pointerdown", () => setTool(t));
+  addTip(d, NAMES[t]);
   toolbox.appendChild(d);
 });
 function setTool(t) {
@@ -341,20 +379,25 @@ function setTool(t) {
 }
 
 // QuickDraw's pen is a square stamped along the line; these are its sizes.
-const WIDTHS = [1, 2, 4, 6];
-let widthIdx = 0;
+// 0 is MacPaint's dotted top row: no line — shape borders vanish and the
+// line tool draws nothing, but pencil/brush keep the thinnest pen (MacPaint's
+// width never applied to them anyway).
+const WIDTHS = [0, 1, 2, 4, 6];
+let widthIdx = 1;
 const widths = $("#widths");
 WIDTHS.forEach((w, i) => {
   const r = document.createElement("div");
   r.className = "wrow";
-  r.innerHTML = '<div class="ln" style="height:' + w + 'px"></div>';
+  r.innerHTML = '<div class="ln' + (w ? '' : ' none') + '" style="height:' + (w || 1) + 'px"></div>';
   r.addEventListener("pointerdown", () => {
     widthIdx = i;
     widths.querySelectorAll(".wrow").forEach((el, j) => el.classList.toggle("on", j === i));
   });
+  addTip(r, w ? w + (w > 1 ? " pixels" : " pixel") : "No line");
   widths.appendChild(r);
 });
-const penW = () => WIDTHS[widthIdx];
+const penW = () => WIDTHS[widthIdx] || 1; // freehand tools never go below 1
+const borderW = () => WIDTHS[widthIdx];   // 0 = borderless
 
 // ---- undo -----------------------------------------------------------------
 // snapshots carry their dimensions so undo works across canvas resizes
@@ -500,19 +543,23 @@ function shapePath(c2d, t, x0, y0, x1, y1) {
   else c2d.rect(x, y, w, h);
 }
 function commitShape(t, x0, y0, x1, y1) {
+  const bw = borderW();
+  if (!bw && (t === "line" || !t.endsWith("F"))) return; // no line: nothing to draw
   snapshot();
   if (t === "line") {
-    walk(x0, y0, x1, y1, (x, y) => stampPen(x, y, penW(), true));
+    walk(x0, y0, x1, y1, (x, y) => stampPen(x, y, bw, true));
   } else {
     if (t.endsWith("F")) { // pattern fill first, border over it
       shapePath(sctx, t, x0, y0, x1, y1);
       sctx.fill();
       stampScratch("pat");
     }
-    shapePath(sctx, t, x0, y0, x1, y1);
-    sctx.lineWidth = penW();
-    sctx.stroke();
-    stampScratch("black");
+    if (bw) {
+      shapePath(sctx, t, x0, y0, x1, y1);
+      sctx.lineWidth = bw;
+      sctx.stroke();
+      stampScratch("black");
+    }
   }
   flush();
   scheduleSave();
@@ -705,7 +752,9 @@ dc.addEventListener("pointermove", e => {
   else if (drag.mode === "spray") { /* the timer follows drag.x/y */ }
   else { // line + shapes preview on the overlay
     octx.clearRect(0, 0, W, H);
-    octx.lineWidth = penW();
+    const bw = borderW();
+    octx.lineWidth = bw || 1;
+    octx.setLineDash(bw ? [] : [2, 2]); // no-line width: dashed guide, not ink
     octx.strokeStyle = "#262626"; octx.fillStyle = "#26262699";
     if (drag.mode === "line") {
       octx.beginPath(); octx.moveTo(drag.x0 + .5, drag.y0 + .5); octx.lineTo(x + .5, y + .5); octx.stroke();
@@ -823,7 +872,7 @@ document.addEventListener("scroll", e => {
 $("#dims").textContent = W + "×" + H;
 dctx.putImageData(img, 0, 0);
 setTool("pencil");
-widths.querySelector(".wrow").classList.add("on");
+widths.querySelectorAll(".wrow")[widthIdx].classList.add("on");
 syncPats();
 load();
 </script>

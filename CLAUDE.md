@@ -61,5 +61,8 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   fill exact. Pattern ink is opaque (set bits black, clear bits white) and
   origin-aligned so overlaps tile seamlessly; spray stamps only set bits.
   The width picker drives pencil, brush, line and shape borders (MacPaint
-  kept pencil at 1px — users read that as broken). Auto-saves the page as
-  PNG to the app-data API, re-thresholded on load.
+  kept pencil at 1px — users read that as broken); its dotted top row is
+  MacPaint's "no line": shape borders vanish (filled shapes commit fill-only,
+  previewed with a dashed guide), the line tool draws nothing, and pencil/
+  brush fall back to the thinnest pen. Auto-saves the page as PNG to the
+  app-data API, re-thresholded on load.
