@@ -57,7 +57,11 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   when the window closes. If the initial GET fails, saving stays disabled —
   otherwise an empty in-memory doc would clobber the stored notes. Titles are
   the first non-empty line; the edited note bubbles to the top like Chat
-  sessions; deletes use the desktop's two-click armed × pattern. Its always-on
+  sessions; deletes use the desktop's two-click armed × pattern. Enter
+  continues markdown list items (`- * +`, `1.`/`1)` incrementing, `- [ ]`
+  resetting), Enter on an empty item turns its marker into a blank line and
+  drops to a fresh one, Shift+Enter is the plain-newline escape — all
+  through execCommand so native undo survives. Its always-on
   editor bar carries the OS 9 disabled-flat scrollbar block (flat #eee strip,
   #888 ghost arrows) that Tides doesn't need — copy from here for any
   overflow:scroll bar. Bordered boxes keep border-right: the app's 15px bar

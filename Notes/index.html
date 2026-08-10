@@ -10,6 +10,8 @@
   --g200: #eee; --g300: #ddd; --g400: #ccc; --g500: #bbb; --g600: #999;
   --hl: #333399; --red: #cc3333;
   --font: "Charcoal", "Chicago", "Geneva", "Lucida Grande", "Lucida Sans", Geneva, Verdana, sans-serif;
+  /* the desktop's mono stack, with Berkeley Mono preferred when installed */
+  --mono: "Berkeley Mono", "Monaco", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
@@ -50,13 +52,13 @@ button.ghost.sm { padding: 1px 8px; font-size: 10px; border-radius: 3px; height:
 .cs-item.sel .cs-title, .cs-item.sel .cs-time { color: #fff; }
 .muted { color: #777; }
 
-/* the note itself: a document area, not a field — Geneva 12 like SimpleText,
-   no Platinum focus ring, always-on scrollbar like a real OS 9 document
-   window (disabled-flat when the note fits); the box's border-right is the
-   bar's right rail */
+/* the note itself: a document area, not a field — monospace like a plain-
+   text editor, no Platinum focus ring, always-on scrollbar like a real OS 9
+   document window (disabled-flat when the note fits); the box's border-right
+   is the bar's right rail */
 #ed { flex: 1; min-width: 0; resize: none; margin: 0; border: 1px solid var(--black);
   border-radius: 0; background: #fff; color: var(--black); padding: 8px 10px;
-  font: 12px/1.5 var(--font); overflow-y: scroll; user-select: text; cursor: text;
+  font: 11px/16px var(--mono); overflow-y: scroll; user-select: text; cursor: text;
   box-shadow: -1px -1px 0 var(--g600), -1px 0 0 var(--g600), 0 -1px 0 var(--g600),
     1px 1px 0 #fff, 1px 0 0 #fff, 0 1px 0 #fff; }
 #ed:focus { outline: none; }
@@ -289,12 +291,35 @@ ed.addEventListener("input", () => {
   renderList();
   scheduleSave();
 });
-// Tab indents, SimpleText-style; execCommand keeps the native undo stack
+// Tab indents, SimpleText-style; execCommand (here and below) keeps the
+// native undo stack — assigning ed.value would wipe it
 ed.addEventListener("keydown", e => {
-  if (e.key === "Tab" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+  if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.isComposing) return;
+  if (e.key === "Tab") {
     e.preventDefault();
     document.execCommand("insertText", false, "\t");
+    return;
   }
+  if (e.key !== "Enter") return;
+  // Markdown list continuation: Enter extends a "- " / "* " / "+ " /
+  // "1. " / "- [ ] " item (numbers increment, checkboxes reset); Enter on
+  // an item with no content ends the list: the marker becomes a blank line
+  // and the caret drops to a fresh line below it, word-processor style.
+  // Shift+Enter is the escape hatch for a plain newline inside a list.
+  const pos = ed.selectionStart;
+  const lineStart = ed.value.lastIndexOf("\n", pos - 1) + 1;
+  const m = ed.value.slice(lineStart, pos).match(/^(\s*)(?:([-*+])|(\d+)([.)]))(\s+)(\[[ xX]\]\s+)?/);
+  if (!m || pos < lineStart + m[0].length) return; // not a list line, or caret inside the marker
+  let lineEnd = ed.value.indexOf("\n", pos);
+  if (lineEnd < 0) lineEnd = ed.value.length;
+  e.preventDefault();
+  if (ed.selectionEnd === pos && ed.value.slice(lineStart, lineEnd) === m[0]) {
+    ed.setSelectionRange(lineStart, lineEnd);
+    document.execCommand("insertText", false, "\n"); // marker → newline, one undo step
+    return;
+  }
+  const next = m[2] ? m[2] + m[5] : (+m[3] + 1) + m[4] + m[5];
+  document.execCommand("insertText", false, "\n" + m[1] + next + (m[6] ? "[ ] " : ""));
 });
 
 $("#new").onclick = () => {
