@@ -1,0 +1,831 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Paint</title>
+<style>
+/* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
+:root {
+  --black: #262626;
+  --g200: #eee; --g300: #ddd; --g400: #ccc; --g500: #bbb; --g600: #999;
+  --hl: #333399;
+  --font: "Charcoal", "Chicago", "Geneva", "Lucida Grande", "Lucida Sans", Geneva, Verdana, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; font: 12px/1.45 var(--font); color: var(--black); background: var(--g200);
+  user-select: none; cursor: default; overflow: hidden; display: flex; flex-direction: column; }
+
+button { font: inherit; cursor: default; }
+button.ghost { background: var(--g300); color: var(--black);
+  border: 1px solid var(--black); border-radius: 3px;
+  padding: 2px 13px; font-size: 12px; line-height: 14px; font-weight: bold; height: 20px;
+  box-shadow: inset 1px 1px 0 var(--g300), inset -1px -1px 0 #777,
+    inset 2px 2px 0 #fff, inset -2px -2px 0 #aaa; }
+button.ghost:active { background: #666; color: #fff;
+  box-shadow: inset 1px 1px 0 #444, inset -1px -1px 0 #888,
+    inset 2px 2px 0 #555, inset -2px -2px 0 #777; }
+/* the Return-triggered default button gets the black ring */
+button.ghost.default { outline: 2px solid var(--black); outline-offset: 1px; border-radius: 4px; }
+
+input[type=text] { background: #fff; color: var(--black);
+  border: 1px solid var(--black); border-radius: 0; padding: 2px 5px; font: inherit; font-size: 12px;
+  height: 20px; line-height: 14px; width: 56px;
+  box-shadow: -1px -1px 0 var(--g600), -1px 0 0 var(--g600), 0 -1px 0 var(--g600),
+    1px 1px 0 #fff, 1px 0 0 #fff, 0 1px 0 #fff; }
+input[type=text]:focus { outline: 2px solid #9999fe; outline-offset: 0; }
+
+#bar { display: flex; gap: 8px; padding: 8px 10px 7px; align-items: center; }
+#dims { margin-left: auto; font-size: 11px; color: #555; }
+#saved { margin-left: 8px; font-size: 11px; color: #555; }
+
+/* Canvas Size dialog, Platinum-style */
+#dlg-wrap { position: fixed; inset: 0; z-index: 10; display: flex;
+  align-items: center; justify-content: center; }
+#dlg-wrap[hidden] { display: none; }
+#dlg { background: var(--g300); border: 1px solid var(--black); padding: 12px 14px 10px;
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #999, 2px 2px 0 rgba(0,0,0,.35);
+  min-width: 220px; }
+#dlg .dlg-title { font-weight: bold; margin-bottom: 10px; }
+#dlg .dlg-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+#dlg .dlg-row label { width: 44px; }
+#dlg .dlg-note { font-size: 10px; color: #555; margin: 4px 0 10px; }
+#dlg .dlg-btns { display: flex; justify-content: flex-end; gap: 10px; }
+
+#main { flex: 1; display: flex; min-height: 0; border-top: 1px solid var(--black); }
+
+/* MacPaint's left palette: a white strip of cells with 1px rules */
+#side { width: 55px; flex: none; background: #fff; border-right: 1px solid var(--black);
+  display: flex; flex-direction: column; overflow: hidden; }
+#tools { display: grid; grid-template-columns: 27px 27px; }
+.tcell { width: 27px; height: 25px; border-right: 1px solid var(--black);
+  border-bottom: 1px solid var(--black); display: flex; align-items: center; justify-content: center;
+  background: #fff; }
+.tcell:nth-child(2n) { border-right: 0; }
+.tcell svg { fill: var(--black); }
+.tcell.on { background: var(--black); }
+.tcell.on svg { fill: #fff; }
+
+/* line-width picker, MacPaint style: sample lines, chosen row inverted */
+#widths { border-bottom: 1px solid var(--black); }
+.wrow { height: 12px; display: flex; align-items: center; padding: 0 6px; background: #fff; }
+.wrow .ln { background: var(--black); width: 100%; }
+.wrow.on { background: var(--black); }
+.wrow.on .ln { background: #fff; }
+#side .fill { flex: 1; background: #fff; }
+
+#doc { flex: 1; overflow: auto; background: var(--g500); min-width: 0; }
+#page { position: relative; width: 512px; margin: 10px auto; background: #fff;
+  border: 1px solid var(--black); box-shadow: 2px 2px 0 rgba(0,0,0,.35); }
+#dc, #ov { display: block; image-rendering: pixelated; }
+#ov { position: absolute; inset: 0; pointer-events: none; }
+#ti { position: absolute; display: none; border: 1px dotted #666; background: transparent;
+  font: 12px Geneva, Verdana, sans-serif; color: var(--black); padding: 0; margin: 0;
+  outline: none; min-width: 40px; }
+
+/* MacPaint's bottom palette: current pattern swatch + 2x19 pattern cells */
+#patbar { flex: none; display: flex; align-items: center; gap: 8px; height: 37px;
+  border-top: 1px solid var(--black); background: var(--g300); padding: 0 20px 0 8px;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.6); overflow: hidden; }
+#patcur { width: 34px; height: 26px; border: 1px solid var(--black); background: #fff;
+  box-shadow: 1px 1px 0 rgba(0,0,0,.3); flex: none; }
+#pats { display: grid; grid-template-columns: repeat(19, 17px); grid-auto-rows: 13px;
+  border: 1px solid var(--black); background: var(--black); gap: 1px; flex: none; }
+#pats canvas { width: 16px; height: 12px; background: #fff; display: block; }
+
+#grow { position: fixed; right: 0; bottom: 0; width: 15px; height: 15px;
+  touch-action: none; z-index: 6; }
+
+/* Mac OS 9 scrollbars — the desktop's pixel-sampled spec (see Tides) */
+::-webkit-scrollbar { width: 15px; height: 15px; }
+::-webkit-scrollbar-track:vertical { border-left: 1px solid var(--black);
+  background: linear-gradient(to right, #777 0, #777 1px, #888 1px, #888 2px, #aaa 2px, #aaa 12px, #bbb 12px, #bbb 13px, #ccc 13px, #ccc 14px); }
+::-webkit-scrollbar-track:horizontal { border-top: 1px solid var(--black);
+  background: linear-gradient(to bottom, #777 0, #777 1px, #888 1px, #888 2px, #aaa 2px, #aaa 12px, #bbb 12px, #bbb 13px, #ccc 13px, #ccc 14px); }
+::-webkit-scrollbar-thumb:vertical { border: 1px solid var(--black); border-right: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="0" width="6" height="1" fill="%23ccccff"/><rect x="4" y="1" width="7" height="1" fill="%23333399"/><rect x="3" y="2" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="2" width="6" height="1" fill="%23ccccff"/><rect x="4" y="3" width="7" height="1" fill="%23333399"/><rect x="3" y="4" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="4" width="6" height="1" fill="%23ccccff"/><rect x="4" y="5" width="7" height="1" fill="%23333399"/><rect x="3" y="6" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="6" width="6" height="1" fill="%23ccccff"/><rect x="4" y="7" width="7" height="1" fill="%23333399"/></svg>') center no-repeat,
+    linear-gradient(to right, #ccccff 0 1px, #9999ff 1px 13px, #6666cc 13px 14px);
+  box-shadow: inset 0 1px 0 #ccccff, inset 0 -1px 0 #6666cc; }
+::-webkit-scrollbar-thumb:horizontal { border: 1px solid var(--black); border-bottom: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="14" shape-rendering="crispEdges"><rect x="0" y="3" width="1" height="1" fill="%23eeeeee"/><rect x="0" y="4" width="1" height="6" fill="%23ccccff"/><rect x="1" y="4" width="1" height="7" fill="%23333399"/><rect x="2" y="3" width="1" height="1" fill="%23eeeeee"/><rect x="2" y="4" width="1" height="6" fill="%23ccccff"/><rect x="3" y="4" width="1" height="7" fill="%23333399"/><rect x="4" y="3" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="4" width="1" height="6" fill="%23ccccff"/><rect x="5" y="4" width="1" height="7" fill="%23333399"/><rect x="6" y="3" width="1" height="1" fill="%23eeeeee"/><rect x="6" y="4" width="1" height="6" fill="%23ccccff"/><rect x="7" y="4" width="1" height="7" fill="%23333399"/></svg>') center no-repeat,
+    linear-gradient(to bottom, #ccccff 0 1px, #9999ff 1px 13px, #6666cc 13px 14px);
+  box-shadow: inset 1px 0 0 #ccccff, inset -1px 0 0 #6666cc; }
+::-webkit-scrollbar-thumb:vertical:active {
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23ccccff"/><rect x="4" y="0" width="6" height="1" fill="%239999ff"/><rect x="4" y="1" width="7" height="1" fill="%23000066"/><rect x="3" y="2" width="1" height="1" fill="%23ccccff"/><rect x="4" y="2" width="6" height="1" fill="%239999ff"/><rect x="4" y="3" width="7" height="1" fill="%23000066"/><rect x="3" y="4" width="1" height="1" fill="%23ccccff"/><rect x="4" y="4" width="6" height="1" fill="%239999ff"/><rect x="4" y="5" width="7" height="1" fill="%23000066"/><rect x="3" y="6" width="1" height="1" fill="%23ccccff"/><rect x="4" y="6" width="6" height="1" fill="%239999ff"/><rect x="4" y="7" width="7" height="1" fill="%23000066"/></svg>') center no-repeat,
+    linear-gradient(to right, #9999ff 0 1px, #6666cc 1px 13px, #333399 13px 14px);
+  box-shadow: inset 0 1px 0 #9999ff, inset 0 -1px 0 #333399; }
+::-webkit-scrollbar-button { display: block; width: 16px; height: 16px;
+  background: #ddd; border: 1px solid var(--black);
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #bbb;
+  background-position: center; background-repeat: no-repeat; }
+::-webkit-scrollbar-button:vertical { border-right: 0; }
+::-webkit-scrollbar-button:horizontal { border-bottom: 0; }
+::-webkit-scrollbar-button:vertical:end:increment:enabled { height: 14px; border-top: 0; border-bottom: 0; }
+::-webkit-scrollbar-button:horizontal:end:increment:enabled { width: 14px; border-left: 0; border-right: 0; }
+::-webkit-scrollbar-button:vertical:decrement {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M3 0h2v1h-2z M2 1h4v1h-4z M1 2h6v1h-6z M0 3h8v1h-8z"/></svg>'); }
+::-webkit-scrollbar-button:vertical:increment {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M0 0h8v1h-8z M1 1h6v1h-6z M2 2h4v1h-4z M3 3h2v1h-2z"/></svg>'); }
+::-webkit-scrollbar-button:horizontal:decrement {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="4" height="8" shape-rendering="crispEdges"><path fill="black" d="M3 0h1v8h-1z M2 1h1v6h-1z M1 2h1v4h-1z M0 3h1v2h-1z"/></svg>'); }
+::-webkit-scrollbar-button:horizontal:increment {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="4" height="8" shape-rendering="crispEdges"><path fill="black" d="M0 0h1v8h-1z M1 1h1v6h-1z M2 2h1v4h-1z M3 3h1v2h-1z"/></svg>'); }
+::-webkit-scrollbar-button:active { background-color: #777;
+  box-shadow: inset 1px 1px 0 #555, inset -1px -1px 0 #999; }
+::-webkit-scrollbar-button:vertical:start:decrement,
+::-webkit-scrollbar-button:vertical:start:increment,
+::-webkit-scrollbar-button:horizontal:start:decrement,
+::-webkit-scrollbar-button:horizontal:start:increment { display: none; }
+::-webkit-scrollbar-corner { background: var(--g300); }
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <button class="ghost" id="undo">Undo</button>
+  <button class="ghost" id="clear">Clear</button>
+  <button class="ghost" id="resize">Resize</button>
+  <button class="ghost" id="export">Export</button>
+  <span id="dims"></span>
+  <span id="saved"></span>
+</div>
+
+<div id="main">
+  <div id="side">
+    <div id="tools"></div>
+    <div id="widths"></div>
+    <div class="fill"></div>
+  </div>
+  <div id="doc">
+    <div id="page">
+      <canvas id="dc" width="512" height="384"></canvas>
+      <canvas id="ov" width="512" height="384"></canvas>
+      <input id="ti" autocomplete="off" spellcheck="false">
+    </div>
+  </div>
+</div>
+
+<div id="patbar">
+  <canvas id="patcur" width="34" height="26"></canvas>
+  <div id="pats"></div>
+</div>
+
+<div id="dlg-wrap" hidden>
+  <div id="dlg">
+    <div class="dlg-title">Canvas Size</div>
+    <div class="dlg-row"><label for="dlg-w">Width:</label><input type="text" id="dlg-w" autocomplete="off"> pixels</div>
+    <div class="dlg-row"><label for="dlg-h">Height:</label><input type="text" id="dlg-h" autocomplete="off"> pixels</div>
+    <div class="dlg-note">64–1152 × 64–1440. The page keeps its top-left corner; shrinking crops the rest (undoable).</div>
+    <div class="dlg-btns">
+      <button class="ghost" id="dlg-cancel">Cancel</button>
+      <button class="ghost default" id="dlg-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- grow box sampled pixel-for-pixel from Mac OS 9 (Infinite Mac) -->
+<svg id="grow" width="15" height="15" viewBox="0 0 15 15" shape-rendering="crispEdges">
+  <rect width="15" height="15" fill="#ccc"/>
+  <path fill="#000" d="M0 0h15v1H0zM0 1h1v14H0z"/>
+  <path fill="#fff" d="M1 1h14v1H1zM1 2h1v13H1z"/>
+  <path fill="#fff" d="M9 4h2v1H9zM8 5h1v1H8zM7 6h1v1H7zM6 7h1v1H6zM5 8h1v1H5zM4 9h1v1H4zM11 6h2v1h-2zM10 7h1v1h-1zM9 8h1v1H9zM8 9h1v1H8zM7 10h1v1H7zM6 11h1v1H6zM13 8h2v1h-2zM12 9h1v1h-1zM11 10h1v1h-1zM10 11h1v1h-1zM9 12h1v1H9zM8 13h1v1H8z"/>
+  <path fill="#777" d="M10 5h1v1h-1zM9 6h1v1H9zM8 7h1v1H8zM7 8h1v1H7zM6 9h1v1H6zM5 10h1v1H5zM12 7h1v1h-1zM11 8h1v1h-1zM10 9h1v1h-1zM9 10h1v1H9zM8 11h1v1H8zM7 12h1v1H7zM14 9h1v1h-1zM13 10h1v1h-1zM12 11h1v1h-1zM11 12h1v1h-1zM10 13h1v1h-1zM9 14h1v1H9z"/>
+  <path fill="#aaa" d="M4 10h1v1H4zM6 12h1v1H6zM8 14h1v1H8z"/>
+</svg>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+
+// The desktop passes its API token in the iframe URL; the app name comes
+// from the path so a renamed bundle folder keeps working.
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+const APP = decodeURIComponent(location.pathname.split("/")[2] || "Paint");
+const DOC_URL = "/v1/apps/" + encodeURIComponent(APP) + "/data/canvas.png";
+
+async function api(url, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers);
+  if (TOKEN) opts.headers["Authorization"] = "Bearer " + TOKEN;
+  const r = await fetch(url, opts);
+  if (!r.ok && r.status !== 404) throw new Error("HTTP " + r.status);
+  return r;
+}
+
+// ---- the document: a one-bit page, 512x384 by default --------------------
+// The truth is `img` (an ImageData); every tool mutates it through px() and
+// the canvas only ever shows putImageData of it. Shapes and text rasterize
+// on a scratch canvas first, then threshold to the mask stamped into img —
+// no antialiased grays can ever reach the page, which keeps the look 1-bit
+// and the paint bucket's region detection exact.
+let W = 512, H = 384; // default page; Resize can change it, saves keep theirs
+const dc = $("#dc"), dctx = dc.getContext("2d", { willReadFrequently: true });
+const ov = $("#ov"), octx = ov.getContext("2d");
+const pageEl = $("#page");
+const scratch = document.createElement("canvas");
+scratch.width = W; scratch.height = H;
+const sctx = scratch.getContext("2d", { willReadFrequently: true });
+let img = dctx.createImageData(W, H);
+img.data.fill(255);
+
+// setDocSize retargets every canvas to w x h; resizing clears them, so the
+// caller repaints from img afterwards.
+function setDocSize(w, h) {
+  W = w; H = h;
+  dc.width = ov.width = scratch.width = w;
+  dc.height = ov.height = scratch.height = h;
+  pageEl.style.width = w + "px";
+  $("#dims").textContent = w + "×" + h;
+}
+
+let dirty = null; // {x0,y0,x1,y1} accumulated since last flush
+function touch(x, y) {
+  if (x < 0) x = 0; if (y < 0) y = 0; if (x >= W) x = W - 1; if (y >= H) y = H - 1;
+  if (!dirty) dirty = { x0: x, y0: y, x1: x, y1: y };
+  else {
+    if (x < dirty.x0) dirty.x0 = x; if (x > dirty.x1) dirty.x1 = x;
+    if (y < dirty.y0) dirty.y0 = y; if (y > dirty.y1) dirty.y1 = y;
+  }
+}
+function px(x, y, black) {
+  if (x < 0 || y < 0 || x >= W || y >= H) return;
+  const i = (y * W + x) * 4, v = black ? 38 : 255; // 38 = #262626 ink
+  img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+  img.data[i + 3] = 255;
+  touch(x, y);
+}
+const isBlack = (x, y) => img.data[(y * W + x) * 4] < 128;
+function flush() {
+  if (!dirty) return;
+  dctx.putImageData(img, 0, 0, dirty.x0, dirty.y0, dirty.x1 - dirty.x0 + 1, dirty.y1 - dirty.y0 + 1);
+  dirty = null;
+}
+
+// ---- patterns: 38 8x8 bitmaps, MacPaint's bottom-palette arrangement -----
+// (top row runs white -> black through the dithers and line screens, the
+// second row is the decorative set) — each is 8 row bytes, bit 7 leftmost.
+const PATS = [
+  "0000000000000000", "8800220088002200", "aa005500aa005500", "aa55aa55aa55aa55",
+  "55ffaaff55ffaaff", "77ffddff77ffddff", "ffffffffffffffff", "ff000000ff000000",
+  "8888888888888888", "8040201008040201", "0102040810204080", "ff888888ff888888",
+  "8142241818244281", "ffff0000ffff0000", "cccccccccccccccc", "c06030180c060381",
+  "03060c183060c081", "cccc3333cccc3333", "8000080080000800",
+  "ff808080ff080808", "80413e000814e300", "0c1221c00c1221c0", "0814224180412214",
+  "8844221188112244", "3c4281818181423c", "6060060660600606", "082a1c7f1c2a0800",
+  "105438fe38541000", "8855225588552255", "f87422478f172271", "77898f8f7798f8f8",
+  "0220088001100440", "4411441144114411", "8448304884038448", "1824428142241800",
+  "08083e0808000000", "f0f0f0f00f0f0f0f", "8080413e00000000",
+];
+const patBytes = PATS.map(h => {
+  const b = new Uint8Array(8);
+  for (let i = 0; i < 8; i++) b[i] = parseInt(h.substr(i * 2, 2), 16);
+  return b;
+});
+let patIdx = 6; // MacPaint opens with black
+const patBit = (p, x, y) => (patBytes[p][y & 7] >> (7 - (x & 7))) & 1;
+
+function drawPatInto(c2d, p, w, h) {
+  c2d.fillStyle = "#fff"; c2d.fillRect(0, 0, w, h);
+  c2d.fillStyle = "#262626";
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++)
+    if (patBit(p, x, y)) c2d.fillRect(x, y, 1, 1);
+}
+const patbar = $("#pats"), patcur = $("#patcur");
+PATS.forEach((_, i) => {
+  const c = document.createElement("canvas");
+  c.width = 16; c.height = 12;
+  drawPatInto(c.getContext("2d"), i, 16, 12);
+  c.addEventListener("pointerdown", () => { patIdx = i; syncPats(); });
+  patbar.appendChild(c);
+});
+// like MacPaint, the doubled swatch on the left is the selection indicator
+function syncPats() {
+  drawPatInto(patcur.getContext("2d"), patIdx, 34, 26);
+}
+
+// ---- tools ----------------------------------------------------------------
+// MacPaint's two-column palette, minus lasso/grabber/polygons. 16x16
+// pixel-art glyphs, filled by CSS so the selected cell can invert.
+const ICONS = {
+  sel:   '<path d="M2 3h2v1H2zM5 3h2v1H5zM8 3h2v1H8zM11 3h2v1h-2zM2 5h1v2H2zM2 8h1v2H2zM13 5h1v2h-1zM13 8h1v2h-1zM2 11h2v1H2zM5 11h2v1H5zM8 11h2v1H8zM11 11h2v1h-2z"/>',
+  text:  '<path d="M7 2h2v1H7zM6 3h1v2H6zM9 3h1v2H9zM5 5h1v3H5zM10 5h1v3h-1zM5 8h6v1H5zM4 9h1v3H4zM11 9h1v3h-1zM3 12h3v1H3zM10 12h3v1h-3z"/>',
+  bucket:'<path d="M7 3h3v1H7zM6 4h1v1H6zM10 4h1v1h-1zM5 5h1v1H5zM11 5h1v1h-1zM4 6h1v1H4zM12 6h1v1h-1zM3 7h1v1H3zM13 7h1v1h-1zM4 8h9v1H4zM5 9h7v1H5zM6 10h5v1H6zM7 11h3v1H7zM3 8h1v3H3zM2 10h1v3H2zM3 12h1v1H3z"/>',
+  spray: '<path d="M6 5h5v1H6zM6 6h1v7H6zM10 6h1v7h-1zM7 12h3v1H7zM7 3h3v2H7zM8 1h1v1H8zM12 2h1v1h-1zM13 4h1v1h-1zM4 2h1v1H4zM3 4h1v1H3zM5 0h1v1H5zM10 0h1v1h-1z"/>',
+  brush: '<path d="M11 2h2v1h-2zM10 3h3v1h-3zM9 4h3v1H9zM8 5h3v1H8zM7 6h3v1H7zM6 7h3v1H6zM5 8h3v1H5zM5 9h2v1H5zM4 10h2v1H4zM3 11h2v2H3z"/>',
+  pencil:'<path d="M11 2h2v2h-2zM10 4h2v1h-2zM9 5h2v1H9zM8 6h2v1H8zM7 7h2v1H7zM6 8h2v1H6zM5 9h2v1H5zM4 10h2v1H4zM3 11h2v1H3zM3 12h1v1H3z"/>',
+  line:  '<path d="M12 3h1v1h-1zM11 4h1v1h-1zM10 5h1v1h-1zM9 6h1v1H9zM8 7h1v1H8zM7 8h1v1H7zM6 9h1v1H6zM5 10h1v1H5zM4 11h1v1H4zM3 12h1v1H3z"/>',
+  eraser:'<path d="M6 4h7v1H6zM5 5h1v1H5zM12 5h1v1h-1zM4 6h1v1H4zM12 6h1v1h-1zM3 7h1v4H3zM12 7h1v1h-1zM11 7h1v5h-1zM4 11h7v1H4zM3 11h1v1H3zM4 7h7v4H4z"/>',
+  rect:  '<path d="M2 4h12v1H2zM2 11h12v1H2zM2 5h1v6H2zM13 5h1v6h-1z"/>',
+  rectF: '<path d="M2 4h12v8H2z"/>',
+  rrect: '<path d="M4 4h8v1H4zM4 11h8v1H4zM3 5h1v1H3zM12 5h1v1h-1zM2 6h1v4H2zM13 6h1v4h-1zM3 10h1v1H3zM12 10h1v1h-1z"/>',
+  rrectF:'<path d="M4 4h8v8H4zM3 5h10v6H3zM2 6h12v4H2z"/>',
+  oval:  '<path d="M6 4h4v1H6zM4 5h2v1H4zM10 5h2v1h-2zM3 6h1v1H3zM12 6h1v1h-1zM2 7h1v2H2zM13 7h1v2h-1zM3 9h1v1H3zM12 9h1v1h-1zM4 10h2v1H4zM10 10h2v1h-2zM6 11h4v1H6z"/>',
+  ovalF: '<path d="M6 4h4v1H6zM4 5h8v1H4zM3 6h10v1H3zM2 7h12v2H2zM3 9h10v1H3zM4 10h8v1H4zM6 11h4v1H6z"/>',
+};
+const TOOLS = ["sel", "text", "bucket", "spray", "brush", "pencil", "line", "eraser",
+  "rect", "rectF", "rrect", "rrectF", "oval", "ovalF"];
+let tool = "pencil";
+const toolbox = $("#tools");
+TOOLS.forEach(t => {
+  const d = document.createElement("div");
+  d.className = "tcell"; d.dataset.tool = t;
+  d.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" shape-rendering="crispEdges">' + ICONS[t] + "</svg>";
+  d.addEventListener("pointerdown", () => setTool(t));
+  toolbox.appendChild(d);
+});
+function setTool(t) {
+  if (t !== "sel") dropSelection(true);
+  commitText();
+  tool = t;
+  toolbox.querySelectorAll(".tcell").forEach(c => c.classList.toggle("on", c.dataset.tool === t));
+  dc.style.cursor = t === "text" ? "text" : "crosshair";
+}
+
+// QuickDraw's pen is a square stamped along the line; these are its sizes.
+const WIDTHS = [1, 2, 4, 6];
+let widthIdx = 0;
+const widths = $("#widths");
+WIDTHS.forEach((w, i) => {
+  const r = document.createElement("div");
+  r.className = "wrow";
+  r.innerHTML = '<div class="ln" style="height:' + w + 'px"></div>';
+  r.addEventListener("pointerdown", () => {
+    widthIdx = i;
+    widths.querySelectorAll(".wrow").forEach((el, j) => el.classList.toggle("on", j === i));
+  });
+  widths.appendChild(r);
+});
+const penW = () => WIDTHS[widthIdx];
+
+// ---- undo -----------------------------------------------------------------
+// snapshots carry their dimensions so undo works across canvas resizes
+const undoStack = [], redoStack = [];
+function snapshot() {
+  undoStack.push({ w: W, h: H, data: new Uint8ClampedArray(img.data) });
+  if (undoStack.length > 20) undoStack.shift();
+  redoStack.length = 0;
+}
+function restore(from, to) {
+  const cur = from.pop();
+  if (!cur) return;
+  to.push({ w: W, h: H, data: new Uint8ClampedArray(img.data) });
+  if (cur.w !== W || cur.h !== H) {
+    setDocSize(cur.w, cur.h);
+    img = dctx.createImageData(cur.w, cur.h);
+  }
+  img.data.set(cur.data);
+  dctx.putImageData(img, 0, 0);
+  scheduleSave();
+}
+$("#undo").addEventListener("click", () => { dropSelection(false); restore(undoStack, redoStack); });
+document.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+    e.preventDefault();
+    dropSelection(false);
+    if (e.shiftKey) restore(redoStack, undoStack); else restore(undoStack, redoStack);
+  }
+  if ((e.key === "Delete" || e.key === "Backspace") && sel && document.activeElement !== ti) {
+    e.preventDefault(); clearSelection();
+  }
+  if (e.key === "Escape") dropSelection(true);
+});
+
+$("#clear").addEventListener("click", () => {
+  dropSelection(false); commitText();
+  snapshot();
+  img.data.fill(255);
+  dctx.putImageData(img, 0, 0);
+  scheduleSave();
+});
+$("#export").addEventListener("click", () => {
+  const a = document.createElement("a");
+  a.href = dc.toDataURL("image/png");
+  a.download = "painting.png";
+  a.click();
+});
+
+// ---- Canvas Size dialog ---------------------------------------------------
+// The page keeps its top-left corner: growing adds white, shrinking crops
+// (one undoable op). The saved PNG carries the size, so it persists.
+const dlgWrap = $("#dlg-wrap"), dlgW = $("#dlg-w"), dlgH = $("#dlg-h");
+function resizeDoc(nw, nh) {
+  dropSelection(true); commitText();
+  if (nw === W && nh === H) return;
+  snapshot();
+  const old = img, ow = W;
+  const cw = Math.min(W, nw), ch = Math.min(H, nh);
+  setDocSize(nw, nh);
+  img = dctx.createImageData(nw, nh);
+  img.data.fill(255);
+  for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+    if (old.data[(y * ow + x) * 4] < 128) {
+      const i = (y * nw + x) * 4;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = 38;
+    }
+  }
+  dctx.putImageData(img, 0, 0);
+  scheduleSave();
+}
+$("#resize").addEventListener("click", () => {
+  commitText();
+  dlgW.value = W; dlgH.value = H;
+  dlgWrap.hidden = false;
+  dlgW.focus(); dlgW.select();
+});
+function closeDlg() { dlgWrap.hidden = true; }
+function applyResize() {
+  let nw = Math.round(parseFloat(dlgW.value)), nh = Math.round(parseFloat(dlgH.value));
+  if (!Number.isFinite(nw)) nw = W;
+  if (!Number.isFinite(nh)) nh = H;
+  closeDlg();
+  resizeDoc(Math.max(64, Math.min(1152, nw)), Math.max(64, Math.min(1440, nh)));
+}
+$("#dlg-cancel").addEventListener("click", closeDlg);
+$("#dlg-ok").addEventListener("click", applyResize);
+$("#dlg").addEventListener("keydown", e => {
+  e.stopPropagation(); // keep Ctrl+Z etc. away from the canvas while typing
+  if (e.key === "Enter") applyResize();
+  if (e.key === "Escape") closeDlg();
+});
+
+// ---- ink helpers ----------------------------------------------------------
+// pen: black square of penW at (x,y); brush: pattern-opaque disc; eraser:
+// white square. Pattern ink is opaque like MacPaint's: set bits paint black,
+// clear bits paint white — a gray dither reads as translucent but isn't.
+function stampPen(x, y, w, black) {
+  const o = w >> 1;
+  for (let dy = 0; dy < w; dy++) for (let dx = 0; dx < w; dx++)
+    px(x - o + dx, y - o + dy, black);
+}
+// brush radius follows the width picker: the smallest width keeps the
+// classic feel, wider settings give a fatter brush
+function stampBrush(x, y) {
+  const r = penW() + 3;
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++)
+    if (dx * dx + dy * dy <= r * r)
+      px(x + dx, y + dy, patBit(patIdx, x + dx, y + dy));
+}
+function stampEraser(x, y) {
+  for (let dy = -8; dy < 8; dy++) for (let dx = -8; dx < 8; dx++) px(x + dx, y + dy, false);
+}
+function walk(x0, y0, x1, y1, stamp) { // Bresenham
+  const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx - dy;
+  for (;;) {
+    stamp(x0, y0);
+    if (x0 === x1 && y0 === y1) return;
+    const e2 = 2 * err;
+    if (e2 > -dy) { err -= dy; x0 += sx; }
+    if (e2 < dx) { err += dx; y0 += sy; }
+  }
+}
+
+// rasterize whatever was drawn on the scratch canvas into img: 'black' for
+// borders/text, 'pat' for opaque pattern fill
+function stampScratch(ink) {
+  const s = sctx.getImageData(0, 0, W, H).data;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (s[(y * W + x) * 4 + 3] < 128) continue;
+    px(x, y, ink === "black" ? true : !!patBit(patIdx, x, y));
+  }
+  sctx.clearRect(0, 0, W, H);
+}
+
+function shapePath(c2d, t, x0, y0, x1, y1) {
+  const x = Math.min(x0, x1), y = Math.min(y0, y1);
+  const w = Math.abs(x1 - x0), h = Math.abs(y1 - y0);
+  c2d.beginPath();
+  if (t.startsWith("rrect")) c2d.roundRect(x, y, w, h, Math.min(14, w / 2, h / 2));
+  else if (t.startsWith("oval")) c2d.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, 2 * Math.PI);
+  else c2d.rect(x, y, w, h);
+}
+function commitShape(t, x0, y0, x1, y1) {
+  snapshot();
+  if (t === "line") {
+    walk(x0, y0, x1, y1, (x, y) => stampPen(x, y, penW(), true));
+  } else {
+    if (t.endsWith("F")) { // pattern fill first, border over it
+      shapePath(sctx, t, x0, y0, x1, y1);
+      sctx.fill();
+      stampScratch("pat");
+    }
+    shapePath(sctx, t, x0, y0, x1, y1);
+    sctx.lineWidth = penW();
+    sctx.stroke();
+    stampScratch("black");
+  }
+  flush();
+  scheduleSave();
+}
+
+// ---- paint bucket: scanline flood fill ------------------------------------
+function floodFill(sx, sy) {
+  if (sx < 0 || sy < 0 || sx >= W || sy >= H) return;
+  const target = isBlack(sx, sy);
+  const seen = new Uint8Array(W * H);
+  const stack = [[sx, sy]];
+  snapshot();
+  while (stack.length) {
+    let [x, y] = stack.pop();
+    while (x >= 0 && isBlack(x, y) === target && !seen[y * W + x]) x--;
+    x++;
+    let up = false, down = false;
+    while (x < W && isBlack(x, y) === target && !seen[y * W + x]) {
+      seen[y * W + x] = 1;
+      px(x, y, !!patBit(patIdx, x, y));
+      if (y > 0) {
+        const m = isBlack(x, y - 1) === target && !seen[(y - 1) * W + x];
+        if (m && !up) stack.push([x, y - 1]);
+        up = m;
+      }
+      if (y < H - 1) {
+        const m = isBlack(x, y + 1) === target && !seen[(y + 1) * W + x];
+        if (m && !down) stack.push([x, y + 1]);
+        down = m;
+      }
+      x++;
+    }
+  }
+  flush();
+  scheduleSave();
+}
+
+// ---- selection (marquee): marching ants, drag inside to move --------------
+let sel = null;      // {x,y,w,h} normalized
+let floating = null; // {img: ImageData, x, y} lifted pixels riding the overlay
+let ants = 0;
+function drawOverlay() {
+  octx.clearRect(0, 0, W, H);
+  if (floating) octx.putImageData(floating.img, floating.x, floating.y);
+  if (sel) {
+    octx.save();
+    octx.strokeStyle = "#000"; octx.lineWidth = 1;
+    octx.setLineDash([4, 4]); octx.lineDashOffset = -ants;
+    const fx = floating ? floating.x : sel.x, fy = floating ? floating.y : sel.y;
+    octx.strokeRect(fx + .5, fy + .5, sel.w - 1, sel.h - 1);
+    octx.setLineDash([4, 4]); octx.lineDashOffset = -ants + 4;
+    octx.strokeStyle = "#fff";
+    octx.strokeRect(fx + .5, fy + .5, sel.w - 1, sel.h - 1);
+    octx.restore();
+  }
+}
+setInterval(() => { if (sel) { ants = (ants + 1) % 8; drawOverlay(); } }, 120);
+
+function liftSelection() {
+  if (!sel || floating) return;
+  snapshot();
+  floating = { img: dctx.getImageData(sel.x, sel.y, sel.w, sel.h), x: sel.x, y: sel.y };
+  for (let y = sel.y; y < sel.y + sel.h; y++)
+    for (let x = sel.x; x < sel.x + sel.w; x++) px(x, y, false);
+  flush();
+}
+function dropSelection(stamp) {
+  if (floating && stamp) {
+    const f = floating;
+    for (let y = 0; y < f.img.height; y++) for (let x = 0; x < f.img.width; x++)
+      px(f.x + x, f.y + y, f.img.data[(y * f.img.width + x) * 4] < 128);
+    flush();
+    scheduleSave();
+  }
+  floating = null; sel = null;
+  drawOverlay();
+}
+function clearSelection() { // Delete: white out the selected area
+  if (!sel) return;
+  if (floating) { floating = null; sel = null; drawOverlay(); scheduleSave(); return; }
+  snapshot();
+  for (let y = sel.y; y < sel.y + sel.h; y++)
+    for (let x = sel.x; x < sel.x + sel.w; x++) px(x, y, false);
+  flush();
+  sel = null; drawOverlay(); scheduleSave();
+}
+
+// ---- text tool ------------------------------------------------------------
+const ti = $("#ti");
+let textAt = null;
+function placeText(x, y) {
+  commitText();
+  textAt = { x, y };
+  ti.style.left = x + "px";
+  ti.style.top = (y - 8) + "px";
+  ti.style.display = "block";
+  ti.value = "";
+  setTimeout(() => ti.focus(), 0);
+}
+function commitText() {
+  if (!textAt) return;
+  const s = ti.value;
+  ti.style.display = "none";
+  const at = textAt; textAt = null;
+  if (!s) return;
+  snapshot();
+  sctx.font = "12px Geneva, Verdana, sans-serif";
+  sctx.textBaseline = "middle";
+  sctx.fillText(s, at.x, at.y);
+  stampScratch("black");
+  flush();
+  scheduleSave();
+}
+ti.addEventListener("keydown", e => {
+  if (e.key === "Enter") commitText();
+  if (e.key === "Escape") { ti.value = ""; commitText(); }
+  e.stopPropagation();
+});
+ti.addEventListener("blur", commitText);
+
+// ---- pointer plumbing -----------------------------------------------------
+let drag = null; // {x0,y0,x,y, mode} while the button is down
+let sprayT = null;
+const evPos = e => {
+  const r = dc.getBoundingClientRect();
+  return [Math.round(e.clientX - r.left), Math.round(e.clientY - r.top)];
+};
+
+dc.addEventListener("pointerdown", e => {
+  if (e.button !== 0) return;
+  const [x, y] = evPos(e);
+  dc.setPointerCapture(e.pointerId);
+
+  if (tool === "sel") {
+    if (sel) {
+      const fx = floating ? floating.x : sel.x, fy = floating ? floating.y : sel.y;
+      if (x >= fx && x < fx + sel.w && y >= fy && y < fy + sel.h) {
+        liftSelection();
+        drag = { mode: "move", x0: x - floating.x, y0: y - floating.y };
+        return;
+      }
+      dropSelection(true);
+    }
+    drag = { mode: "sel", x0: x, y0: y };
+    return;
+  }
+  if (tool === "text") { placeText(x, y); return; }
+  if (tool === "bucket") { floodFill(x, y); return; }
+
+  drag = { mode: tool, x0: x, y0: y, x, y };
+  if (tool === "pencil") {
+    snapshot();
+    drag.ink = !isBlack(Math.max(0, Math.min(W - 1, x)), Math.max(0, Math.min(H - 1, y)));
+    stampPen(x, y, penW(), drag.ink); flush();
+  } else if (tool === "brush") {
+    snapshot(); stampBrush(x, y); flush();
+  } else if (tool === "eraser") {
+    snapshot(); stampEraser(x, y); flush();
+  } else if (tool === "spray") {
+    snapshot();
+    sprayT = setInterval(() => {
+      if (!drag) return;
+      for (let i = 0; i < 24; i++) {
+        const a = Math.random() * 2 * Math.PI, r = Math.sqrt(Math.random()) * 12;
+        const px2 = Math.round(drag.x + Math.cos(a) * r), py2 = Math.round(drag.y + Math.sin(a) * r);
+        if (patBit(patIdx, px2, py2)) px(px2, py2, true); // spray is transparent pattern ink
+      }
+      flush();
+    }, 60);
+  }
+});
+
+dc.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const [x, y] = evPos(e);
+  if (drag.mode === "move") {
+    floating.x = Math.round(x - drag.x0);
+    floating.y = Math.round(y - drag.y0);
+    drawOverlay();
+    return;
+  }
+  if (drag.mode === "sel") {
+    sel = normRect(drag.x0, drag.y0, x, y);
+    drawOverlay();
+    return;
+  }
+  if (drag.mode === "pencil") walk(drag.x, drag.y, x, y, (a, b) => stampPen(a, b, penW(), drag.ink));
+  else if (drag.mode === "brush") walk(drag.x, drag.y, x, y, stampBrush);
+  else if (drag.mode === "eraser") walk(drag.x, drag.y, x, y, stampEraser);
+  else if (drag.mode === "spray") { /* the timer follows drag.x/y */ }
+  else { // line + shapes preview on the overlay
+    octx.clearRect(0, 0, W, H);
+    octx.lineWidth = penW();
+    octx.strokeStyle = "#262626"; octx.fillStyle = "#26262699";
+    if (drag.mode === "line") {
+      octx.beginPath(); octx.moveTo(drag.x0 + .5, drag.y0 + .5); octx.lineTo(x + .5, y + .5); octx.stroke();
+    } else {
+      shapePath(octx, drag.mode, drag.x0, drag.y0, x, y);
+      if (drag.mode.endsWith("F")) octx.fill();
+      octx.stroke();
+    }
+  }
+  drag.x = x; drag.y = y;
+  flush();
+});
+
+dc.addEventListener("pointerup", e => {
+  if (!drag) return;
+  const [x, y] = evPos(e);
+  const d = drag; drag = null;
+  clearInterval(sprayT); sprayT = null;
+
+  if (d.mode === "move") { drawOverlay(); scheduleSave(); return; }
+  if (d.mode === "sel") {
+    sel = normRect(d.x0, d.y0, x, y);
+    if (sel.w < 2 || sel.h < 2) { sel = null; }
+    drawOverlay();
+    return;
+  }
+  if (["pencil", "brush", "eraser", "spray"].includes(d.mode)) { flush(); scheduleSave(); return; }
+  octx.clearRect(0, 0, W, H);
+  commitShape(d.mode, d.x0, d.y0, x, y);
+});
+
+function normRect(x0, y0, x1, y1) {
+  const x = Math.max(0, Math.min(x0, x1)), y = Math.max(0, Math.min(y0, y1));
+  return { x, y,
+    w: Math.min(W, Math.max(x0, x1)) - x,
+    h: Math.min(H, Math.max(y0, y1)) - y };
+}
+
+// ---- persistence: the page auto-saves as a PNG in the app's data dir ------
+const savedEl = $("#saved");
+let saveT = null, saving = false, savePending = false;
+function scheduleSave() {
+  savedEl.textContent = "…";
+  clearTimeout(saveT);
+  saveT = setTimeout(doSave, 1500);
+}
+function doSave() {
+  if (saving) { savePending = true; return; }
+  saving = true;
+  dc.toBlob(async blob => {
+    try {
+      await api(DOC_URL, { method: "PUT", body: blob });
+      savedEl.textContent = "Saved";
+    } catch (err) {
+      savedEl.textContent = "Save failed";
+      console.error("paint save failed:", err);
+    }
+    saving = false;
+    if (savePending) { savePending = false; doSave(); }
+  }, "image/png");
+}
+
+async function load() {
+  try {
+    const r = await api(DOC_URL);
+    if (r.status === 404) return;
+    const blob = await r.blob();
+    const bmp = await createImageBitmap(blob);
+    if (bmp.width !== W || bmp.height !== H) { // adopt the saved page size
+      setDocSize(bmp.width, bmp.height);
+      img = dctx.createImageData(W, H);
+      img.data.fill(255);
+    }
+    sctx.drawImage(bmp, 0, 0);
+    const s = sctx.getImageData(0, 0, W, H).data;
+    for (let i = 0; i < W * H; i++) // threshold: the wire format is 1-bit anyway
+      if (s[i * 4 + 3] >= 128 && s[i * 4] < 128) img.data.set([38, 38, 38, 255], i * 4);
+    sctx.clearRect(0, 0, W, H);
+    dctx.putImageData(img, 0, 0);
+  } catch (err) { console.error("paint load failed:", err); }
+}
+
+// ---- desktop window plumbing (same bridge as the other apps) --------------
+window.addEventListener("pointerdown", () => {
+  if (window.parent !== window) parent.postMessage({ exe: "focus" }, location.origin);
+}, { capture: true, passive: true });
+
+const grow = $("#grow");
+if (window.parent === window) grow.style.display = "none";
+grow.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  grow.setPointerCapture(e.pointerId);
+  const sx = e.clientX, sy = e.clientY;
+  const move = ev =>
+    parent.postMessage({ exe: "grow", dx: ev.clientX - sx, dy: ev.clientY - sy }, location.origin);
+  const up = () => {
+    grow.removeEventListener("pointermove", move);
+    grow.removeEventListener("pointerup", up);
+    parent.postMessage({ exe: "grow-end" }, location.origin);
+  };
+  grow.addEventListener("pointermove", move);
+  grow.addEventListener("pointerup", up);
+  parent.postMessage({ exe: "grow-start" }, location.origin);
+});
+
+// OS 9 scrollbar end-merges need the same scrolled/at-end flags as the desktop
+document.addEventListener("scroll", e => {
+  const el = e.target;
+  if (!(el instanceof Element)) return;
+  el.classList.toggle("scrolled-y", el.scrollTop >= 1);
+  el.classList.toggle("at-y-end", el.scrollTop >= 1 && el.scrollTop >= el.scrollHeight - el.clientHeight - 1);
+}, { capture: true, passive: true });
+
+// ---- go -------------------------------------------------------------------
+$("#dims").textContent = W + "×" + H;
+dctx.putImageData(img, 0, 0);
+setTool("pencil");
+widths.querySelector(".wrow").classList.add("on");
+syncPats();
+load();
+</script>
+</body>
+</html>

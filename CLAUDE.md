@@ -53,3 +53,13 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   Gotchas encoded there: only type-R stations serve 6-minute curves (type-S
   fall back to cosine fit between hi/lo); fetch `time_zone=gmt`, render in
   viewer-local time; station list cached slim in localStorage for a week.
+- **Paint** — MacPaint homage: 1-bit page (512×384 default; Resize dialog
+  goes up to 1152×1440, the saved PNG carries the size), tool + pattern
+  palettes, QuickDraw square pen. The truth is one ImageData; every mark goes through
+  it (shapes/text rasterize on a scratch canvas, thresholded, then stamped)
+  so no antialiased gray ever lands — that's what keeps the bucket's flood
+  fill exact. Pattern ink is opaque (set bits black, clear bits white) and
+  origin-aligned so overlaps tile seamlessly; spray stamps only set bits.
+  The width picker drives pencil, brush, line and shape borders (MacPaint
+  kept pencil at 1px — users read that as broken). Auto-saves the page as
+  PNG to the app-data API, re-thresholded on load.
