@@ -49,6 +49,20 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
 
 ## Apps
 
+- **Notes** — two-column Note Pad (Chat-window layout: 190px list + document).
+  All notes live in one `notes.json` through the app-data API — that API has
+  no list endpoint, so one doc beats per-note files; auto-save is a debounced
+  (400ms) whole-doc PUT, serialized so a slow write is never overtaken, with
+  a `keepalive` flush on pagehide because the desktop tears the iframe down
+  when the window closes. If the initial GET fails, saving stays disabled —
+  otherwise an empty in-memory doc would clobber the stored notes. Titles are
+  the first non-empty line; the edited note bubbles to the top like Chat
+  sessions; deletes use the desktop's two-click armed × pattern. Its always-on
+  editor bar carries the OS 9 disabled-flat scrollbar block (flat #eee strip,
+  #888 ghost arrows) that Tides doesn't need — copy from here for any
+  overflow:scroll bar. Bordered boxes keep border-right: the app's 15px bar
+  spec has no trailing line, so the box border is the bar's right rail
+  (has-vbar toggling is a desktop-16px-spec thing).
 - **Tides** — NOAA CO-OPS tide charts (fetches NOAA directly; CORS is open).
   Gotchas encoded there: only type-R stations serve 6-minute curves (type-S
   fall back to cosine fit between hi/lo); fetch `time_zone=gmt`, render in

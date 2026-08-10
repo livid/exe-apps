@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Notes</title>
+<style>
+/* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
+:root {
+  --black: #262626;
+  --g200: #eee; --g300: #ddd; --g400: #ccc; --g500: #bbb; --g600: #999;
+  --hl: #333399; --red: #cc3333;
+  --font: "Charcoal", "Chicago", "Geneva", "Lucida Grande", "Lucida Sans", Geneva, Verdana, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; font: 12px/1.45 var(--font); color: var(--black); background: var(--g200);
+  user-select: none; cursor: default; overflow: hidden; display: flex; flex-direction: column; }
+
+button { font: inherit; cursor: default; }
+button.ghost { background: var(--g300); color: var(--black);
+  border: 1px solid var(--black); border-radius: 3px;
+  padding: 2px 13px; font-size: 12px; line-height: 14px; font-weight: bold; height: 20px;
+  box-shadow: inset 1px 1px 0 var(--g300), inset -1px -1px 0 #777,
+    inset 2px 2px 0 #fff, inset -2px -2px 0 #aaa; }
+button.ghost:active { background: #666; color: #fff;
+  box-shadow: inset 1px 1px 0 #444, inset -1px -1px 0 #888,
+    inset 2px 2px 0 #555, inset -2px -2px 0 #777; }
+button.ghost:disabled { color: #777; border-color: #888; background: var(--g300); box-shadow: none; }
+button.ghost.danger { color: #7a1010; }
+button.ghost.armed { background: var(--red); color: #fff;
+  box-shadow: inset 1px 1px 0 #e88, inset -1px -1px 0 #911; }
+button.ghost.sm { padding: 1px 8px; font-size: 10px; border-radius: 3px; height: auto; }
+
+/* two columns like the desktop's Chat window: 190px sidebar + document */
+#wrap { flex: 1; min-height: 0; display: flex; gap: 10px; padding: 10px; }
+#side { width: 190px; flex: none; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+#main { flex: 1; min-width: 0; display: flex; }
+
+/* sunken white list, like a Finder list view; the 15px bar spec below has
+   no trailing line of its own, so the box's border-right IS the bar's right
+   rail — no has-vbar toggling like the desktop's 16px spec needs */
+.listbox { background: #fff; border: 1px solid var(--black); overflow-y: auto; overflow-x: hidden;
+  box-shadow: -1px -1px 0 var(--g600), -1px 0 0 var(--g600), 0 -1px 0 var(--g600),
+    1px 1px 0 #fff, 1px 0 0 #fff, 0 1px 0 #fff; }
+#list { flex: 1; }
+.cs-item { display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 8px; border-bottom: 1px solid #efefef; }
+.cs-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-time { font-size: 10px; color: #777; }
+.cs-item.sel { background: var(--hl); }
+.cs-item.sel .cs-title, .cs-item.sel .cs-time { color: #fff; }
+.muted { color: #777; }
+
+/* the note itself: a document area, not a field — Geneva 12 like SimpleText,
+   no Platinum focus ring, always-on scrollbar like a real OS 9 document
+   window (disabled-flat when the note fits); the box's border-right is the
+   bar's right rail */
+#ed { flex: 1; min-width: 0; resize: none; margin: 0; border: 1px solid var(--black);
+  border-radius: 0; background: #fff; color: var(--black); padding: 8px 10px;
+  font: 12px/1.5 var(--font); overflow-y: scroll; user-select: text; cursor: text;
+  box-shadow: -1px -1px 0 var(--g600), -1px 0 0 var(--g600), 0 -1px 0 var(--g600),
+    1px 1px 0 #fff, 1px 0 0 #fff, 0 1px 0 #fff; }
+#ed:focus { outline: none; }
+#ed:disabled { background: var(--g200); }
+
+/* 15px total (1px border + 14px face), same as the desktop's Daemon Log /
+   Chat statusbars: the 15px grow tile at bottom:0 then puts its black top
+   row exactly on this border-top line and its face merges into the host
+   chrome through the .window.grow corner punch-outs — every seam one line */
+#status { display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--black);
+  background: var(--g300); font-size: 11px; color: #333; padding: 0 20px 0 8px; height: 15px;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.6), inset -1px -1px 0 #aaa; }
+#st-count { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#st-save { flex: none; }
+
+#grow { position: fixed; right: 0; bottom: 0; width: 15px; height: 15px;
+  touch-action: none; z-index: 6; }
+
+/* Mac OS 9 scrollbars — the desktop's pixel-sampled spec, adapted for a
+   document window: the host frame draws the outer black line, so bars are
+   15px (1px leading separator + the sampled 14px face) with no trailing
+   border of their own — otherwise the edge doubles to 2px. */
+::-webkit-scrollbar { width: 15px; height: 15px; }
+::-webkit-scrollbar-track:vertical { border-left: 1px solid var(--black);
+  background: linear-gradient(to right, #777 0, #777 1px, #888 1px, #888 2px, #aaa 2px, #aaa 12px, #bbb 12px, #bbb 13px, #ccc 13px, #ccc 14px); }
+::-webkit-scrollbar-thumb:vertical { border: 1px solid var(--black); border-right: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="0" width="6" height="1" fill="%23ccccff"/><rect x="4" y="1" width="7" height="1" fill="%23333399"/><rect x="3" y="2" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="2" width="6" height="1" fill="%23ccccff"/><rect x="4" y="3" width="7" height="1" fill="%23333399"/><rect x="3" y="4" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="4" width="6" height="1" fill="%23ccccff"/><rect x="4" y="5" width="7" height="1" fill="%23333399"/><rect x="3" y="6" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="6" width="6" height="1" fill="%23ccccff"/><rect x="4" y="7" width="7" height="1" fill="%23333399"/></svg>') center no-repeat,
+    linear-gradient(to right, #ccccff 0 1px, #9999ff 1px 13px, #6666cc 13px 14px);
+  box-shadow: inset 0 1px 0 #ccccff, inset 0 -1px 0 #6666cc; }
+::-webkit-scrollbar-thumb:vertical:active {
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23ccccff"/><rect x="4" y="0" width="6" height="1" fill="%239999ff"/><rect x="4" y="1" width="7" height="1" fill="%23000066"/><rect x="3" y="2" width="1" height="1" fill="%23ccccff"/><rect x="4" y="2" width="6" height="1" fill="%239999ff"/><rect x="4" y="3" width="7" height="1" fill="%23000066"/><rect x="3" y="4" width="1" height="1" fill="%23ccccff"/><rect x="4" y="4" width="6" height="1" fill="%239999ff"/><rect x="4" y="5" width="7" height="1" fill="%23000066"/><rect x="3" y="6" width="1" height="1" fill="%23ccccff"/><rect x="4" y="6" width="6" height="1" fill="%239999ff"/><rect x="4" y="7" width="7" height="1" fill="%23000066"/></svg>') center no-repeat,
+    linear-gradient(to right, #9999ff 0 1px, #6666cc 1px 13px, #333399 13px 14px);
+  box-shadow: inset 0 1px 0 #9999ff, inset 0 -1px 0 #333399; }
+:not(.scrolled-y)::-webkit-scrollbar-thumb:vertical {
+  border-top-color: #ccccff; box-shadow: inset 0 -1px 0 #6666cc; }
+:not(.scrolled-y)::-webkit-scrollbar-thumb:vertical:active {
+  border-top-color: #9999ff; box-shadow: inset 0 -1px 0 #333399; }
+.at-y-end::-webkit-scrollbar-thumb:vertical {
+  border-bottom-color: #6666cc; box-shadow: inset 0 1px 0 #ccccff; }
+.at-y-end::-webkit-scrollbar-thumb:vertical:active {
+  border-bottom-color: #333399; box-shadow: inset 0 1px 0 #9999ff; }
+::-webkit-scrollbar-button { display: block; width: 16px; height: 16px;
+  background: #ddd; border: 1px solid var(--black);
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #bbb;
+  background-position: center; background-repeat: no-repeat; }
+::-webkit-scrollbar-button:vertical { border-right: 0; }
+::-webkit-scrollbar-button:vertical:end:increment:enabled { height: 14px; border-top: 0; border-bottom: 0; }
+::-webkit-scrollbar-button:vertical:decrement {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M3 0h2v1h-2z M2 1h4v1h-4z M1 2h6v1h-6z M0 3h8v1h-8z"/></svg>'); }
+::-webkit-scrollbar-button:vertical:increment {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M0 0h8v1h-8z M1 1h6v1h-6z M2 2h4v1h-4z M3 3h2v1h-2z"/></svg>'); }
+::-webkit-scrollbar-button:active { background-color: #777;
+  box-shadow: inset 1px 1px 0 #555, inset -1px -1px 0 #999; }
+::-webkit-scrollbar-button:vertical:start:decrement,
+::-webkit-scrollbar-button:vertical:start:increment,
+::-webkit-scrollbar-button:horizontal:start:decrement,
+::-webkit-scrollbar-button:horizontal:start:increment { display: none; }
+/* Disabled (nothing to scroll), sampled from OS 9: the strip goes flat #eee
+   between the rails, arrows ghost to #888 with no button face or bevel,
+   and a 1px #888 line separates the two arrows — the desktop's block,
+   minus trailing borders (the host box's border-right is the right rail).
+   The always-on editor bar sits in this state whenever the note fits. */
+::-webkit-scrollbar-track:disabled { background: #eee; }
+::-webkit-scrollbar-button:disabled { background-color: #eee; box-shadow: none; border: 0;
+  border-left: 1px solid var(--black); }
+::-webkit-scrollbar-button:vertical:end:increment:disabled { border-top: 1px solid #888; }
+/* OS 9 draws a darker #555 line where the disabled arrow pair meets the track */
+::-webkit-scrollbar-button:vertical:end:decrement:disabled { border-top: 1px solid #555; }
+::-webkit-scrollbar-button:vertical:decrement:disabled {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="%23888888" d="M3 0h2v1h-2z M2 1h4v1h-4z M1 2h6v1h-6z M0 3h8v1h-8z"/></svg>'); }
+::-webkit-scrollbar-button:vertical:increment:disabled {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="%23888888" d="M0 0h8v1h-8z M1 1h6v1h-6z M2 2h4v1h-4z M3 3h2v1h-2z"/></svg>'); }
+::-webkit-scrollbar-corner { background: var(--g300); }
+</style>
+</head>
+<body>
+
+<div id="wrap">
+  <div id="side">
+    <button class="ghost" id="new" disabled>New Note</button>
+    <div class="listbox" id="list"></div>
+  </div>
+  <div id="main">
+    <textarea id="ed" disabled spellcheck="false"
+      placeholder="Click &ldquo;New Note&rdquo; to start writing."></textarea>
+  </div>
+</div>
+<div id="status">
+  <span id="st-count">…</span>
+  <span id="st-save"></span>
+</div>
+<!-- grow box sampled pixel-for-pixel from Mac OS 9 (Infinite Mac) -->
+<svg id="grow" width="15" height="15" viewBox="0 0 15 15" shape-rendering="crispEdges">
+  <rect width="15" height="15" fill="#ccc"/>
+  <path fill="#000" d="M0 0h15v1H0zM0 1h1v14H0z"/>
+  <path fill="#fff" d="M1 1h14v1H1zM1 2h1v13H1z"/>
+  <path fill="#fff" d="M9 4h2v1H9zM8 5h1v1H8zM7 6h1v1H7zM6 7h1v1H6zM5 8h1v1H5zM4 9h1v1H4zM11 6h2v1h-2zM10 7h1v1h-1zM9 8h1v1H9zM8 9h1v1H8zM7 10h1v1H7zM6 11h1v1H6zM13 8h2v1h-2zM12 9h1v1h-1zM11 10h1v1h-1zM10 11h1v1h-1zM9 12h1v1H9zM8 13h1v1H8z"/>
+  <path fill="#777" d="M10 5h1v1h-1zM9 6h1v1H9zM8 7h1v1H8zM7 8h1v1H7zM6 9h1v1H6zM5 10h1v1H5zM12 7h1v1h-1zM11 8h1v1h-1zM10 9h1v1h-1zM9 10h1v1H9zM8 11h1v1H8zM7 12h1v1H7zM14 9h1v1h-1zM13 10h1v1h-1zM12 11h1v1h-1zM11 12h1v1h-1zM10 13h1v1h-1zM9 14h1v1H9z"/>
+  <path fill="#aaa" d="M4 10h1v1H4zM6 12h1v1H6zM8 14h1v1H8z"/>
+</svg>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+
+// The desktop passes its API token in the iframe URL; the app name comes
+// from the path so a renamed bundle folder keeps working.
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+const APP = decodeURIComponent(location.pathname.split("/")[2] || "Notes");
+// One document holds every note: the app-data API has no list endpoint,
+// and whole-doc saves keep auto-save a single PUT.
+const DATA_URL = "/v1/apps/" + encodeURIComponent(APP) + "/data/notes.json";
+
+async function api(url, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers);
+  if (TOKEN) opts.headers["Authorization"] = "Bearer " + TOKEN;
+  const r = await fetch(url, opts);
+  if (!r.ok && r.status !== 404) throw new Error("HTTP " + r.status);
+  return r;
+}
+
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  n.append(...kids);
+  return n;
+}
+
+let doc = { notes: [], sel: null }; // notes: [{id, text, created, updated}]
+let loaded = false;                 // block saves until the load settled, so
+                                    // a failed GET can never be overwritten
+const ed = $("#ed"), list = $("#list");
+
+const cur = () => doc.notes.find(n => n.id === doc.sel);
+const sortNotes = () => doc.notes.sort((a, b) => b.updated - a.updated);
+
+function noteTitle(n) {
+  const line = (n.text || "").split("\n").find(l => l.trim());
+  return line ? line.trim().slice(0, 60) : "New Note";
+}
+function fmtTime(t) {
+  const d = new Date(t);
+  return d.toDateString() === new Date().toDateString()
+    ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+    : d.toLocaleDateString();
+}
+
+// ---- auto-save: debounced whole-doc PUT, serialized so a slow write can
+// never be overtaken by the next one; keepalive on flush survives the
+// desktop tearing the iframe down mid-debounce ----
+let saveT = null, saving = false, again = false;
+const stSave = $("#st-save");
+function setSave(mode, msg) {
+  stSave.textContent = mode === "saving" ? "Saving…" :
+    mode === "saved" ? "Saved " + fmtTime(Date.now()) :
+    mode === "error" ? "Save failed: " + msg : "";
+}
+function scheduleSave() {
+  if (!loaded) return;
+  setSave("saving");
+  clearTimeout(saveT);
+  saveT = setTimeout(saveNow, 400);
+}
+async function saveNow(flush) {
+  clearTimeout(saveT); saveT = null;
+  if (saving) { again = true; return; }
+  saving = true;
+  try {
+    await api(DATA_URL, { method: "PUT", body: JSON.stringify(doc, null, 2), keepalive: !!flush });
+    setSave("saved");
+  } catch (e) { setSave("error", e.message); }
+  saving = false;
+  if (again) { again = false; saveNow(flush); }
+}
+addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && saveT) saveNow(true);
+});
+addEventListener("pagehide", () => { if (saveT) saveNow(true); });
+
+// ---- rendering ----
+function renderList() {
+  list.replaceChildren();
+  if (!doc.notes.length)
+    list.append(el("div", { class: "muted", style: "padding:8px" }, "No notes yet."));
+  for (const n of doc.notes) {
+    const x = el("button", { class: "ghost sm danger", title: "Delete this note" }, "×");
+    x.onclick = e => {
+      e.stopPropagation();
+      if (!x.classList.contains("armed")) {
+        x.classList.add("armed");
+        setTimeout(() => x.classList.remove("armed"), 3000);
+        return;
+      }
+      doc.notes = doc.notes.filter(m => m.id !== n.id);
+      doc.sel = null; // force selectNote to re-sync even onto the same id
+      selectNote(doc.notes.length ? doc.notes[0].id : null, false);
+    };
+    const item = el("div", { class: "cs-item" + (n.id === doc.sel ? " sel" : "") },
+      el("div", { style: "flex:1; min-width:0" },
+        el("div", { class: "cs-title", title: noteTitle(n) }, noteTitle(n)),
+        el("div", { class: "cs-time" }, fmtTime(n.updated))),
+      x);
+    item.onclick = e => { if (!e.target.closest("button")) selectNote(n.id, true); };
+    list.append(item);
+  }
+  const c = doc.notes.length;
+  $("#st-count").textContent = c + (c === 1 ? " note" : " notes");
+}
+function syncEditor() {
+  const n = cur();
+  ed.value = n ? n.text : "";
+  ed.disabled = !n;
+}
+function selectNote(id, focus) {
+  if (id !== null && id === doc.sel) { ed.focus(); return; }
+  doc.sel = id;
+  syncEditor();
+  renderList();
+  scheduleSave(); // selection persists in the same document
+  if (focus && !ed.disabled) ed.focus();
+}
+
+// ---- editing ----
+ed.addEventListener("input", () => {
+  const n = cur();
+  if (!n) return;
+  n.text = ed.value;
+  n.updated = Date.now();
+  sortNotes(); // the edited note bubbles to the top, like Chat sessions
+  renderList();
+  scheduleSave();
+});
+// Tab indents, SimpleText-style; execCommand keeps the native undo stack
+ed.addEventListener("keydown", e => {
+  if (e.key === "Tab" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+    e.preventDefault();
+    document.execCommand("insertText", false, "\t");
+  }
+});
+
+$("#new").onclick = () => {
+  const n = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    text: "", created: Date.now(), updated: Date.now() };
+  doc.notes.unshift(n);
+  selectNote(n.id, true);
+};
+
+// ---- desktop window plumbing (same bridge as the Todo app) ----
+window.addEventListener("pointerdown", () => {
+  if (window.parent !== window) parent.postMessage({ exe: "focus" }, location.origin);
+}, { capture: true, passive: true });
+
+const grow = $("#grow");
+if (window.parent === window) grow.style.display = "none";
+grow.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  grow.setPointerCapture(e.pointerId);
+  const sx = e.clientX, sy = e.clientY;
+  const move = ev =>
+    parent.postMessage({ exe: "grow", dx: ev.clientX - sx, dy: ev.clientY - sy }, location.origin);
+  const up = () => {
+    grow.removeEventListener("pointermove", move);
+    grow.removeEventListener("pointerup", up);
+    parent.postMessage({ exe: "grow-end" }, location.origin);
+  };
+  grow.addEventListener("pointermove", move);
+  grow.addEventListener("pointerup", up);
+  parent.postMessage({ exe: "grow-start" }, location.origin);
+});
+
+// OS 9 scrollbar end-merges need the same scrolled/at-end flags as the desktop
+document.addEventListener("scroll", e => {
+  const el = e.target;
+  if (!(el instanceof Element)) return;
+  el.classList.toggle("scrolled-y", el.scrollTop >= 1);
+  el.classList.toggle("at-y-end", el.scrollTop >= 1 && el.scrollTop >= el.scrollHeight - el.clientHeight - 1);
+}, { capture: true, passive: true });
+
+(async () => {
+  try {
+    const r = await api(DATA_URL);
+    if (r.status !== 404) {
+      const d = await r.json();
+      if (d && Array.isArray(d.notes)) {
+        doc.notes = d.notes.filter(n => n && n.id && typeof n.text === "string")
+          .map(n => ({ id: String(n.id), text: n.text,
+            created: +n.created || Date.now(), updated: +n.updated || Date.now() }));
+        doc.sel = d.sel || null;
+      }
+    }
+  } catch (e) {
+    $("#st-count").textContent = "Load failed: " + e.message + " — reopen this window";
+    return; // leave everything disabled: saving now would clobber the stored notes
+  }
+  sortNotes();
+  if (!cur()) doc.sel = doc.notes.length ? doc.notes[0].id : null;
+  loaded = true;
+  $("#new").disabled = false;
+  syncEditor();
+  renderList();
+})();
+</script>
+</body>
+</html>

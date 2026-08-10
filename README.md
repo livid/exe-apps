@@ -31,6 +31,9 @@ outside the served tree in `~/.exe/appdata/<AppName>/`.
 
 ## Apps
 
+- **Notes** — classic Note Pad: two columns like the desktop's Chat window
+  (note list on the left, the note on the right), titles from the first line,
+  auto-saved as you type.
 - **Tides** — NOAA tide charts. Defaults to Newport Beach, CA (station
   9410580); Today / 3 Days / 7 Days ranges; search any NOAA tide-prediction
   station. Reference stations draw the real 6-minute curve, subordinate
