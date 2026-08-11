@@ -47,17 +47,30 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
 - `<canvas>` gotcha: `inset:0` doesn't stretch a replaced element — set
   `width/height:100%` too, and scale the backing store by devicePixelRatio.
 
-## Apps
+## Sync-capable storage (all apps)
+
+Every app follows the same persistence contract so the daemon's node-to-node
+sync can merge or LWW its files: debounced whole-doc PUT, **serialized**
+(`saving`/`again` gate) so a slow write is never overtaken, `keepalive` flush
+on pagehide/visibilitychange, and a `loaded` guard — if the initial GET
+fails, saving stays disabled so an empty in-memory doc can never clobber the
+stored one. Record-bearing apps (Todo, Notes) give every item an `id`,
+`created`/`updated` epoch-ms stamps bumped on every change, and deletions
+leave a `{id, deleted: <ms>, updated}` tombstone (text dropped) GC'd on save
+after 30 days — that's what lets two nodes' edits merge item-by-item.
+
+- **Todo** — `todos.json` is `{version:2, items:[{id,text,done,created,
+  updated,deleted?}]}`; v1 bare arrays migrate on load with content-derived
+  ids (`v1Id`) so two nodes migrating independently agree on them.
 
 - **Notes** — two-column Note Pad (Chat-window layout: 190px list + document).
-  All notes live in one `notes.json` through the app-data API — that API has
-  no list endpoint, so one doc beats per-note files; auto-save is a debounced
-  (400ms) whole-doc PUT, serialized so a slow write is never overtaken, with
-  a `keepalive` flush on pagehide because the desktop tears the iframe down
-  when the window closes. If the initial GET fails, saving stays disabled —
-  otherwise an empty in-memory doc would clobber the stored notes. Titles are
+  All notes live in one `notes.json` through the app-data API — one doc beats
+  per-note files for whole-doc auto-save (400ms debounce). Titles are
   the first non-empty line; the edited note bubbles to the top like Chat
-  sessions; deletes use the desktop's two-click armed × pattern. Enter
+  sessions; deletes use the desktop's two-click armed × pattern (tombstoned,
+  see above). The open-note selection is per-viewer UI state and lives in
+  localStorage (`exe-notes-sel:<App>`), NOT in the synced doc — clicking
+  around never PUTs and two machines can't fight over it. Enter
   continues markdown list items (`- * +`, `1.`/`1)` incrementing, `- [ ]`
   resetting), Enter on an empty item turns its marker into a blank line and
   drops to a fresh one, Shift+Enter is the plain-newline escape — all

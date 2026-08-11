@@ -180,15 +180,42 @@ let extremes = [];     // [{t: ms, v: ft, type: "H"|"L"}] incl. a day beyond eac
 let loadErr = "";
 let fetchedKey = "";   // station|range|startMs of the data on screen
 let stations = null;   // slim searchable list
-let saveT = null;
 
+// Debounced whole-doc PUT, serialized so a slow write is never overtaken;
+// saves stay blocked until the initial GET settled so a failed load can't
+// be clobbered with the default station. keepalive on flush survives the
+// desktop tearing the iframe down mid-debounce.
+let saveT = null, saving = false, again = false, loaded = false;
 function saveSettings() {
+  if (!loaded) return;
   clearTimeout(saveT);
-  saveT = setTimeout(() => {
-    api(SETTINGS_URL, { method: "PUT", body: JSON.stringify({ station: st.station, range: st.range }, null, 2) })
-      .catch(e => console.error("tides save failed:", e));
-  }, 250);
+  saveT = setTimeout(saveNow, 250);
 }
+async function saveNow(flush) {
+  clearTimeout(saveT); saveT = null;
+  const body = JSON.stringify({ station: st.station, range: st.range }, null, 2);
+  // X-Exe-Seq is a content timestamp: the daemon drops a PUT older than one
+  // it already stored, so an in-flight save can't land stale over the flush.
+  const seq = { "X-Exe-Seq": String(Date.now()) };
+  if (flush) {
+    // unload: fire a keepalive PUT bypassing the in-flight gate, so the flush
+    // isn't swallowed by `again` and an in-flight non-keepalive PUT can't be
+    // aborted as the iframe is torn down
+    try { api(SETTINGS_URL, { method: "PUT", keepalive: true, headers: seq, body }); } catch (e) {}
+    return;
+  }
+  if (saving) { again = true; return; }
+  saving = true;
+  try {
+    await api(SETTINGS_URL, { method: "PUT", headers: seq, body });
+  } catch (e) { console.error("tides save failed:", e); }
+  saving = false;
+  if (again) { again = false; saveNow(); }
+}
+addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && (saveT || saving)) saveNow(true);
+});
+addEventListener("pagehide", () => { if (saveT || saving) saveNow(true); });
 
 // ---- time helpers ----
 const pad2 = n => String(n).padStart(2, "0");
@@ -593,6 +620,24 @@ document.addEventListener("scroll", e => {
   el.classList.toggle("at-y-end", el.scrollTop >= 1 && el.scrollTop >= el.scrollHeight - el.clientHeight - 1);
 }, { capture: true, passive: true });
 
+// Node sync landed a peer's settings on disk (forwarded by the desktop as a
+// data-changed message): adopt them — settings are last-writer-wins. Skip
+// while a local save is in flight; it's about to overwrite anyway.
+window.addEventListener("message", async e => {
+  if (e.origin !== location.origin || !e.data || e.data.exe !== "data-changed") return;
+  if (!loaded || e.data.path !== "settings.json" || saveT || saving) return;
+  try {
+    const r = await api(SETTINGS_URL);
+    if (r.status === 404) return;
+    const data = await r.json();
+    if (data && data.station && data.station.id) st.station = data.station;
+    if (data && [1, 3, 7].includes(data.range)) st.range = data.range;
+    syncSeg();
+    updateStatus();
+    loadTides();
+  } catch (err) {}
+});
+
 new ResizeObserver(() => draw()).observe(box);
 
 // redraw keeps the now-line moving; a date rollover refetches the range
@@ -602,7 +647,12 @@ setInterval(() => {
   else { draw(); updateStatus(); }
 }, 60000);
 
-(async () => {
+// Load settings, retrying a transient failure with backoff. Saves stay
+// blocked (loaded=false) until a GET succeeds so a failed load can't clobber
+// the stored station with defaults — but a daemon restart or tunnel blip
+// must not silently disable saving for the whole session, so we keep trying.
+let settingsTries = 0;
+async function loadSettings() {
   try {
     const r = await api(SETTINGS_URL);
     if (r.status !== 404) {
@@ -610,11 +660,18 @@ setInterval(() => {
       if (data && data.station && data.station.id) st.station = data.station;
       if (data && [1, 3, 7].includes(data.range)) st.range = data.range;
     }
-  } catch (e) {}
-  syncSeg();
-  updateStatus();
-  loadTides();
-})();
+    loaded = true;
+    syncSeg();
+    updateStatus();
+    loadTides();
+  } catch (e) {
+    console.error("tides settings load failed:", e);
+    if (settingsTries++ < 12) setTimeout(loadSettings, 5000);
+    // first attempt still paints the default station so the app is usable
+    if (settingsTries === 1) { syncSeg(); updateStatus(); loadTides(); }
+  }
+}
+loadSettings();
 </script>
 </body>
 </html>

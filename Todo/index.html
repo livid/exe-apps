@@ -201,20 +201,28 @@ async function api(url, opts = {}) {
   return r;
 }
 
-let todos = [];
-let saveT = null;
+// v2 document: {version:2, items:[{id,text,done,created,updated,deleted?}]}.
+// Items carry ids, updated stamps and delete tombstones so the daemon's
+// node-to-node sync can merge two machines' edits item by item; every state
+// change (including a checkbox flip) bumps updated.
+const TOMBSTONE_TTL = 30 * 86400000; // deletions GC on save after 30 days
+let items = [];
+let loaded = false; // block saves until the load settled, so a failed GET
+                    // can never be clobbered by an empty list
+const live = () => items.filter(t => !t.deleted);
+const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 function render() {
   const list = $("#list");
   list.replaceChildren();
-  for (const t of todos) {
+  for (const t of live()) {
     const item = document.createElement("div");
     item.className = "item" + (t.done ? " done" : "");
     const ck = document.createElement("input");
     ck.type = "checkbox";
     ck.className = "ck";
     ck.checked = !!t.done;
-    ck.addEventListener("change", () => { t.done = ck.checked; render(); save(); });
+    ck.addEventListener("change", () => { t.done = ck.checked; t.updated = Date.now(); render(); save(); });
     const txt = document.createElement("span");
     txt.className = "txt";
     txt.textContent = t.text;
@@ -222,11 +230,15 @@ function render() {
     const x = document.createElement("button");
     x.className = "ghost sm x";
     x.textContent = "Remove";
-    x.addEventListener("click", () => { todos = todos.filter(o => o !== t); render(); save(); });
+    x.addEventListener("click", () => {
+      t.deleted = t.updated = Date.now();
+      t.text = "";
+      render(); save();
+    });
     item.append(ck, txt, x);
     list.append(item);
   }
-  if (!todos.length) {
+  if (!live().length) {
     const d = document.createElement("div");
     d.id = "empty";
     d.textContent = "Nothing to do — type above and press Return.";
@@ -234,22 +246,52 @@ function render() {
   }
 }
 
-function save() {
-  clearTimeout(saveT);
-  saveT = setTimeout(async () => {
-    try {
-      await api(DATA_URL, { method: "PUT", body: JSON.stringify(todos, null, 2) });
-    } catch (e) {
-      console.error("todo save failed:", e);
-    }
-  }, 250);
+// Debounced whole-doc PUT, serialized so a slow write is never overtaken by
+// the next one; keepalive on flush survives the desktop tearing the iframe
+// down mid-debounce.
+let saveT = null, saving = false, again = false;
+function serialize() {
+  items = items.filter(t => !t.deleted || Date.now() - t.deleted < TOMBSTONE_TTL);
+  return JSON.stringify({ version: 2, items: items }, null, 2);
 }
+function save() {
+  if (!loaded) return;
+  clearTimeout(saveT);
+  saveT = setTimeout(saveNow, 250);
+}
+async function saveNow(flush) {
+  clearTimeout(saveT); saveT = null;
+  const body = serialize();
+  // X-Exe-Seq is a content timestamp: the daemon drops a PUT older than one
+  // it already stored, so an in-flight save can't land stale over the flush.
+  const seq = { "X-Exe-Seq": String(Date.now()) };
+  if (flush) {
+    // unload: fire a keepalive PUT of the latest state, bypassing the
+    // in-flight gate — otherwise the flush is swallowed by `again` and the
+    // in-flight non-keepalive PUT is aborted as the iframe is torn down
+    try { api(DATA_URL, { method: "PUT", keepalive: true, headers: seq, body }); } catch (e) {}
+    return;
+  }
+  if (saving) { again = true; return; }
+  saving = true;
+  try {
+    await api(DATA_URL, { method: "PUT", headers: seq, body });
+  } catch (e) {
+    console.error("todo save failed:", e);
+  }
+  saving = false;
+  if (again) { again = false; saveNow(); }
+}
+addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && (saveT || saving)) saveNow(true);
+});
+addEventListener("pagehide", () => { if (saveT || saving) saveNow(true); });
 
 function add() {
   const inp = $("#new");
   const text = inp.value.trim();
   if (!text) return;
-  todos.push({ text: text, done: false, created: new Date().toISOString() });
+  items.push({ id: genId(), text: text, done: false, created: Date.now(), updated: Date.now() });
   inp.value = "";
   render();
   save();
@@ -292,14 +334,80 @@ document.addEventListener("scroll", e => {
   el.classList.toggle("at-y-end", el.scrollTop >= 1 && el.scrollTop >= el.scrollHeight - el.clientHeight - 1);
 }, { capture: true, passive: true });
 
+// Node sync landed a peer's change on disk (the desktop forwards the
+// daemon's SSE as a data-changed message): merge it into memory item-by-
+// item — same rule as the daemon, higher `updated` wins per id — so neither
+// the synced-in items nor unsaved local edits are lost. If the merge holds
+// anything the disk doc lacks, save it back.
+function normItem(raw) {
+  const t = { id: String(raw.id), text: String(raw.text || ""), done: !!raw.done,
+    created: +raw.created || Date.now(), updated: +raw.updated || 0 };
+  if (+raw.deleted) t.deleted = +raw.deleted;
+  return t;
+}
+async function reloadFromDisk() {
+  try {
+    const r = await api(DATA_URL);
+    if (r.status === 404) return;
+    const data = await r.json();
+    if (!(data && data.version === 2 && Array.isArray(data.items))) return;
+    // Disk is the daemon's already-merged result. Adopt it as the base and
+    // keep a local record only when it is strictly newer (a genuine unsaved
+    // edit); on an `updated` tie we defer to disk, matching the daemon's
+    // tiebreak, so the app and daemon never disagree into an endless
+    // save→merge→push loop.
+    const diskById = new Map(data.items.filter(x => x && x.id).map(x => [String(x.id), normItem(x)]));
+    const byId = new Map(diskById);
+    for (const local of items) {
+      const d = byId.get(local.id);
+      if (!d || local.updated > d.updated) byId.set(local.id, local);
+    }
+    const stable = m => JSON.stringify([...m.values()].sort((a, b) => a.id < b.id ? -1 : 1));
+    const aheadOfDisk = stable(byId) !== stable(diskById);
+    items = [...byId.values()].sort((a, b) => (a.created - b.created) || (a.id < b.id ? -1 : 1));
+    render();
+    if (aheadOfDisk) save(); // we hold something disk lacks; push it back
+  } catch (e) {}
+}
+window.addEventListener("message", e => {
+  if (e.origin !== location.origin || !e.data || e.data.exe !== "data-changed") return;
+  if (loaded && e.data.path === "todos.json") reloadFromDisk();
+});
+
+// v1 files were a bare array of {text,done,created-ISO} with no ids; derive
+// stable ids from content so two nodes migrating the same file independently
+// produce identical items instead of sync-duplicating every row.
+function v1Id(t) {
+  let h = 5381;
+  const s = (t.created || "") + "\n" + (t.text || "");
+  for (let i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) >>> 0;
+  return "v1" + h.toString(36);
+}
+
 (async () => {
   try {
     const r = await api(DATA_URL);
     if (r.status !== 404) {
       const data = await r.json();
-      if (Array.isArray(data)) todos = data;
+      const raw = Array.isArray(data)
+        ? data.map(t => ({ id: v1Id(t), text: t.text, done: t.done,
+            created: +new Date(t.created) || Date.now(),
+            updated: +new Date(t.created) || Date.now() }))
+        : (data && data.version === 2 && Array.isArray(data.items) ? data.items : []);
+      items = raw.filter(t => t && t.id).map(t => {
+        const it = { id: String(t.id), text: String(t.text || ""), done: !!t.done,
+          created: +t.created || Date.now(), updated: +t.updated || Date.now() };
+        if (+t.deleted) it.deleted = +t.deleted;
+        return it;
+      });
     }
-  } catch (e) {}
+  } catch (e) {
+    $("#new").disabled = $("#add").disabled = true;
+    $("#new").placeholder = "Load failed: " + e.message + " — reopen this window";
+    render();
+    return; // leave saving blocked: a PUT now would clobber the stored list
+  }
+  loaded = true;
   render();
   $("#new").focus();
 })();

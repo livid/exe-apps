@@ -187,12 +187,21 @@ function el(tag, attrs = {}, ...kids) {
   return n;
 }
 
-let doc = { notes: [], sel: null }; // notes: [{id, text, created, updated}]
-let loaded = false;                 // block saves until the load settled, so
-                                    // a failed GET can never be overwritten
+// notes: [{id, text, created, updated, deleted?}] — deletions leave a
+// tombstone (text dropped) so node-to-node sync can tell "deleted here"
+// from "never seen there"; tombstones GC on save after 30 days.
+let doc = { notes: [] };
+let sel = null; // which note is open is per-viewer UI state: it lives in
+                // localStorage, not in the synced document, so two machines
+                // don't fight over it (and clicking around never PUTs)
+const SEL_KEY = "exe-notes-sel:" + APP;
+const TOMBSTONE_TTL = 30 * 86400000;
+let loaded = false; // block saves until the load settled, so a failed GET
+                    // can never be overwritten
 const ed = $("#ed"), list = $("#list");
 
-const cur = () => doc.notes.find(n => n.id === doc.sel);
+const live = () => doc.notes.filter(n => !n.deleted);
+const cur = () => doc.notes.find(n => n.id === sel && !n.deleted);
 const sortNotes = () => doc.notes.sort((a, b) => b.updated - a.updated);
 
 function noteTitle(n) {
@@ -222,28 +231,43 @@ function scheduleSave() {
   clearTimeout(saveT);
   saveT = setTimeout(saveNow, 400);
 }
+function serialize() {
+  doc.notes = doc.notes.filter(n => !n.deleted || Date.now() - n.deleted < TOMBSTONE_TTL);
+  return JSON.stringify(doc, null, 2);
+}
 async function saveNow(flush) {
   clearTimeout(saveT); saveT = null;
+  const body = serialize();
+  // X-Exe-Seq is a content timestamp: the daemon drops a PUT older than one
+  // it already stored, so an in-flight save can't land stale over the flush.
+  const seq = { "X-Exe-Seq": String(Date.now()) };
+  if (flush) {
+    // unload: fire a keepalive PUT of the latest doc, bypassing the in-flight
+    // gate — otherwise the flush is swallowed by `again` and the in-flight
+    // non-keepalive PUT is aborted as the iframe is torn down
+    try { api(DATA_URL, { method: "PUT", keepalive: true, headers: seq, body }); } catch (e) {}
+    return;
+  }
   if (saving) { again = true; return; }
   saving = true;
   try {
-    await api(DATA_URL, { method: "PUT", body: JSON.stringify(doc, null, 2), keepalive: !!flush });
+    await api(DATA_URL, { method: "PUT", headers: seq, body });
     setSave("saved");
   } catch (e) { setSave("error", e.message); }
   saving = false;
-  if (again) { again = false; saveNow(flush); }
+  if (again) { again = false; saveNow(); }
 }
 addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden" && saveT) saveNow(true);
+  if (document.visibilityState === "hidden" && (saveT || saving)) saveNow(true);
 });
-addEventListener("pagehide", () => { if (saveT) saveNow(true); });
+addEventListener("pagehide", () => { if (saveT || saving) saveNow(true); });
 
 // ---- rendering ----
 function renderList() {
   list.replaceChildren();
-  if (!doc.notes.length)
+  if (!live().length)
     list.append(el("div", { class: "muted", style: "padding:8px" }, "No notes yet."));
-  for (const n of doc.notes) {
+  for (const n of live()) {
     const x = el("button", { class: "ghost sm danger", title: "Delete this note" }, "×");
     x.onclick = e => {
       e.stopPropagation();
@@ -252,11 +276,14 @@ function renderList() {
         setTimeout(() => x.classList.remove("armed"), 3000);
         return;
       }
-      doc.notes = doc.notes.filter(m => m.id !== n.id);
-      doc.sel = null; // force selectNote to re-sync even onto the same id
-      selectNote(doc.notes.length ? doc.notes[0].id : null, false);
+      n.deleted = n.updated = Date.now();
+      n.text = "";
+      scheduleSave();
+      sel = null; // force selectNote to re-sync even onto the same id
+      const rest = live();
+      selectNote(rest.length ? rest[0].id : null, false);
     };
-    const item = el("div", { class: "cs-item" + (n.id === doc.sel ? " sel" : "") },
+    const item = el("div", { class: "cs-item" + (n.id === sel ? " sel" : "") },
       el("div", { style: "flex:1; min-width:0" },
         el("div", { class: "cs-title", title: noteTitle(n) }, noteTitle(n)),
         el("div", { class: "cs-time" }, fmtTime(n.updated))),
@@ -264,7 +291,7 @@ function renderList() {
     item.onclick = e => { if (!e.target.closest("button")) selectNote(n.id, true); };
     list.append(item);
   }
-  const c = doc.notes.length;
+  const c = live().length;
   $("#st-count").textContent = c + (c === 1 ? " note" : " notes");
 }
 function syncEditor() {
@@ -273,11 +300,14 @@ function syncEditor() {
   ed.disabled = !n;
 }
 function selectNote(id, focus) {
-  if (id !== null && id === doc.sel) { ed.focus(); return; }
-  doc.sel = id;
+  if (id !== null && id === sel) { ed.focus(); return; }
+  sel = id;
+  try {
+    if (id) localStorage.setItem(SEL_KEY, id);
+    else localStorage.removeItem(SEL_KEY);
+  } catch (e) {}
   syncEditor();
   renderList();
-  scheduleSave(); // selection persists in the same document
   if (focus && !ed.disabled) ed.focus();
 }
 
@@ -326,6 +356,7 @@ $("#new").onclick = () => {
   const n = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     text: "", created: Date.now(), updated: Date.now() };
   doc.notes.unshift(n);
+  scheduleSave(); // selection no longer saves, so the new note must
   selectNote(n.id, true);
 };
 
@@ -360,16 +391,66 @@ document.addEventListener("scroll", e => {
   el.classList.toggle("at-y-end", el.scrollTop >= 1 && el.scrollTop >= el.scrollHeight - el.clientHeight - 1);
 }, { capture: true, passive: true });
 
+// Node sync landed a peer's change on disk (forwarded by the desktop as a
+// data-changed message): merge it into memory note-by-note — same rule as
+// the daemon, higher `updated` wins per id — so synced-in notes and unsaved
+// local edits both survive. Save back only if the merge holds something the
+// disk doc lacks.
+function normNote(n) {
+  const m = { id: String(n.id), text: typeof n.text === "string" ? n.text : "",
+    created: +n.created || Date.now(), updated: +n.updated || 0 };
+  if (+n.deleted) m.deleted = +n.deleted;
+  return m;
+}
+async function reloadFromDisk() {
+  try {
+    const r = await api(DATA_URL);
+    if (r.status === 404) return;
+    const d = await r.json();
+    if (!d || !Array.isArray(d.notes)) return;
+    // Disk is the daemon's already-merged result. Adopt it as the base and
+    // keep a local note only when it is strictly newer (a genuine unsaved
+    // edit); on an `updated` tie we defer to disk, matching the daemon's
+    // tiebreak, so the app and daemon never disagree into an endless
+    // save→merge→push loop.
+    const diskById = new Map(d.notes.filter(n => n && n.id).map(n => [String(n.id), normNote(n)]));
+    const byId = new Map(diskById);
+    for (const local of doc.notes) {
+      const dv = byId.get(local.id);
+      if (!dv || local.updated > dv.updated) byId.set(local.id, local);
+    }
+    const key = m => JSON.stringify([...m.values()].sort((a, b) => a.id < b.id ? -1 : 1));
+    const aheadOfDisk = key(byId) !== key(diskById);
+    const before = cur() && cur().text;
+    doc.notes = [...byId.values()];
+    sortNotes();
+    if (!cur()) sel = live().length ? live()[0].id : null;
+    // keep the caret out of it unless the selected note's text really changed
+    if (cur() && cur().text !== before) syncEditor();
+    else if (!cur()) syncEditor();
+    renderList();
+    if (aheadOfDisk) scheduleSave(); // we hold something disk lacks; push it back
+  } catch (e) {}
+}
+window.addEventListener("message", e => {
+  if (e.origin !== location.origin || !e.data || e.data.exe !== "data-changed") return;
+  if (loaded && e.data.path === "notes.json") reloadFromDisk();
+});
+
 (async () => {
+  let legacySel = null; // pre-tombstone files carried the selection in-doc
   try {
     const r = await api(DATA_URL);
     if (r.status !== 404) {
       const d = await r.json();
       if (d && Array.isArray(d.notes)) {
-        doc.notes = d.notes.filter(n => n && n.id && typeof n.text === "string")
-          .map(n => ({ id: String(n.id), text: n.text,
-            created: +n.created || Date.now(), updated: +n.updated || Date.now() }));
-        doc.sel = d.sel || null;
+        doc.notes = d.notes.filter(n => n && n.id).map(n => {
+          const m = { id: String(n.id), text: typeof n.text === "string" ? n.text : "",
+            created: +n.created || Date.now(), updated: +n.updated || Date.now() };
+          if (+n.deleted) m.deleted = +n.deleted;
+          return m;
+        });
+        legacySel = d.sel || null;
       }
     }
   } catch (e) {
@@ -377,7 +458,8 @@ document.addEventListener("scroll", e => {
     return; // leave everything disabled: saving now would clobber the stored notes
   }
   sortNotes();
-  if (!cur()) doc.sel = doc.notes.length ? doc.notes[0].id : null;
+  try { sel = localStorage.getItem(SEL_KEY) || legacySel; } catch (e) { sel = legacySel; }
+  if (!cur()) sel = live().length ? live()[0].id : null;
   loaded = true;
   $("#new").disabled = false;
   syncEditor();

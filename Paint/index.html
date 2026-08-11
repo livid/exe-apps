@@ -796,17 +796,24 @@ function normRect(x0, y0, x1, y1) {
 // ---- persistence: the page auto-saves as a PNG in the app's data dir ------
 const savedEl = $("#saved");
 let saveT = null, saving = false, savePending = false;
+let loaded = false; // block saves until the load settled, so a failed GET
+                    // can never be clobbered by a blank page
 function scheduleSave() {
+  if (!loaded) return;
   savedEl.textContent = "…";
   clearTimeout(saveT);
   saveT = setTimeout(doSave, 1500);
 }
+// X-Exe-Seq is a content timestamp: the daemon rejects a PUT older than one
+// it already stored, so a slow in-flight save can't rename a stale canvas
+// over a newer one that a later save (or the unload flush) sent.
 function doSave() {
+  if (!loaded) return;
   if (saving) { savePending = true; return; }
   saving = true;
   dc.toBlob(async blob => {
     try {
-      await api(DOC_URL, { method: "PUT", body: blob });
+      await api(DOC_URL, { method: "PUT", headers: { "X-Exe-Seq": String(Date.now()) }, body: blob });
       savedEl.textContent = "Saved";
     } catch (err) {
       savedEl.textContent = "Save failed";
@@ -817,10 +824,39 @@ function doSave() {
   }, "image/png");
 }
 
+// The desktop tears the iframe down when the window closes, and toBlob's
+// callback would never run — encode synchronously and send with keepalive.
+// Best effort: the keepalive body quota is ~64 KB; bigger pages fall back
+// to the async path and usually still make it on visibilitychange. The
+// higher X-Exe-Seq guarantees this flush wins over any in-flight doSave.
+function flushSave() {
+  if (!loaded || !(saveT || saving)) return;
+  clearTimeout(saveT); saveT = null;
+  try {
+    const url = dc.toDataURL("image/png");
+    const bytes = Uint8Array.from(atob(url.slice(url.indexOf(",") + 1)), c => c.charCodeAt(0));
+    if (bytes.length < 60000) {
+      api(DOC_URL, { method: "PUT", keepalive: true, headers: { "X-Exe-Seq": String(Date.now()) }, body: bytes });
+      savedEl.textContent = "Saved";
+      return;
+    }
+  } catch (err) { console.error("paint flush failed:", err); }
+  doSave();
+}
+addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") flushSave();
+});
+addEventListener("pagehide", flushSave);
+
+// Load the stored canvas, retrying a transient failure with backoff. Saves
+// stay blocked (loaded=false) until a GET succeeds so a failed load can't
+// clobber the stored art with a blank page — but a daemon restart or tunnel
+// blip must not silently discard the whole session, so we keep trying.
+let loadTries = 0;
 async function load() {
   try {
     const r = await api(DOC_URL);
-    if (r.status === 404) return;
+    if (r.status === 404) { loaded = true; return; }
     const blob = await r.blob();
     const bmp = await createImageBitmap(blob);
     if (bmp.width !== W || bmp.height !== H) { // adopt the saved page size
@@ -834,8 +870,33 @@ async function load() {
       if (s[i * 4 + 3] >= 128 && s[i * 4] < 128) img.data.set([38, 38, 38, 255], i * 4);
     sctx.clearRect(0, 0, W, H);
     dctx.putImageData(img, 0, 0);
-  } catch (err) { console.error("paint load failed:", err); }
+    loaded = true;
+  } catch (err) {
+    console.error("paint load failed:", err);
+    if (loadTries++ < 12) {
+      savedEl.textContent = "Load failed — retrying…";
+      setTimeout(load, 5000);
+    } else {
+      savedEl.textContent = "Load failed — reopen this window";
+    }
+  }
 }
+
+// Node sync landed a peer's canvas on disk (forwarded by the desktop as a
+// data-changed message): reload it when idle — the page is one raster, so
+// sync is last-writer-wins and mid-stroke reloads would eat the stroke.
+let reloadPending = false;
+function maybeReload() {
+  if (!loaded || drag || textAt || saveT || saving) { reloadPending = true; return; }
+  reloadPending = false;
+  dropSelection(false);
+  load();
+}
+window.addEventListener("message", e => {
+  if (e.origin !== location.origin || !e.data || e.data.exe !== "data-changed") return;
+  if (e.data.path === "canvas.png") maybeReload();
+});
+setInterval(() => { if (reloadPending) maybeReload(); }, 2000);
 
 // ---- desktop window plumbing (same bridge as the other apps) --------------
 window.addEventListener("pointerdown", () => {
