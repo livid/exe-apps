@@ -171,10 +171,14 @@ const APP = decodeURIComponent(location.pathname.split("/")[2] || "Notes");
 // One document holds every note: the app-data API has no list endpoint,
 // and whole-doc saves keep auto-save a single PUT.
 const DATA_URL = "/v1/apps/" + encodeURIComponent(APP) + "/data/notes.json";
+// identifies this window's writes so the daemon's change events can be
+// echo-suppressed here (we made the write) but delivered to other windows
+const CLIENT = Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 async function api(url, opts = {}) {
   opts.headers = Object.assign({}, opts.headers);
   if (TOKEN) opts.headers["Authorization"] = "Bearer " + TOKEN;
+  opts.headers["X-Exe-Client"] = CLIENT;
   const r = await fetch(url, opts);
   if (!r.ok && r.status !== 404) throw new Error("HTTP " + r.status);
   return r;
@@ -434,6 +438,7 @@ async function reloadFromDisk() {
 }
 window.addEventListener("message", e => {
   if (e.origin !== location.origin || !e.data || e.data.exe !== "data-changed") return;
+  if (e.data.client && e.data.client === CLIENT) return; // our own write
   if (loaded && e.data.path === "notes.json") reloadFromDisk();
 });
 

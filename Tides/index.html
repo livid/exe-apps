@@ -157,6 +157,9 @@ const $ = s => document.querySelector(s);
 const TOKEN = new URLSearchParams(location.search).get("token") || "";
 const APP = decodeURIComponent(location.pathname.split("/")[2] || "Tides");
 const SETTINGS_URL = "/v1/apps/" + encodeURIComponent(APP) + "/data/settings.json";
+// identifies this window's writes so the daemon's change events can be
+// echo-suppressed here (we made the write) but delivered to other windows
+const CLIENT = Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 // NOAA CO-OPS: predictions in GMT (converted to the viewer's clock for
 // display, so "Today" and the now-line are exact in any timezone) from the
@@ -169,6 +172,7 @@ const DEFAULT_STATION = { id: "9410580", name: "Newport Bay Entrance, Corona del
 async function api(url, opts = {}) {
   opts.headers = Object.assign({}, opts.headers);
   if (TOKEN) opts.headers["Authorization"] = "Bearer " + TOKEN;
+  opts.headers["X-Exe-Client"] = CLIENT;
   const r = await fetch(url, opts);
   if (!r.ok && r.status !== 404) throw new Error("HTTP " + r.status);
   return r;
@@ -625,6 +629,7 @@ document.addEventListener("scroll", e => {
 // while a local save is in flight; it's about to overwrite anyway.
 window.addEventListener("message", async e => {
   if (e.origin !== location.origin || !e.data || e.data.exe !== "data-changed") return;
+  if (e.data.client && e.data.client === CLIENT) return; // our own write
   if (!loaded || e.data.path !== "settings.json" || saveT || saving) return;
   try {
     const r = await api(SETTINGS_URL);
