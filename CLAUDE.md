@@ -60,8 +60,13 @@ leave a `{id, deleted: <ms>, updated}` tombstone (text dropped) GC'd on save
 after 30 days — that's what lets two nodes' edits merge item-by-item.
 
 - **Todo** — `todos.json` is `{version:2, items:[{id,text,done,created,
-  updated,deleted?}]}`; v1 bare arrays migrate on load with content-derived
-  ids (`v1Id`) so two nodes migrating independently agree on them.
+  updated,order?,deleted?}]}`; v1 bare arrays migrate on load with content-derived
+  ids (`v1Id`) so two nodes migrating independently agree on them. Rows
+  drag-reorder via a fractional `order` rank (falls back to `created`, so
+  unranked docs keep creation order): a drop writes order+updated on the
+  dragged item only — midpoint of its new neighbors' keys — so a reorder
+  merges like any single-item edit. The daemon's merge struct must carry
+  every field the apps write (internal/peer/merge.go strips unknown keys).
 
 - **Notes** — two-column Note Pad (Chat-window layout: 190px list + document).
   All notes live in one `notes.json` through the app-data API — one doc beats

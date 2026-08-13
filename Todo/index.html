@@ -48,9 +48,14 @@ button.ghost.sm { padding: 1px 8px; font-size: 10px; height: auto; }
    full-width separator line under the toolbar. Both scrollbars are always
    on so the corner square between them is reserved for the grow box. */
 #list { flex: 1; overflow: scroll; margin: 0; background: #fff;
-  border-top: 1px solid var(--black); }
-.item { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-bottom: 1px solid #efefef; }
-.item:hover { background: #dfe3f5; }
+  border-top: 1px solid var(--black); position: relative; }
+.item { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-bottom: 1px solid #efefef;
+  touch-action: none; }
+.item:hover, .item.dragging { background: #dfe3f5; }
+/* insertion caret while dragging a row: OS 9 list drop indicator — a solid
+   black line across the gap the drop targets */
+#dropline { position: absolute; left: 0; width: 100%; height: 2px; margin-top: -1px;
+  background: var(--black); pointer-events: none; z-index: 1; }
 .item .txt { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item.done .txt { color: #777; text-decoration: line-through; }
 .item .x { visibility: hidden; flex: none; }
@@ -205,7 +210,7 @@ async function api(url, opts = {}) {
   return r;
 }
 
-// v2 document: {version:2, items:[{id,text,done,created,updated,deleted?}]}.
+// v2 document: {version:2, items:[{id,text,done,created,updated,order?,deleted?}]}.
 // Items carry ids, updated stamps and delete tombstones so the daemon's
 // node-to-node sync can merge two machines' edits item by item; every state
 // change (including a checkbox flip) bumps updated.
@@ -216,10 +221,20 @@ let loaded = false; // block saves until the load settled, so a failed GET
 const live = () => items.filter(t => !t.deleted);
 const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
+// Display order: an optional fractional `order` rank per item, falling back
+// to `created` (epoch ms) so unranked items keep creation order and a fresh
+// item lands at the bottom. Dragging writes order+updated on the dragged
+// item only, so a reorder merges across nodes like any other single-item
+// edit instead of conflicting with every concurrent change.
+const orderKey = t => typeof t.order === "number" ? t.order : t.created;
+const ordered = () => live().sort((a, b) =>
+  (orderKey(a) - orderKey(b)) || (a.created - b.created) || (a.id < b.id ? -1 : 1));
+
 function render() {
+  cancelDrag();
   const list = $("#list");
   list.replaceChildren();
-  for (const t of live()) {
+  for (const t of ordered()) {
     const item = document.createElement("div");
     item.className = "item" + (t.done ? " done" : "");
     const ck = document.createElement("input");
@@ -240,6 +255,11 @@ function render() {
       render(); save();
     });
     item.append(ck, txt, x);
+    item.addEventListener("pointerdown", e => {
+      // row body only: the checkbox and Remove keep their click behavior
+      if (e.button !== 0 || e.target === ck || e.target === x) return;
+      beginDrag(e, t.id, item);
+    });
     list.append(item);
   }
   if (!live().length) {
@@ -248,6 +268,79 @@ function render() {
     d.textContent = "Nothing to do — type above and press Return.";
     list.append(d);
   }
+}
+
+// Drag-to-reorder: press a row and move 4px vertically to pick it up; the
+// row highlights, a black insertion line tracks the gap under the pointer
+// (with edge autoscroll), and the drop writes the dragged item's order as
+// the midpoint of its new neighbors' keys. A sync-triggered render mid-drag
+// cancels the drag rather than dropping onto a list that just changed.
+let drag = null; // {id, row, y0, clientY, active, gap, raf}
+function beginDrag(e, id, row) {
+  cancelDrag();
+  drag = { id: id, row: row, y0: e.clientY, clientY: e.clientY, active: false, gap: -1, raf: 0 };
+  addEventListener("pointermove", dragMove);
+  addEventListener("pointerup", dragUp);
+  addEventListener("pointercancel", cancelDrag);
+}
+function dragMove(e) {
+  if (!drag) return;
+  drag.clientY = e.clientY;
+  if (!drag.active && Math.abs(e.clientY - drag.y0) >= 4) {
+    drag.active = true;
+    drag.row.classList.add("dragging");
+    drag.raf = requestAnimationFrame(dragFrame);
+  }
+}
+// runs every frame while dragging so edge autoscroll keeps flowing (and the
+// line keeps tracking) even while the pointer holds still
+function dragFrame() {
+  if (!drag || !drag.active) return;
+  const list = $("#list");
+  const rect = list.getBoundingClientRect();
+  // rect.bottom includes the 15px horizontal scrollbar; clientHeight doesn't
+  const bottom = rect.top + list.clientHeight;
+  if (drag.clientY < rect.top + 18) list.scrollTop -= Math.min(12, rect.top + 18 - drag.clientY);
+  else if (drag.clientY > bottom - 18) list.scrollTop += Math.min(12, drag.clientY - (bottom - 18));
+  const y = drag.clientY - rect.top + list.scrollTop;
+  const rows = [...list.children].filter(el => el.classList.contains("item"));
+  let gap = 0;
+  for (const r of rows) if (y > r.offsetTop + r.offsetHeight / 2) gap++;
+  drag.gap = gap;
+  const last = rows[rows.length - 1];
+  const lineY = gap < rows.length ? rows[gap].offsetTop : last.offsetTop + last.offsetHeight;
+  let line = $("#dropline");
+  if (!line) { line = document.createElement("div"); line.id = "dropline"; list.append(line); }
+  line.style.top = Math.max(1, lineY) + "px"; // keep the 2px line inside the box at the very top
+  drag.raf = requestAnimationFrame(dragFrame);
+}
+function dragUp() {
+  const d = drag;
+  cancelDrag();
+  if (!d || !d.active) return;
+  const arr = ordered();
+  const from = arr.findIndex(t => t.id === d.id);
+  if (from < 0 || d.gap < 0 || d.gap === from || d.gap === from + 1) return;
+  const t = arr.splice(from, 1)[0];
+  arr.splice(d.gap > from ? d.gap - 1 : d.gap, 0, t);
+  const i = arr.indexOf(t);
+  const prev = arr[i - 1], next = arr[i + 1];
+  t.order = prev && next ? (orderKey(prev) + orderKey(next)) / 2
+    : prev ? orderKey(prev) + 1 : orderKey(next) - 1;
+  t.updated = Date.now();
+  render();
+  save();
+}
+function cancelDrag() {
+  if (!drag) return;
+  cancelAnimationFrame(drag.raf);
+  drag.row.classList.remove("dragging");
+  const line = $("#dropline");
+  if (line) line.remove();
+  removeEventListener("pointermove", dragMove);
+  removeEventListener("pointerup", dragUp);
+  removeEventListener("pointercancel", cancelDrag);
+  drag = null;
 }
 
 // Debounced whole-doc PUT, serialized so a slow write is never overtaken by
@@ -346,6 +439,7 @@ document.addEventListener("scroll", e => {
 function normItem(raw) {
   const t = { id: String(raw.id), text: String(raw.text || ""), done: !!raw.done,
     created: +raw.created || Date.now(), updated: +raw.updated || 0 };
+  if (typeof raw.order === "number") t.order = raw.order;
   if (+raw.deleted) t.deleted = +raw.deleted;
   return t;
 }
@@ -402,6 +496,7 @@ function v1Id(t) {
       items = raw.filter(t => t && t.id).map(t => {
         const it = { id: String(t.id), text: String(t.text || ""), done: !!t.done,
           created: +t.created || Date.now(), updated: +t.updated || Date.now() };
+        if (typeof t.order === "number") it.order = t.order;
         if (+t.deleted) it.deleted = +t.deleted;
         return it;
       });
