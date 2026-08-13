@@ -60,6 +60,10 @@ button.ghost.sm { padding: 1px 8px; font-size: 10px; height: auto; }
 .item.done .txt { color: #777; text-decoration: line-through; }
 .item .x { visibility: hidden; flex: none; }
 .item:hover .x { visibility: visible; }
+/* a freshly added row scrolls into view and blinks its selection tint,
+   OS 9 menu-choice style: three hard on/off flashes, no fade */
+.item.flash { animation: flash 160ms step-end 3; }
+@keyframes flash { 0% { background: #dfe3f5; } 50% { background: #fff; } }
 #empty { color: #555; font-size: 11px; padding: 10px; }
 
 /* OS 9 checkbox: white 12px box, black border, sunken bevel, pixel check */
@@ -237,6 +241,7 @@ function render() {
   for (const t of ordered()) {
     const item = document.createElement("div");
     item.className = "item" + (t.done ? " done" : "");
+    item.dataset.id = t.id;
     const ck = document.createElement("input");
     ck.type = "checkbox";
     ck.className = "ck";
@@ -388,10 +393,21 @@ function add() {
   const inp = $("#new");
   const text = inp.value.trim();
   if (!text) return;
-  items.push({ id: genId(), text: text, done: false, created: Date.now(), updated: Date.now() });
+  const t = { id: genId(), text: text, done: false, created: Date.now(), updated: Date.now() };
+  items.push(t);
   inp.value = "";
   render();
+  revealNew(t.id);
   save();
+}
+// scroll the fresh row into view and flash it so an add into a long list
+// visibly lands somewhere instead of vanishing below the fold
+function revealNew(id) {
+  const row = [...$("#list").children].find(el => el.dataset.id === id);
+  if (!row) return;
+  row.scrollIntoView({ block: "nearest" });
+  row.classList.add("flash");
+  row.addEventListener("animationend", () => row.classList.remove("flash"), { once: true });
 }
 $("#add").addEventListener("click", add);
 $("#new").addEventListener("keydown", e => { if (e.key === "Enter") add(); });
