@@ -409,6 +409,14 @@ function revealNew(id) {
   row.classList.add("flash");
   row.addEventListener("animationend", () => row.classList.remove("flash"), { once: true });
 }
+// search deep-link (the desktop's reveal message): same scroll-and-flash as
+// a fresh add. The ack stops the desktop's reveal repeats even when the
+// item is gone (deleted since the search data was fetched).
+let pendingReveal = null; // a reveal that arrived before the doc loaded
+function revealTodo(id) {
+  if (window.parent !== window) parent.postMessage({ exe: "reveal-ack" }, location.origin);
+  revealNew(id);
+}
 $("#add").addEventListener("click", add);
 $("#new").addEventListener("keydown", e => { if (e.key === "Enter") add(); });
 
@@ -484,9 +492,16 @@ async function reloadFromDisk() {
   } catch (e) {}
 }
 window.addEventListener("message", e => {
-  if (e.origin !== location.origin || !e.data || e.data.exe !== "data-changed") return;
-  if (e.data.client && e.data.client === CLIENT) return; // our own write
-  if (loaded && e.data.path === "todos.json") reloadFromDisk();
+  if (e.origin !== location.origin || !e.data) return;
+  if (e.data.exe === "data-changed") {
+    if (e.data.client && e.data.client === CLIENT) return; // our own write
+    if (loaded && e.data.path === "todos.json") reloadFromDisk();
+  } else if (e.data.exe === "reveal") {
+    // before the load settles the rows don't exist yet — remember the id
+    // and let boot apply it (and ack) instead
+    if (loaded) revealTodo(String(e.data.id || ""));
+    else pendingReveal = String(e.data.id || "");
+  }
 });
 
 // v1 files were a bare array of {text,done,created-ISO} with no ids; derive
@@ -526,6 +541,7 @@ function v1Id(t) {
   loaded = true;
   render();
   $("#new").focus();
+  if (pendingReveal) { revealTodo(pendingReveal); pendingReveal = null; }
 })();
 </script>
 </body>

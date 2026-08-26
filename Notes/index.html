@@ -314,6 +314,17 @@ function selectNote(id, focus) {
   renderList();
   if (focus && !ed.disabled) ed.focus();
 }
+// search deep-link (the desktop's reveal message): select the named note
+// and put its row in view. The ack stops the desktop's reveal repeats even
+// when the note is gone (deleted since the search data was fetched).
+let pendingReveal = null; // a reveal that arrived before the doc loaded
+function revealNote(id) {
+  if (window.parent !== window) parent.postMessage({ exe: "reveal-ack" }, location.origin);
+  if (!doc.notes.some(n => n.id === id && !n.deleted)) return;
+  selectNote(id, true);
+  const row = list.querySelector(".cs-item.sel");
+  if (row) row.scrollIntoView({ block: "nearest" });
+}
 
 // ---- editing ----
 ed.addEventListener("input", () => {
@@ -437,9 +448,16 @@ async function reloadFromDisk() {
   } catch (e) {}
 }
 window.addEventListener("message", e => {
-  if (e.origin !== location.origin || !e.data || e.data.exe !== "data-changed") return;
-  if (e.data.client && e.data.client === CLIENT) return; // our own write
-  if (loaded && e.data.path === "notes.json") reloadFromDisk();
+  if (e.origin !== location.origin || !e.data) return;
+  if (e.data.exe === "data-changed") {
+    if (e.data.client && e.data.client === CLIENT) return; // our own write
+    if (loaded && e.data.path === "notes.json") reloadFromDisk();
+  } else if (e.data.exe === "reveal") {
+    // before the load settles the note rows don't exist yet — remember the
+    // id and let boot apply it (and ack) instead
+    if (loaded) revealNote(String(e.data.id || ""));
+    else pendingReveal = String(e.data.id || "");
+  }
 });
 
 (async () => {
@@ -469,6 +487,7 @@ window.addEventListener("message", e => {
   $("#new").disabled = false;
   syncEditor();
   renderList();
+  if (pendingReveal) { revealNote(pendingReveal); pendingReveal = null; }
 })();
 </script>
 </body>
