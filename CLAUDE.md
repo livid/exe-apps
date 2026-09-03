@@ -41,6 +41,10 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   pointerdown so clicks raise the window; if `window.grow` is true, include
   the 15px grow-box SVG and stream `{exe:"grow", dx, dy}` / `grow-start` /
   `grow-end` so the desktop resizes the window. Copy both blocks as-is.
+  A closed window is hidden, not destroyed: the desktop posts `{exe:"hide"}`
+  to the app's iframe on close and `{exe:"show"}` when it is reopened. An
+  app with loops, timers or a simulation pauses on hide (and flushes any
+  pending save) and resumes on show; a plain document app can ignore both.
 - App name comes from `location.pathname.split("/")[2]`, token from
   `?token=` — don't hardcode either.
 - Vanilla JS + inline CSS in one index.html; no frameworks, no CDNs.
