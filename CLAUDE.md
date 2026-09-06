@@ -32,7 +32,8 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
 
 ## Conventions (see Tides/index.html for a worked example)
 
-- **Look**: Mac OS 9 Platinum. Copy the CSS blocks from an existing app —
+- **Look**: Mac OS 9 Platinum — the full guide (numbers, colours, rules) is
+  `/www/exe/docs/platinum.md`. Copy the CSS blocks from an existing app —
   root color vars, beveled buttons, sunken text fields, and the pixel-sampled
   OS 9 scrollbar block. Only the Return-triggered default button gets the
   black ring; others stay plain. Bordered scroll containers share 1px edges
