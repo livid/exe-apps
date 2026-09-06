@@ -164,7 +164,7 @@ function el(tag, attrs = {}, ...kids) {
 // from the path so a renamed bundle folder keeps working.
 const TOKEN = new URLSearchParams(location.search).get("token") || "";
 const MOBILE = new URLSearchParams(location.search).has("mobile");
-const APP = decodeURIComponent(location.pathname.split("/")[2] || "WorldClock");
+const APP = decodeURIComponent(location.pathname.split("/")[2] || "World Clock");
 const DOC_URL = "/v1/apps/" + encodeURIComponent(APP) + "/data/clocks.json";
 // identifies this window's writes so the daemon's change events can be
 // echo-suppressed here (we made the write) but delivered to other windows
@@ -192,7 +192,7 @@ async function api(url, opts = {}) {
 // Items carry content-derived ids (name|zone, so two nodes adding the same
 // city agree), updated stamps and delete tombstones so the daemon's
 // node-to-node sync can merge the list item by item (internal/peer/merge.go
-// knows this schema as WorldClock/clocks.json).
+// knows this schema as "World Clock/clocks.json").
 let items = [];
 const live = () => items.filter(i => !i.deleted).sort((a, b) => a.created - b.created || a.id.localeCompare(b.id));
 function clean(raw) {
