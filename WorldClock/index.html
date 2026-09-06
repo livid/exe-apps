@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>World Clock</title>
+<style>
+/* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
+:root {
+  --black: #262626;
+  --g200: #eee; --g300: #ddd; --g400: #ccc; --g500: #bbb; --g600: #999;
+  --hl: #333399; --red: #cc3333;
+  --font: "Charcoal", "Chicago", "Geneva", "Lucida Grande", "Lucida Sans", Geneva, Verdana, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; font: 12px/1.45 var(--font); color: var(--black); background: var(--g200);
+  user-select: none; cursor: default; overflow: hidden; display: flex; flex-direction: column; }
+
+#bar { display: flex; gap: 8px; padding: 10px 10px 8px; align-items: center; }
+input[type=text] { background: #fff; color: var(--black);
+  border: 1px solid var(--black); border-radius: 0; padding: 2px 5px; font: inherit; font-size: 12px;
+  height: 20px; line-height: 14px;
+  box-shadow: -1px -1px 0 var(--g600), -1px 0 0 var(--g600), 0 -1px 0 var(--g600),
+    1px 1px 0 #fff, 1px 0 0 #fff, 0 1px 0 #fff; }
+input[type=text]:focus { outline: 2px solid #9999fe; outline-offset: 0; }
+
+button { font: inherit; cursor: default; }
+button.ghost { background: var(--g300); color: var(--black);
+  border: 1px solid var(--black); border-radius: 3px;
+  padding: 2px 13px; font-size: 12px; line-height: 14px; font-weight: bold; height: 20px;
+  box-shadow: inset 1px 1px 0 var(--g300), inset -1px -1px 0 #777,
+    inset 2px 2px 0 #fff, inset -2px -2px 0 #aaa; }
+button.ghost:active { background: #666; color: #fff;
+  box-shadow: inset 1px 1px 0 #444, inset -1px -1px 0 #888,
+    inset 2px 2px 0 #555, inset -2px -2px 0 #777; }
+button.ghost.danger { color: #7a1010; }
+button.ghost.armed { background: var(--red); color: #fff;
+  box-shadow: inset 1px 1px 0 #e88, inset -1px -1px 0 #911; }
+button.ghost.sm { padding: 1px 8px; font-size: 10px; border-radius: 3px; height: auto; }
+
+#q-wrap { position: relative; flex: 1; min-width: 0; }
+#q { width: 100%; }
+#drop { position: absolute; left: 0; right: 0; top: 21px; z-index: 5;
+  background: #fff; border: 1px solid var(--black); box-shadow: 2px 2px 0 rgba(0,0,0,.35);
+  max-height: 208px; overflow-y: auto; overflow-x: hidden; }
+#drop .opt { display: flex; gap: 6px; padding: 3px 6px; white-space: nowrap; overflow: hidden; }
+#drop .opt b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: normal; }
+#drop .opt .id { flex: none; color: #777; font-size: 10px; }
+#drop .opt.have b { color: #777; }
+#drop .opt.hot, #drop .opt:hover { background: var(--hl); color: #fff; }
+#drop .opt.hot b, #drop .opt:hover b, #drop .opt.hot .id, #drop .opt:hover .id { color: #ccf; }
+#drop .opt.hot b, #drop .opt:hover b { color: #fff; }
+#drop .note { padding: 4px 6px; color: #555; font-size: 11px; }
+
+/* the clocks are a document area: flush left/right/bottom, separator on
+   top, an always-on OS 9 scrollbar like a Finder list */
+#list { flex: 1; min-height: 0; background: #fff; border-top: 1px solid var(--black);
+  overflow-y: scroll; overflow-x: hidden; }
+.row { display: flex; align-items: center; gap: 10px; padding: 7px 6px 7px 10px; border-bottom: 1px solid #efefef; }
+.row.flash { background: #e6e6ff; }
+/* the same 15px pixel face the phone menubar wears, shown at 2x */
+.dial { flex: none; width: 30px; height: 30px; }
+.dial svg { display: block; width: 30px; height: 30px; }
+.who { flex: 1; min-width: 0; }
+.city { font-weight: bold; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub { font-size: 11px; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.when { flex: none; text-align: right; }
+.time { font-size: 18px; font-weight: bold; line-height: 20px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.time small { font-size: 11px; margin-left: 3px; }
+.row .x { flex: none; }
+#empty { padding: 14px 10px; color: #777; }
+
+/* 15px total (1px border + 14px face), same as the desktop's statusbars;
+   the grow tile's black top row lands on this border-top line */
+#status { display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--black);
+  background: var(--g300); font-size: 11px; color: #333; padding: 0 20px 0 8px; height: 15px;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.6), inset -1px -1px 0 #aaa; }
+#st-left { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#st-right { flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+#grow { position: fixed; right: 0; bottom: 0; width: 15px; height: 15px;
+  touch-action: none; z-index: 6; }
+
+/* Mac OS 9 scrollbars — the desktop's pixel-sampled spec, adapted for a
+   document window: the host frame draws the outer black line, so bars are
+   15px (1px leading separator + the sampled 14px face) with no trailing
+   border of their own — otherwise the edge doubles to 2px. */
+::-webkit-scrollbar { width: 15px; height: 15px; }
+::-webkit-scrollbar-track:vertical { border-left: 1px solid var(--black);
+  background: linear-gradient(to right, #777 0, #777 1px, #888 1px, #888 2px, #aaa 2px, #aaa 12px, #bbb 12px, #bbb 13px, #ccc 13px, #ccc 14px); }
+::-webkit-scrollbar-thumb:vertical { border: 1px solid var(--black); border-right: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="0" width="6" height="1" fill="%23ccccff"/><rect x="4" y="1" width="7" height="1" fill="%23333399"/><rect x="3" y="2" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="2" width="6" height="1" fill="%23ccccff"/><rect x="4" y="3" width="7" height="1" fill="%23333399"/><rect x="3" y="4" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="4" width="6" height="1" fill="%23ccccff"/><rect x="4" y="5" width="7" height="1" fill="%23333399"/><rect x="3" y="6" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="6" width="6" height="1" fill="%23ccccff"/><rect x="4" y="7" width="7" height="1" fill="%23333399"/></svg>') center no-repeat,
+    linear-gradient(to right, #ccccff 0 1px, #9999ff 1px 13px, #6666cc 13px 14px);
+  box-shadow: inset 0 1px 0 #ccccff, inset 0 -1px 0 #6666cc; }
+::-webkit-scrollbar-thumb:vertical:active {
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23ccccff"/><rect x="4" y="0" width="6" height="1" fill="%239999ff"/><rect x="4" y="1" width="7" height="1" fill="%23000066"/><rect x="3" y="2" width="1" height="1" fill="%23ccccff"/><rect x="4" y="2" width="6" height="1" fill="%239999ff"/><rect x="4" y="3" width="7" height="1" fill="%23000066"/><rect x="3" y="4" width="1" height="1" fill="%23ccccff"/><rect x="4" y="4" width="6" height="1" fill="%239999ff"/><rect x="4" y="5" width="7" height="1" fill="%23000066"/><rect x="3" y="6" width="1" height="1" fill="%23ccccff"/><rect x="4" y="6" width="6" height="1" fill="%239999ff"/><rect x="4" y="7" width="7" height="1" fill="%23000066"/></svg>') center no-repeat,
+    linear-gradient(to right, #9999ff 0 1px, #6666cc 1px 13px, #333399 13px 14px);
+  box-shadow: inset 0 1px 0 #9999ff, inset 0 -1px 0 #333399; }
+:not(.scrolled-y)::-webkit-scrollbar-thumb:vertical {
+  border-top-color: #ccccff; box-shadow: inset 0 -1px 0 #6666cc; }
+:not(.scrolled-y)::-webkit-scrollbar-thumb:vertical:active {
+  border-top-color: #9999ff; box-shadow: inset 0 -1px 0 #333399; }
+.at-y-end::-webkit-scrollbar-thumb:vertical {
+  border-bottom-color: #6666cc; box-shadow: inset 0 1px 0 #ccccff; }
+.at-y-end::-webkit-scrollbar-thumb:vertical:active {
+  border-bottom-color: #333399; box-shadow: inset 0 1px 0 #9999ff; }
+::-webkit-scrollbar-button { display: block; width: 16px; height: 16px;
+  background: #ddd; border: 1px solid var(--black);
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #bbb;
+  background-position: center; background-repeat: no-repeat; }
+::-webkit-scrollbar-button:vertical { border-right: 0; }
+::-webkit-scrollbar-button:vertical:end:increment:enabled { height: 14px; border-top: 0; border-bottom: 0; }
+::-webkit-scrollbar-button:vertical:decrement {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M3 0h2v1h-2z M2 1h4v1h-4z M1 2h6v1h-6z M0 3h8v1h-8z"/></svg>'); }
+::-webkit-scrollbar-button:vertical:increment {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M0 0h8v1h-8z M1 1h6v1h-6z M2 2h4v1h-4z M3 3h2v1h-2z"/></svg>'); }
+::-webkit-scrollbar-button:active { background-color: #777;
+  box-shadow: inset 1px 1px 0 #555, inset -1px -1px 0 #999; }
+::-webkit-scrollbar-button:vertical:start:decrement,
+::-webkit-scrollbar-button:vertical:start:increment,
+::-webkit-scrollbar-button:horizontal:start:decrement,
+::-webkit-scrollbar-button:horizontal:start:increment { display: none; }
+::-webkit-scrollbar-corner { background: var(--g300); }
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <div id="q-wrap">
+    <input type="text" id="q" placeholder="Add a city…" autocomplete="off" spellcheck="false">
+    <div id="drop" hidden></div>
+  </div>
+</div>
+<div id="list"></div>
+<div id="status">
+  <span id="st-left">…</span>
+  <span id="st-right"></span>
+</div>
+<!-- grow box sampled pixel-for-pixel from Mac OS 9 (Infinite Mac) -->
+<svg id="grow" width="15" height="15" viewBox="0 0 15 15" shape-rendering="crispEdges">
+  <rect width="15" height="15" fill="#ccc"/>
+  <path fill="#000" d="M0 0h15v1H0zM0 1h1v14H0z"/>
+  <path fill="#fff" d="M1 1h14v1H1zM1 2h1v13H1z"/>
+  <path fill="#fff" d="M9 4h2v1H9zM8 5h1v1H8zM7 6h1v1H7zM6 7h1v1H6zM5 8h1v1H5zM4 9h1v1H4zM11 6h2v1h-2zM10 7h1v1h-1zM9 8h1v1H9zM8 9h1v1H8zM7 10h1v1H7zM6 11h1v1H6zM13 8h2v1h-2zM12 9h1v1h-1zM11 10h1v1h-1zM10 11h1v1h-1zM9 12h1v1H9zM8 13h1v1H8z"/>
+  <path fill="#777" d="M10 5h1v1h-1zM9 6h1v1H9zM8 7h1v1H8zM7 8h1v1H7zM6 9h1v1H6zM5 10h1v1H5zM12 7h1v1h-1zM11 8h1v1h-1zM10 9h1v1h-1zM9 10h1v1H9zM8 11h1v1H8zM7 12h1v1H7zM14 9h1v1h-1zM13 10h1v1h-1zM12 11h1v1h-1zM11 12h1v1h-1zM10 13h1v1h-1zM9 14h1v1H9z"/>
+  <path fill="#aaa" d="M4 10h1v1H4zM6 12h1v1H6zM8 14h1v1H8z"/>
+</svg>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v);
+  }
+  for (const kid of kids) n.append(kid);
+  return n;
+}
+
+// The desktop passes its API token in the iframe URL; the app name comes
+// from the path so a renamed bundle folder keeps working.
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+const MOBILE = new URLSearchParams(location.search).has("mobile");
+const APP = decodeURIComponent(location.pathname.split("/")[2] || "WorldClock");
+const DOC_URL = "/v1/apps/" + encodeURIComponent(APP) + "/data/clocks.json";
+// identifies this window's writes so the daemon's change events can be
+// echo-suppressed here (we made the write) but delivered to other windows
+const CLIENT = Math.random().toString(36).slice(2) + Date.now().toString(36);
+const TOMBSTONE_TTL = 30 * 86400000;
+const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+const DEFAULT_CITY = { n: "Los Angeles", r: "CA", tz: "America/Los_Angeles" };
+
+// Every IANA zone's principal city from tzdata's zone1970.tab (US states
+// and Canadian provinces spelled out, other countries by name) plus the
+// well-known cities that share a zone — {n: name, r: region, tz, a?: aliases}
+const CITIES = [{"n":"Abidjan","r":"Côte d’Ivoire","tz":"Africa/Abidjan"},{"n":"Abu Dhabi","r":"United Arab Emirates","tz":"Asia/Dubai"},{"n":"Accra","r":"Ghana","tz":"Africa/Accra"},{"n":"Adak","r":"AK","tz":"America/Adak"},{"n":"Addis Ababa","r":"Ethiopia","tz":"Africa/Addis_Ababa"},{"n":"Adelaide","r":"Australia","tz":"Australia/Adelaide"},{"n":"Ahmedabad","r":"India","tz":"Asia/Kolkata"},{"n":"Albuquerque","r":"NM","tz":"America/Denver"},{"n":"Alexandria","r":"Egypt","tz":"Africa/Cairo"},{"n":"Algiers","r":"Algeria","tz":"Africa/Algiers"},{"n":"Almaty","r":"Kazakhstan","tz":"Asia/Almaty"},{"n":"Amman","r":"Jordan","tz":"Asia/Amman"},{"n":"Amsterdam","r":"Netherlands","tz":"Europe/Amsterdam"},{"n":"Anadyr","r":"Russia","tz":"Asia/Anadyr"},{"n":"Anchorage","r":"AK","tz":"America/Anchorage"},{"n":"Andorra","r":"Andorra","tz":"Europe/Andorra"},{"n":"Antwerp","r":"Belgium","tz":"Europe/Brussels"},{"n":"Apia","r":"Samoa (western)","tz":"Pacific/Apia"},{"n":"Aqtau","r":"Kazakhstan","tz":"Asia/Aqtau"},{"n":"Aqtobe","r":"Kazakhstan","tz":"Asia/Aqtobe"},{"n":"Araguaína","r":"Brazil","tz":"America/Araguaina"},{"n":"Ashgabat","r":"Turkmenistan","tz":"Asia/Ashgabat"},{"n":"Astana","r":"Kazakhstan","tz":"Asia/Almaty"},{"n":"Astrakhan","r":"Russia","tz":"Europe/Astrakhan"},{"n":"Asunción","r":"Paraguay","tz":"America/Asuncion"},{"n":"Athens","r":"Greece","tz":"Europe/Athens"},{"n":"Atlanta","r":"GA","tz":"America/New_York"},{"n":"Atyrau","r":"Kazakhstan","tz":"Asia/Atyrau"},{"n":"Auckland","r":"New Zealand","tz":"Pacific/Auckland"},{"n":"Austin","r":"TX","tz":"America/Chicago"},{"n":"Azores","r":"Portugal","tz":"Atlantic/Azores"},{"n":"Baghdad","r":"Iraq","tz":"Asia/Baghdad"},{"n":"Bahia","r":"Brazil","tz":"America/Bahia"},{"n":"Bahía de Banderas","r":"Mexico","tz":"America/Bahia_Banderas"},{"n":"Baku","r":"Azerbaijan","tz":"Asia/Baku"},{"n":"Bali","r":"Indonesia","tz":"Asia/Makassar"},{"n":"Baltimore","r":"MD","tz":"America/New_York"},{"n":"Bamako","r":"Mali","tz":"Africa/Bamako"},{"n":"Bandung","r":"Indonesia","tz":"Asia/Jakarta"},{"n":"Bangkok","r":"Thailand","tz":"Asia/Bangkok"},{"n":"Barbados","r":"Barbados","tz":"America/Barbados"},{"n":"Barcelona","r":"Spain","tz":"Europe/Madrid"},{"n":"Barnaul","r":"Russia","tz":"Asia/Barnaul"},{"n":"Basel","r":"Switzerland","tz":"Europe/Zurich"},{"n":"Beijing","r":"China","tz":"Asia/Shanghai","a":"Peking"},{"n":"Beirut","r":"Lebanon","tz":"Asia/Beirut"},{"n":"Belgrade","r":"Serbia","tz":"Europe/Belgrade"},{"n":"Belize","r":"Belize","tz":"America/Belize"},{"n":"Belém","r":"Brazil","tz":"America/Belem"},{"n":"Bengaluru","r":"India","tz":"Asia/Kolkata","a":"Bangalore"},{"n":"Berlin","r":"Germany","tz":"Europe/Berlin"},{"n":"Bermuda","r":"Bermuda","tz":"Atlantic/Bermuda"},{"n":"Bern","r":"Switzerland","tz":"Europe/Zurich"},{"n":"Beulah","r":"ND","tz":"America/North_Dakota/Beulah"},{"n":"Birmingham","r":"United Kingdom","tz":"Europe/London"},{"n":"Bishkek","r":"Kyrgyzstan","tz":"Asia/Bishkek"},{"n":"Bissau","r":"Guinea-Bissau","tz":"Africa/Bissau"},{"n":"Boa Vista","r":"Brazil","tz":"America/Boa_Vista"},{"n":"Bogotá","r":"Colombia","tz":"America/Bogota"},{"n":"Boise","r":"ID","tz":"America/Boise"},{"n":"Boston","r":"MA","tz":"America/New_York"},{"n":"Bougainville","r":"Papua New Guinea","tz":"Pacific/Bougainville"},{"n":"Boulder","r":"CO","tz":"America/Denver"},{"n":"Brasília","r":"Brazil","tz":"America/Sao_Paulo"},{"n":"Bratislava","r":"Slovakia","tz":"Europe/Bratislava"},{"n":"Brisbane","r":"Australia","tz":"Australia/Brisbane"},{"n":"Broken Hill","r":"Australia","tz":"Australia/Broken_Hill"},{"n":"Brooklyn","r":"NY","tz":"America/New_York"},{"n":"Brussels","r":"Belgium","tz":"Europe/Brussels"},{"n":"Bucharest","r":"Romania","tz":"Europe/Bucharest"},{"n":"Budapest","r":"Hungary","tz":"Europe/Budapest"},{"n":"Buenos Aires","r":"Argentina","tz":"America/Argentina/Buenos_Aires"},{"n":"Buffalo","r":"NY","tz":"America/New_York"},{"n":"Burlington","r":"VT","tz":"America/New_York"},{"n":"Busan","r":"South Korea","tz":"Asia/Seoul"},{"n":"Busingen","r":"Germany","tz":"Europe/Busingen"},{"n":"Cairns","r":"Australia","tz":"Australia/Brisbane"},{"n":"Cairo","r":"Egypt","tz":"Africa/Cairo"},{"n":"Calgary","r":"AB","tz":"America/Edmonton"},{"n":"Cambridge","r":"United Kingdom","tz":"Europe/London"},{"n":"Cambridge Bay","r":"NU","tz":"America/Cambridge_Bay"},{"n":"Campo Grande","r":"Brazil","tz":"America/Campo_Grande"},{"n":"Canary","r":"Spain","tz":"Atlantic/Canary"},{"n":"Canberra","r":"Australia","tz":"Australia/Sydney"},{"n":"Cancún","r":"Mexico","tz":"America/Cancun"},{"n":"Cape Town","r":"South Africa","tz":"Africa/Johannesburg"},{"n":"Cape Verde","r":"Cape Verde","tz":"Atlantic/Cape_Verde"},{"n":"Caracas","r":"Venezuela","tz":"America/Caracas"},{"n":"Casablanca","r":"Morocco","tz":"Africa/Casablanca"},{"n":"Casey","r":"Antarctica","tz":"Antarctica/Casey"},{"n":"Catamarca","r":"Argentina","tz":"America/Argentina/Catamarca"},{"n":"Cayenne","r":"French Guiana","tz":"America/Cayenne"},{"n":"Cebu","r":"Philippines","tz":"Asia/Manila"},{"n":"Center","r":"ND","tz":"America/North_Dakota/Center"},{"n":"Ceuta","r":"Spain","tz":"Africa/Ceuta"},{"n":"Chagos","r":"Chagos","tz":"Indian/Chagos"},{"n":"Charlotte","r":"NC","tz":"America/New_York"},{"n":"Chatham","r":"New Zealand","tz":"Pacific/Chatham"},{"n":"Chengdu","r":"China","tz":"Asia/Shanghai"},{"n":"Chennai","r":"India","tz":"Asia/Kolkata","a":"Madras"},{"n":"Chicago","r":"IL","tz":"America/Chicago"},{"n":"Chihuahua","r":"Mexico","tz":"America/Chihuahua"},{"n":"Chita","r":"Russia","tz":"Asia/Chita"},{"n":"Chișinău","r":"Moldova","tz":"Europe/Chisinau"},{"n":"Chongqing","r":"China","tz":"Asia/Shanghai"},{"n":"Christchurch","r":"New Zealand","tz":"Pacific/Auckland"},{"n":"Cincinnati","r":"OH","tz":"America/New_York"},{"n":"Ciudad Juárez","r":"Mexico","tz":"America/Ciudad_Juarez"},{"n":"Cleveland","r":"OH","tz":"America/New_York"},{"n":"Cologne","r":"Germany","tz":"Europe/Berlin"},{"n":"Colombo","r":"Sri Lanka","tz":"Asia/Colombo"},{"n":"Columbus","r":"OH","tz":"America/New_York"},{"n":"Copenhagen","r":"Denmark","tz":"Europe/Copenhagen"},{"n":"Cordoba","r":"Argentina","tz":"America/Argentina/Cordoba"},{"n":"Costa Rica","r":"Costa Rica","tz":"America/Costa_Rica"},{"n":"Coyhaique","r":"Chile","tz":"America/Coyhaique"},{"n":"Cuiabá","r":"Brazil","tz":"America/Cuiaba"},{"n":"Cupertino","r":"CA","tz":"America/Los_Angeles"},{"n":"Dakar","r":"Senegal","tz":"Africa/Dakar"},{"n":"Dalian","r":"China","tz":"Asia/Shanghai"},{"n":"Dallas","r":"TX","tz":"America/Chicago"},{"n":"Damascus","r":"Syria","tz":"Asia/Damascus"},{"n":"Danmarkshavn","r":"Greenland","tz":"America/Danmarkshavn"},{"n":"Dar es Salaam","r":"Tanzania","tz":"Africa/Dar_es_Salaam"},{"n":"Darwin","r":"Australia","tz":"Australia/Darwin"},{"n":"Davis","r":"Antarctica","tz":"Antarctica/Davis"},{"n":"Dawson","r":"YT","tz":"America/Dawson"},{"n":"Dawson Creek","r":"BC","tz":"America/Dawson_Creek"},{"n":"Delhi","r":"India","tz":"Asia/Kolkata"},{"n":"Denver","r":"CO","tz":"America/Denver"},{"n":"Des Moines","r":"IA","tz":"America/Chicago"},{"n":"Detroit","r":"MI","tz":"America/Detroit"},{"n":"Dhaka","r":"Bangladesh","tz":"Asia/Dhaka"},{"n":"Dili","r":"East Timor","tz":"Asia/Dili"},{"n":"Douglas","r":"Isle of Man","tz":"Europe/Isle_of_Man"},{"n":"Dubai","r":"United Arab Emirates","tz":"Asia/Dubai"},{"n":"Dublin","r":"Ireland","tz":"Europe/Dublin"},{"n":"Durban","r":"South Africa","tz":"Africa/Johannesburg"},{"n":"Dushanbe","r":"Tajikistan","tz":"Asia/Dushanbe"},{"n":"Düsseldorf","r":"Germany","tz":"Europe/Berlin"},{"n":"Easter","r":"Chile","tz":"Pacific/Easter"},{"n":"Edinburgh","r":"United Kingdom","tz":"Europe/London"},{"n":"Edmonton","r":"AB","tz":"America/Edmonton"},{"n":"Efate","r":"Vanuatu","tz":"Pacific/Efate"},{"n":"Eirunepé","r":"Brazil","tz":"America/Eirunepe"},{"n":"El Aaiun","r":"Western Sahara","tz":"Africa/El_Aaiun"},{"n":"El Paso","r":"TX","tz":"America/Denver"},{"n":"El Salvador","r":"El Salvador","tz":"America/El_Salvador"},{"n":"Eucla","r":"Australia","tz":"Australia/Eucla"},{"n":"Fakaofo","r":"Tokelau","tz":"Pacific/Fakaofo"},{"n":"Famagusta","r":"Cyprus","tz":"Asia/Famagusta"},{"n":"Faroe","r":"Faroe Islands","tz":"Atlantic/Faroe"},{"n":"Fiji","r":"Fiji","tz":"Pacific/Fiji"},{"n":"Florence","r":"Italy","tz":"Europe/Rome"},{"n":"Fort Nelson","r":"BC","tz":"America/Fort_Nelson"},{"n":"Fortaleza","r":"Brazil","tz":"America/Fortaleza"},{"n":"Frankfurt","r":"Germany","tz":"Europe/Berlin"},{"n":"Fukuoka","r":"Japan","tz":"Asia/Tokyo"},{"n":"Gaborone","r":"Botswana","tz":"Africa/Gaborone"},{"n":"Galapagos","r":"Ecuador","tz":"Pacific/Galapagos"},{"n":"Gambier","r":"French Polynesia","tz":"Pacific/Gambier"},{"n":"Gaza","r":"Palestine","tz":"Asia/Gaza"},{"n":"Gdańsk","r":"Poland","tz":"Europe/Warsaw"},{"n":"Geneva","r":"Switzerland","tz":"Europe/Zurich"},{"n":"Gibraltar","r":"Gibraltar","tz":"Europe/Gibraltar"},{"n":"Glace Bay","r":"NS","tz":"America/Glace_Bay"},{"n":"Glasgow","r":"United Kingdom","tz":"Europe/London"},{"n":"Gold Coast","r":"Australia","tz":"Australia/Brisbane"},{"n":"Goose Bay","r":"NL","tz":"America/Goose_Bay"},{"n":"Grand Turk","r":"Turks & Caicos","tz":"America/Grand_Turk"},{"n":"Guadalajara","r":"Mexico","tz":"America/Mexico_City"},{"n":"Guadalcanal","r":"Solomon Islands","tz":"Pacific/Guadalcanal"},{"n":"Guam","r":"Guam","tz":"Pacific/Guam"},{"n":"Guangzhou","r":"China","tz":"Asia/Shanghai"},{"n":"Guatemala","r":"Guatemala","tz":"America/Guatemala"},{"n":"Guayaquil","r":"Ecuador","tz":"America/Guayaquil"},{"n":"Guernsey","r":"Guernsey","tz":"Europe/Guernsey"},{"n":"Guyana","r":"Guyana","tz":"America/Guyana"},{"n":"Halifax","r":"NS","tz":"America/Halifax"},{"n":"Hamburg","r":"Germany","tz":"Europe/Berlin"},{"n":"Hangzhou","r":"China","tz":"Asia/Shanghai"},{"n":"Hanoi","r":"Vietnam","tz":"Asia/Ho_Chi_Minh"},{"n":"Harare","r":"Zimbabwe","tz":"Africa/Harare"},{"n":"Harbin","r":"China","tz":"Asia/Shanghai"},{"n":"Hartford","r":"CT","tz":"America/New_York"},{"n":"Havana","r":"Cuba","tz":"America/Havana"},{"n":"Hebron","r":"Palestine","tz":"Asia/Hebron"},{"n":"Helsinki","r":"Finland","tz":"Europe/Helsinki"},{"n":"Hermosillo","r":"Mexico","tz":"America/Hermosillo"},{"n":"Hiroshima","r":"Japan","tz":"Asia/Tokyo"},{"n":"Ho Chi Minh City","r":"Vietnam","tz":"Asia/Ho_Chi_Minh","a":"Saigon"},{"n":"Hobart","r":"Australia","tz":"Australia/Hobart"},{"n":"Hong Kong","r":"Hong Kong","tz":"Asia/Hong_Kong"},{"n":"Honolulu","r":"HI","tz":"Pacific/Honolulu"},{"n":"Houston","r":"TX","tz":"America/Chicago"},{"n":"Hovd","r":"Mongolia","tz":"Asia/Hovd"},{"n":"Hyderabad","r":"India","tz":"Asia/Kolkata"},{"n":"Incheon","r":"South Korea","tz":"Asia/Seoul"},{"n":"Indianapolis","r":"IN","tz":"America/Indiana/Indianapolis"},{"n":"Inuvik","r":"NT","tz":"America/Inuvik"},{"n":"Iqaluit","r":"NU","tz":"America/Iqaluit"},{"n":"Irkutsk","r":"Russia","tz":"Asia/Irkutsk"},{"n":"Islamabad","r":"Pakistan","tz":"Asia/Karachi"},{"n":"Istanbul","r":"Turkey","tz":"Europe/Istanbul"},{"n":"Jakarta","r":"Indonesia","tz":"Asia/Jakarta"},{"n":"Jamaica","r":"Jamaica","tz":"America/Jamaica"},{"n":"Jayapura","r":"Indonesia","tz":"Asia/Jayapura"},{"n":"Jersey","r":"Jersey","tz":"Europe/Jersey"},{"n":"Jerusalem","r":"Israel","tz":"Asia/Jerusalem"},{"n":"Johannesburg","r":"South Africa","tz":"Africa/Johannesburg"},{"n":"Juba","r":"South Sudan","tz":"Africa/Juba"},{"n":"Jujuy","r":"Argentina","tz":"America/Argentina/Jujuy"},{"n":"Juneau","r":"AK","tz":"America/Juneau"},{"n":"Kabul","r":"Afghanistan","tz":"Asia/Kabul"},{"n":"Kaliningrad","r":"Russia","tz":"Europe/Kaliningrad"},{"n":"Kamchatka","r":"Russia","tz":"Asia/Kamchatka"},{"n":"Kampala","r":"Uganda","tz":"Africa/Kampala"},{"n":"Kansas City","r":"MO","tz":"America/Chicago"},{"n":"Kanton","r":"Kiribati","tz":"Pacific/Kanton"},{"n":"Kaohsiung","r":"Taiwan","tz":"Asia/Taipei"},{"n":"Karachi","r":"Pakistan","tz":"Asia/Karachi"},{"n":"Kathmandu","r":"Nepal","tz":"Asia/Kathmandu"},{"n":"Khandyga","r":"Russia","tz":"Asia/Khandyga"},{"n":"Khartoum","r":"Sudan","tz":"Africa/Khartoum"},{"n":"Kigali","r":"Rwanda","tz":"Africa/Kigali"},{"n":"Kinshasa","r":"DR Congo","tz":"Africa/Kinshasa"},{"n":"Kiritimati","r":"Kiribati","tz":"Pacific/Kiritimati"},{"n":"Kirov","r":"Russia","tz":"Europe/Kirov"},{"n":"Knox","r":"IN","tz":"America/Indiana/Knox"},{"n":"Kobe","r":"Japan","tz":"Asia/Tokyo"},{"n":"Kolkata","r":"India","tz":"Asia/Kolkata","a":"Calcutta"},{"n":"Kosrae","r":"Micronesia","tz":"Pacific/Kosrae"},{"n":"Kraków","r":"Poland","tz":"Europe/Warsaw"},{"n":"Krasnoyarsk","r":"Russia","tz":"Asia/Krasnoyarsk"},{"n":"Kuala Lumpur","r":"Malaysia","tz":"Asia/Kuala_Lumpur"},{"n":"Kuching","r":"Malaysia","tz":"Asia/Kuching"},{"n":"Kunming","r":"China","tz":"Asia/Shanghai"},{"n":"Kuwait City","r":"Kuwait","tz":"Asia/Kuwait"},{"n":"Kwajalein","r":"Marshall Islands","tz":"Pacific/Kwajalein"},{"n":"Kyiv","r":"Ukraine","tz":"Europe/Kyiv","a":"Kiev"},{"n":"Kyoto","r":"Japan","tz":"Asia/Tokyo"},{"n":"La Paz","r":"Bolivia","tz":"America/La_Paz"},{"n":"La Rioja","r":"Argentina","tz":"America/Argentina/La_Rioja"},{"n":"Lagos","r":"Nigeria","tz":"Africa/Lagos"},{"n":"Lahore","r":"Pakistan","tz":"Asia/Karachi"},{"n":"Las Vegas","r":"NV","tz":"America/Los_Angeles"},{"n":"Lhasa","r":"China","tz":"Asia/Shanghai"},{"n":"Lima","r":"Peru","tz":"America/Lima"},{"n":"Lindeman","r":"Australia","tz":"Australia/Lindeman"},{"n":"Lisbon","r":"Portugal","tz":"Europe/Lisbon"},{"n":"Ljubljana","r":"Slovenia","tz":"Europe/Ljubljana"},{"n":"London","r":"United Kingdom","tz":"Europe/London"},{"n":"Lord Howe","r":"Australia","tz":"Australia/Lord_Howe"},{"n":"Los Angeles","r":"CA","tz":"America/Los_Angeles","a":"LA"},{"n":"Louisville","r":"KY","tz":"America/Kentucky/Louisville"},{"n":"Luanda","r":"Angola","tz":"Africa/Luanda"},{"n":"Lusaka","r":"Zambia","tz":"Africa/Lusaka"},{"n":"Luxembourg","r":"Luxembourg","tz":"Europe/Luxembourg"},{"n":"Lyon","r":"France","tz":"Europe/Paris"},{"n":"Macau","r":"Macau","tz":"Asia/Macau"},{"n":"Maceió","r":"Brazil","tz":"America/Maceio"},{"n":"Macquarie","r":"Antarctica","tz":"Antarctica/Macquarie"},{"n":"Madeira","r":"Portugal","tz":"Atlantic/Madeira"},{"n":"Madison","r":"WI","tz":"America/Chicago"},{"n":"Madrid","r":"Spain","tz":"Europe/Madrid"},{"n":"Magadan","r":"Russia","tz":"Asia/Magadan"},{"n":"Makassar","r":"Indonesia","tz":"Asia/Makassar"},{"n":"Maldives","r":"Maldives","tz":"Indian/Maldives"},{"n":"Malta","r":"Malta","tz":"Europe/Malta"},{"n":"Malé","r":"Maldives","tz":"Indian/Maldives"},{"n":"Managua","r":"Nicaragua","tz":"America/Managua"},{"n":"Manama","r":"Bahrain","tz":"Asia/Bahrain"},{"n":"Manaus","r":"Brazil","tz":"America/Manaus"},{"n":"Manchester","r":"United Kingdom","tz":"Europe/London"},{"n":"Manila","r":"Philippines","tz":"Asia/Manila"},{"n":"Maputo","r":"Mozambique","tz":"Africa/Maputo"},{"n":"Marengo","r":"IN","tz":"America/Indiana/Marengo"},{"n":"Mariehamn","r":"Åland Islands","tz":"Europe/Mariehamn"},{"n":"Marquesas","r":"French Polynesia","tz":"Pacific/Marquesas"},{"n":"Marrakesh","r":"Morocco","tz":"Africa/Casablanca"},{"n":"Marseille","r":"France","tz":"Europe/Paris"},{"n":"Martinique","r":"Martinique","tz":"America/Martinique"},{"n":"Matamoros","r":"Mexico","tz":"America/Matamoros"},{"n":"Mauritius","r":"Mauritius","tz":"Indian/Mauritius"},{"n":"Mawson","r":"Antarctica","tz":"Antarctica/Mawson"},{"n":"Mazatlán","r":"Mexico","tz":"America/Mazatlan"},{"n":"Medellín","r":"Colombia","tz":"America/Bogota"},{"n":"Melbourne","r":"Australia","tz":"Australia/Melbourne"},{"n":"Memphis","r":"TN","tz":"America/Chicago"},{"n":"Mendoza","r":"Argentina","tz":"America/Argentina/Mendoza"},{"n":"Menominee","r":"MI","tz":"America/Menominee"},{"n":"Metlakatla","r":"AK","tz":"America/Metlakatla"},{"n":"Mexico City","r":"Mexico","tz":"America/Mexico_City"},{"n":"Miami","r":"FL","tz":"America/New_York"},{"n":"Milan","r":"Italy","tz":"Europe/Rome"},{"n":"Milwaukee","r":"WI","tz":"America/Chicago"},{"n":"Minneapolis","r":"MN","tz":"America/Chicago"},{"n":"Minsk","r":"Belarus","tz":"Europe/Minsk"},{"n":"Miquelon","r":"St Pierre & Miquelon","tz":"America/Miquelon"},{"n":"Monaco","r":"Monaco","tz":"Europe/Monaco"},{"n":"Moncton","r":"NB","tz":"America/Moncton"},{"n":"Monrovia","r":"Liberia","tz":"Africa/Monrovia"},{"n":"Monterrey","r":"Mexico","tz":"America/Monterrey"},{"n":"Montevideo","r":"Uruguay","tz":"America/Montevideo"},{"n":"Monticello","r":"KY","tz":"America/Kentucky/Monticello"},{"n":"Montreal","r":"QC","tz":"America/Toronto"},{"n":"Moscow","r":"Russia","tz":"Europe/Moscow"},{"n":"Mumbai","r":"India","tz":"Asia/Kolkata","a":"Bombay"},{"n":"Munich","r":"Germany","tz":"Europe/Berlin"},{"n":"Muscat","r":"Oman","tz":"Asia/Muscat"},{"n":"Mérida","r":"Mexico","tz":"America/Merida"},{"n":"Nagoya","r":"Japan","tz":"Asia/Tokyo"},{"n":"Nairobi","r":"Kenya","tz":"Africa/Nairobi"},{"n":"Nanjing","r":"China","tz":"Asia/Shanghai"},{"n":"Naples","r":"Italy","tz":"Europe/Rome"},{"n":"Nashville","r":"TN","tz":"America/Chicago"},{"n":"Nauru","r":"Nauru","tz":"Pacific/Nauru"},{"n":"Naypyidaw","r":"Myanmar","tz":"Asia/Yangon"},{"n":"Ndjamena","r":"Chad","tz":"Africa/Ndjamena"},{"n":"New Delhi","r":"India","tz":"Asia/Kolkata"},{"n":"New Orleans","r":"LA","tz":"America/Chicago"},{"n":"New Salem","r":"ND","tz":"America/North_Dakota/New_Salem"},{"n":"New York","r":"NY","tz":"America/New_York","a":"NYC"},{"n":"Newark","r":"NJ","tz":"America/New_York"},{"n":"Newcastle","r":"Australia","tz":"Australia/Sydney"},{"n":"Nice","r":"France","tz":"Europe/Paris"},{"n":"Nicosia","r":"Cyprus","tz":"Asia/Nicosia"},{"n":"Niue","r":"Niue","tz":"Pacific/Niue"},{"n":"Nome","r":"AK","tz":"America/Nome"},{"n":"Norfolk","r":"Norfolk Island","tz":"Pacific/Norfolk"},{"n":"Noronha","r":"Brazil","tz":"America/Noronha"},{"n":"Noumea","r":"New Caledonia","tz":"Pacific/Noumea"},{"n":"Novokuznetsk","r":"Russia","tz":"Asia/Novokuznetsk"},{"n":"Novosibirsk","r":"Russia","tz":"Asia/Novosibirsk"},{"n":"Nuuk","r":"Greenland","tz":"America/Nuuk"},{"n":"Oakland","r":"CA","tz":"America/Los_Angeles"},{"n":"Ojinaga","r":"Mexico","tz":"America/Ojinaga"},{"n":"Okinawa","r":"Japan","tz":"Asia/Tokyo"},{"n":"Oklahoma City","r":"OK","tz":"America/Chicago"},{"n":"Omaha","r":"NE","tz":"America/Chicago"},{"n":"Omsk","r":"Russia","tz":"Asia/Omsk"},{"n":"Oral","r":"Kazakhstan","tz":"Asia/Oral"},{"n":"Orlando","r":"FL","tz":"America/New_York"},{"n":"Osaka","r":"Japan","tz":"Asia/Tokyo"},{"n":"Oslo","r":"Norway","tz":"Europe/Oslo"},{"n":"Ottawa","r":"ON","tz":"America/Toronto"},{"n":"Oxford","r":"United Kingdom","tz":"Europe/London"},{"n":"Pago Pago","r":"American Samoa","tz":"Pacific/Pago_Pago"},{"n":"Palau","r":"Palau","tz":"Pacific/Palau"},{"n":"Palmer","r":"Antarctica","tz":"Antarctica/Palmer"},{"n":"Palo Alto","r":"CA","tz":"America/Los_Angeles"},{"n":"Panama","r":"Panama","tz":"America/Panama"},{"n":"Paramaribo","r":"Suriname","tz":"America/Paramaribo"},{"n":"Paris","r":"France","tz":"Europe/Paris"},{"n":"Penang","r":"Malaysia","tz":"Asia/Kuala_Lumpur"},{"n":"Perth","r":"Australia","tz":"Australia/Perth"},{"n":"Petersburg","r":"IN","tz":"America/Indiana/Petersburg"},{"n":"Philadelphia","r":"PA","tz":"America/New_York"},{"n":"Phnom Penh","r":"Cambodia","tz":"Asia/Phnom_Penh"},{"n":"Phoenix","r":"AZ","tz":"America/Phoenix"},{"n":"Pitcairn","r":"Pitcairn","tz":"Pacific/Pitcairn"},{"n":"Pittsburgh","r":"PA","tz":"America/New_York"},{"n":"Podgorica","r":"Montenegro","tz":"Europe/Podgorica"},{"n":"Pontianak","r":"Indonesia","tz":"Asia/Pontianak"},{"n":"Port Moresby","r":"Papua New Guinea","tz":"Pacific/Port_Moresby"},{"n":"Port-au-Prince","r":"Haiti","tz":"America/Port-au-Prince"},{"n":"Portland","r":"ME","tz":"America/New_York"},{"n":"Portland","r":"OR","tz":"America/Los_Angeles"},{"n":"Porto","r":"Portugal","tz":"Europe/Lisbon"},{"n":"Porto Velho","r":"Brazil","tz":"America/Porto_Velho"},{"n":"Prague","r":"Czechia","tz":"Europe/Prague"},{"n":"Pretoria","r":"South Africa","tz":"Africa/Johannesburg"},{"n":"Providence","r":"RI","tz":"America/New_York"},{"n":"Puerto Rico","r":"Puerto Rico","tz":"America/Puerto_Rico"},{"n":"Pune","r":"India","tz":"Asia/Kolkata"},{"n":"Punta Arenas","r":"Chile","tz":"America/Punta_Arenas"},{"n":"Pyongyang","r":"North Korea","tz":"Asia/Pyongyang"},{"n":"Qatar","r":"Qatar","tz":"Asia/Qatar"},{"n":"Qingdao","r":"China","tz":"Asia/Shanghai"},{"n":"Qostanay","r":"Kazakhstan","tz":"Asia/Qostanay"},{"n":"Quebec City","r":"QC","tz":"America/Toronto"},{"n":"Queenstown","r":"New Zealand","tz":"Pacific/Auckland"},{"n":"Quito","r":"Ecuador","tz":"America/Guayaquil"},{"n":"Qyzylorda","r":"Kazakhstan","tz":"Asia/Qyzylorda"},{"n":"Raleigh","r":"NC","tz":"America/New_York"},{"n":"Rankin Inlet","r":"NU","tz":"America/Rankin_Inlet"},{"n":"Rarotonga","r":"Cook Islands","tz":"Pacific/Rarotonga"},{"n":"Recife","r":"Brazil","tz":"America/Recife"},{"n":"Regina","r":"SK","tz":"America/Regina"},{"n":"Reno","r":"NV","tz":"America/Los_Angeles"},{"n":"Resolute","r":"NU","tz":"America/Resolute"},{"n":"Reykjavík","r":"Iceland","tz":"Atlantic/Reykjavik"},{"n":"Richmond","r":"VA","tz":"America/New_York"},{"n":"Riga","r":"Latvia","tz":"Europe/Riga"},{"n":"Rio Branco","r":"Brazil","tz":"America/Rio_Branco"},{"n":"Rio Gallegos","r":"Argentina","tz":"America/Argentina/Rio_Gallegos"},{"n":"Rio de Janeiro","r":"Brazil","tz":"America/Sao_Paulo"},{"n":"Riyadh","r":"Saudi Arabia","tz":"Asia/Riyadh"},{"n":"Rome","r":"Italy","tz":"Europe/Rome"},{"n":"Rothera","r":"Antarctica","tz":"Antarctica/Rothera"},{"n":"Rotterdam","r":"Netherlands","tz":"Europe/Amsterdam"},{"n":"Sacramento","r":"CA","tz":"America/Los_Angeles"},{"n":"Sakhalin","r":"Russia","tz":"Asia/Sakhalin"},{"n":"Salt Lake City","r":"UT","tz":"America/Denver"},{"n":"Salta","r":"Argentina","tz":"America/Argentina/Salta"},{"n":"Samara","r":"Russia","tz":"Europe/Samara"},{"n":"Samarkand","r":"Uzbekistan","tz":"Asia/Samarkand"},{"n":"San Antonio","r":"TX","tz":"America/Chicago"},{"n":"San Diego","r":"CA","tz":"America/Los_Angeles"},{"n":"San Francisco","r":"CA","tz":"America/Los_Angeles","a":"SF"},{"n":"San Jose","r":"CA","tz":"America/Los_Angeles"},{"n":"San Juan","r":"Argentina","tz":"America/Argentina/San_Juan"},{"n":"San Luis","r":"Argentina","tz":"America/Argentina/San_Luis"},{"n":"San Marino","r":"San Marino","tz":"Europe/San_Marino"},{"n":"Sanaa","r":"Yemen","tz":"Asia/Aden"},{"n":"Santarém","r":"Brazil","tz":"America/Santarem"},{"n":"Santiago","r":"Chile","tz":"America/Santiago"},{"n":"Santo Domingo","r":"Dominican Republic","tz":"America/Santo_Domingo"},{"n":"Sao Tome","r":"São Tomé & Príncipe","tz":"Africa/Sao_Tome"},{"n":"Sapporo","r":"Japan","tz":"Asia/Tokyo"},{"n":"Sarajevo","r":"Bosnia & Herzegovina","tz":"Europe/Sarajevo"},{"n":"Saratov","r":"Russia","tz":"Europe/Saratov"},{"n":"Scoresbysund","r":"Greenland","tz":"America/Scoresbysund"},{"n":"Seattle","r":"WA","tz":"America/Los_Angeles"},{"n":"Seoul","r":"South Korea","tz":"Asia/Seoul"},{"n":"Seville","r":"Spain","tz":"Europe/Madrid"},{"n":"Shanghai","r":"China","tz":"Asia/Shanghai"},{"n":"Shenyang","r":"China","tz":"Asia/Shanghai"},{"n":"Shenzhen","r":"China","tz":"Asia/Shanghai"},{"n":"Simferopol","r":"Russia","tz":"Europe/Simferopol"},{"n":"Singapore","r":"Singapore","tz":"Asia/Singapore"},{"n":"Sitka","r":"AK","tz":"America/Sitka"},{"n":"Skopje","r":"North Macedonia","tz":"Europe/Skopje"},{"n":"Sofia","r":"Bulgaria","tz":"Europe/Sofia"},{"n":"South Georgia","r":"South Georgia","tz":"Atlantic/South_Georgia"},{"n":"Srednekolymsk","r":"Russia","tz":"Asia/Srednekolymsk"},{"n":"St Petersburg","r":"Russia","tz":"Europe/Moscow"},{"n":"St. John’s","r":"NL","tz":"America/St_Johns"},{"n":"St. Louis","r":"MO","tz":"America/Chicago"},{"n":"Stanley","r":"Falkland Islands","tz":"Atlantic/Stanley"},{"n":"Stockholm","r":"Sweden","tz":"Europe/Stockholm"},{"n":"Stuttgart","r":"Germany","tz":"Europe/Berlin"},{"n":"Surabaya","r":"Indonesia","tz":"Asia/Jakarta"},{"n":"Suva","r":"Fiji","tz":"Pacific/Fiji"},{"n":"Suzhou","r":"China","tz":"Asia/Shanghai"},{"n":"Swift Current","r":"SK","tz":"America/Swift_Current"},{"n":"Sydney","r":"Australia","tz":"Australia/Sydney"},{"n":"São Paulo","r":"Brazil","tz":"America/Sao_Paulo"},{"n":"Tahiti","r":"French Polynesia","tz":"Pacific/Tahiti"},{"n":"Taipei","r":"Taiwan","tz":"Asia/Taipei"},{"n":"Tallinn","r":"Estonia","tz":"Europe/Tallinn"},{"n":"Tampa","r":"FL","tz":"America/New_York"},{"n":"Tarawa","r":"Kiribati","tz":"Pacific/Tarawa"},{"n":"Tashkent","r":"Uzbekistan","tz":"Asia/Tashkent"},{"n":"Tbilisi","r":"Georgia","tz":"Asia/Tbilisi"},{"n":"Tegucigalpa","r":"Honduras","tz":"America/Tegucigalpa"},{"n":"Tehran","r":"Iran","tz":"Asia/Tehran"},{"n":"Tel Aviv","r":"Israel","tz":"Asia/Jerusalem"},{"n":"Tell City","r":"IN","tz":"America/Indiana/Tell_City"},{"n":"Thimphu","r":"Bhutan","tz":"Asia/Thimphu"},{"n":"Thule","r":"Greenland","tz":"America/Thule"},{"n":"Tianjin","r":"China","tz":"Asia/Shanghai"},{"n":"Tijuana","r":"Mexico","tz":"America/Tijuana"},{"n":"Tirane","r":"Albania","tz":"Europe/Tirane"},{"n":"Tokyo","r":"Japan","tz":"Asia/Tokyo"},{"n":"Tomsk","r":"Russia","tz":"Asia/Tomsk"},{"n":"Tongatapu","r":"Tonga","tz":"Pacific/Tongatapu"},{"n":"Toronto","r":"ON","tz":"America/Toronto"},{"n":"Tripoli","r":"Libya","tz":"Africa/Tripoli"},{"n":"Troll","r":"Antarctica","tz":"Antarctica/Troll"},{"n":"Tucson","r":"AZ","tz":"America/Phoenix"},{"n":"Tucuman","r":"Argentina","tz":"America/Argentina/Tucuman"},{"n":"Tunis","r":"Tunisia","tz":"Africa/Tunis"},{"n":"Turin","r":"Italy","tz":"Europe/Rome"},{"n":"UTC","r":"Coordinated Universal Time","tz":"UTC","a":"GMT Zulu"},{"n":"Ulaanbaatar","r":"Mongolia","tz":"Asia/Ulaanbaatar"},{"n":"Ulyanovsk","r":"Russia","tz":"Europe/Ulyanovsk"},{"n":"Urumqi","r":"China","tz":"Asia/Urumqi"},{"n":"Ushuaia","r":"Argentina","tz":"America/Argentina/Ushuaia"},{"n":"Ust-Nera","r":"Russia","tz":"Asia/Ust-Nera"},{"n":"Vaduz","r":"Liechtenstein","tz":"Europe/Vaduz"},{"n":"Valencia","r":"Spain","tz":"Europe/Madrid"},{"n":"Vancouver","r":"BC","tz":"America/Vancouver"},{"n":"Vatican City","r":"Vatican City","tz":"Europe/Vatican"},{"n":"Venice","r":"Italy","tz":"Europe/Rome"},{"n":"Vevay","r":"IN","tz":"America/Indiana/Vevay"},{"n":"Victoria","r":"BC","tz":"America/Vancouver"},{"n":"Vienna","r":"Austria","tz":"Europe/Vienna"},{"n":"Vientiane","r":"Laos","tz":"Asia/Vientiane"},{"n":"Vilnius","r":"Lithuania","tz":"Europe/Vilnius"},{"n":"Vincennes","r":"IN","tz":"America/Indiana/Vincennes"},{"n":"Vladivostok","r":"Russia","tz":"Asia/Vladivostok"},{"n":"Volgograd","r":"Russia","tz":"Europe/Volgograd"},{"n":"Vostok","r":"Antarctica","tz":"Antarctica/Vostok"},{"n":"Warsaw","r":"Poland","tz":"Europe/Warsaw"},{"n":"Washington","r":"DC","tz":"America/New_York","a":"DC"},{"n":"Wellington","r":"New Zealand","tz":"Pacific/Auckland"},{"n":"Whitehorse","r":"YT","tz":"America/Whitehorse"},{"n":"Winamac","r":"IN","tz":"America/Indiana/Winamac"},{"n":"Windhoek","r":"Namibia","tz":"Africa/Windhoek"},{"n":"Winnipeg","r":"MB","tz":"America/Winnipeg"},{"n":"Wuhan","r":"China","tz":"Asia/Shanghai"},{"n":"Xiamen","r":"China","tz":"Asia/Shanghai"},{"n":"Xi’an","r":"China","tz":"Asia/Shanghai","a":"Xian"},{"n":"Yakutat","r":"AK","tz":"America/Yakutat"},{"n":"Yakutsk","r":"Russia","tz":"Asia/Yakutsk"},{"n":"Yangon","r":"Myanmar (Burma)","tz":"Asia/Yangon","a":"Rangoon"},{"n":"Yekaterinburg","r":"Russia","tz":"Asia/Yekaterinburg"},{"n":"Yerevan","r":"Armenia","tz":"Asia/Yerevan"},{"n":"Yokohama","r":"Japan","tz":"Asia/Tokyo"},{"n":"Zagreb","r":"Croatia","tz":"Europe/Zagreb"},{"n":"Zürich","r":"Switzerland","tz":"Europe/Zurich"},{"n":"Ürümqi","r":"China","tz":"Asia/Urumqi","a":"Urumqi"}];
+const cityId = c => c.n + "|" + c.tz;
+
+async function api(url, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers);
+  if (TOKEN) opts.headers["Authorization"] = "Bearer " + TOKEN;
+  opts.headers["X-Exe-Client"] = CLIENT;
+  const r = await fetch(url, opts);
+  if (!r.ok && r.status !== 404) throw new Error("HTTP " + r.status);
+  return r;
+}
+
+// ---- the document: {version:1, items:[{id,name,region,tz,created,updated,deleted?}]} ----
+// Items carry content-derived ids (name|zone, so two nodes adding the same
+// city agree), updated stamps and delete tombstones so the daemon's
+// node-to-node sync can merge the list item by item (internal/peer/merge.go
+// knows this schema as WorldClock/clocks.json).
+let items = [];
+const live = () => items.filter(i => !i.deleted).sort((a, b) => a.created - b.created || a.id.localeCompare(b.id));
+function clean(raw) {
+  const it = { id: String(raw.id), name: String(raw.name || ""), region: String(raw.region || ""), tz: String(raw.tz || ""),
+    created: +raw.created || 0, updated: +raw.updated || 0 };
+  if (+raw.deleted) it.deleted = +raw.deleted;
+  return it;
+}
+// a tombstone keeps only its id and stamps; the zone rides in the id
+function bury(it) { delete it.name; delete it.region; delete it.tz; }
+function seedDefault() {
+  const id = cityId(DEFAULT_CITY);
+  if (items.some(i => i.id === id)) return;
+  const now = Date.now();
+  items.push({ id, name: DEFAULT_CITY.n, region: DEFAULT_CITY.r, tz: DEFAULT_CITY.tz, created: now, updated: now });
+}
+// a peer's copy landed (sync, or another window): union by id, newer
+// updated wins, a tombstone wins a tie so a deletion can't be resurrected
+function mergeIn(d) {
+  for (const raw of (d && Array.isArray(d.items)) ? d.items : []) {
+    if (!raw || typeof raw.id !== "string") continue;
+    const inc = clean(raw);
+    const cur = items.find(i => i.id === inc.id);
+    if (!cur) { items.push(inc); continue; }
+    const cd = +cur.deleted || 0;
+    if (inc.updated > cur.updated || (inc.updated === cur.updated && inc.deleted && !cd)) {
+      Object.assign(cur, inc);
+      if (!inc.deleted) delete cur.deleted;
+    }
+  }
+}
+// re-adding a buried city revives its record with a fresh stamp
+function addCity(c) {
+  const id = cityId(c), now = Date.now();
+  const ex = items.find(i => i.id === id);
+  if (ex && !ex.deleted) { flash(id); return; }
+  if (ex) { delete ex.deleted; Object.assign(ex, { name: c.n, region: c.r, tz: c.tz, created: now, updated: now }); }
+  else items.push({ id, name: c.n, region: c.r, tz: c.tz, created: now, updated: now });
+  save();
+  render();
+  flash(id);
+}
+function removeCity(id) {
+  const it = items.find(i => i.id === id && !i.deleted);
+  if (!it) return;
+  it.deleted = it.updated = Date.now();
+  bury(it);
+  save();
+  render();
+}
+
+// Debounced whole-doc PUT, serialized so a slow write is never overtaken;
+// saves stay blocked until the initial GET settled so a failed load can't
+// be clobbered with the default city. keepalive on flush survives the
+// desktop tearing the iframe down mid-debounce.
+let saveT = null, saving = false, again = false, loaded = false;
+function save() {
+  if (!loaded) return;
+  clearTimeout(saveT);
+  saveT = setTimeout(saveNow, 300);
+}
+async function saveNow(flush) {
+  clearTimeout(saveT); saveT = null;
+  const now = Date.now();
+  items = items.filter(i => !i.deleted || now - i.deleted < TOMBSTONE_TTL);
+  const body = JSON.stringify({ version: 1, items }, null, 2);
+  // X-Exe-Seq is a content timestamp: the daemon drops a PUT older than one
+  // it already stored, so an in-flight save can't land stale over the flush.
+  const seq = { "X-Exe-Seq": String(now) };
+  if (flush) {
+    try { api(DOC_URL, { method: "PUT", keepalive: true, headers: seq, body }); } catch (e) {}
+    return;
+  }
+  if (saving) { again = true; return; }
+  saving = true;
+  try {
+    await api(DOC_URL, { method: "PUT", headers: seq, body });
+  } catch (e) { console.error("world clock save failed:", e); }
+  saving = false;
+  if (again) { again = false; saveNow(); }
+}
+addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && (saveT || saving)) saveNow(true);
+  else if (document.visibilityState === "visible" && !paused) tick();
+});
+addEventListener("pagehide", () => { if (saveT || saving) saveNow(true); });
+
+// ---- time in a zone ----
+const fmtCache = {};
+function fmt(tz, key, opts, locale) {
+  const k = tz + "|" + key;
+  return fmtCache[k] || (fmtCache[k] = new Intl.DateTimeFormat(locale || [], Object.assign({ timeZone: tz }, opts)));
+}
+// wall clock and UTC offset in a zone — always the "en" digits, parsed
+function partsIn(tz, d) {
+  const p = {};
+  for (const x of fmt(tz, "parts", { hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric",
+    hour: "numeric", minute: "numeric", timeZoneName: "longOffset" }, "en").formatToParts(d)) p[x.type] = x.value;
+  const m = /([+-])(\d{1,2}):?(\d{2})?/.exec(p.timeZoneName || "");
+  const off = m ? (m[1] === "-" ? -1 : 1) * (+m[2] * 60 + (+m[3] || 0)) : 0;
+  return { y: +p.year, mo: +p.month, d: +p.day, h: +p.hour % 24, mi: +p.minute, off };
+}
+// the viewer's own clock format ("9:14 PM", "21:14"), day period split off
+function timeParts(tz, d) {
+  let hm = "", ap = "";
+  for (const x of fmt(tz, "time", { hour: "numeric", minute: "2-digit" }).formatToParts(d)) {
+    if (x.type === "dayPeriod") ap = x.value;
+    else if (x.type !== "literal" || hm) hm += x.value;
+  }
+  return { hm: hm.trim(), ap };
+}
+// "Today", "Tomorrow, +16h", "Yesterday, −8h", "Today, +5½h" — the city's
+// calendar day and offset against the viewer's own
+function relation(tz, d) {
+  const a = partsIn(tz, d), b = partsIn(LOCAL_TZ, d);
+  const days = Math.round((Date.UTC(a.y, a.mo - 1, a.d) - Date.UTC(b.y, b.mo - 1, b.d)) / 86400000);
+  const day = days === 0 ? "Today" : days === 1 ? "Tomorrow" : days === -1 ? "Yesterday" : (days > 0 ? "+" : "") + days + " days";
+  const diff = a.off - b.off;
+  if (!diff) return day;
+  const ab = Math.abs(diff), h = Math.floor(ab / 60), m = ab % 60;
+  const frac = m === 30 ? "½" : m === 45 ? "¾" : m === 15 ? "¼" : m ? ":" + String(m).padStart(2, "0") : "";
+  return day + ", " + (diff < 0 ? "−" : "+") + (h || frac ? h + frac : "0") + "h";
+}
+const zoneLabel = tz => { // "GMT-7", "GMT+5:30"
+  const p = fmt(tz, "short", { timeZoneName: "shortOffset" }, "en").formatToParts(new Date()).find(x => x.type === "timeZoneName");
+  return p ? p.value : "";
+};
+
+// ---- the dial: the same 15px face the phone menubar wears ----
+const FACE = `<svg width="15" height="15" viewBox="0 0 15 15" shape-rendering="crispEdges">
+  <path fill="#fff" d="M5 1h5v1H5zM3 2h9v1H3zM2 3h11v1H2zM2 4h11v1H2zM1 5h13v1H1zM1 6h13v1H1zM1 7h13v1H1zM1 8h13v1H1zM1 9h13v1H1zM2 10h11v1H2zM2 11h11v1H2zM3 12h9v1H3zM5 13h5v1H5z"/>
+  <path fill="#000" d="M5 0h5v1H5zM3 1h2v1H3zM10 1h2v1H10zM2 2h1v1H2zM12 2h1v1H12zM1 3h1v1H1zM13 3h1v1H13zM1 4h1v1H1zM13 4h1v1H13zM0 5h1v1H0zM14 5h1v1H14zM0 6h1v1H0zM14 6h1v1H14zM0 7h1v1H0zM14 7h1v1H14zM0 8h1v1H0zM14 8h1v1H14zM0 9h1v1H0zM14 9h1v1H14zM1 10h1v1H1zM13 10h1v1H13zM1 11h1v1H1zM13 11h1v1H13zM2 12h1v1H2zM12 12h1v1H12zM3 13h2v1H3zM10 13h2v1H10zM5 14h5v1H5zM7 1h1v1H7zM13 7h1v1H13zM7 13h1v1H7zM1 7h1v1H1z"/>
+</svg>`;
+// a 6px minute hand and a 4px hour hand, Bresenham so they stay pixel art
+function clockFace(h, mi) {
+  const px = new Set();
+  const line = (x1, y1, x2, y2) => {
+    const dx = Math.abs(x2 - x1), dy = -Math.abs(y2 - y1), sx = x1 < x2 ? 1 : -1, sy = y1 < y2 ? 1 : -1;
+    let err = dx + dy;
+    for (;;) {
+      px.add(x1 + "," + y1);
+      if (x1 === x2 && y1 === y2) break;
+      const e2 = 2 * err;
+      if (e2 >= dy) { err += dy; x1 += sx; }
+      if (e2 <= dx) { err += dx; y1 += sy; }
+    }
+  };
+  const hand = (turn, len) => line(7, 7, Math.round(7 + len * Math.sin(turn * 2 * Math.PI)), Math.round(7 - len * Math.cos(turn * 2 * Math.PI)));
+  hand(mi / 60, 6);
+  hand(((h % 12) + mi / 60) / 12, 4);
+  const hands = [...px].map(p => { const [x, y] = p.split(","); return `M${x} ${y}h1v1H${x}z`; }).join("");
+  return FACE.replace("</svg>", `<path fill="#000" d="${hands}"/></svg>`);
+}
+
+// ---- the list ----
+const list = $("#list");
+function fillRow(row, it, now) {
+  const p = partsIn(it.tz, now), tp = timeParts(it.tz, now);
+  row.querySelector(".dial").innerHTML = clockFace(p.h, p.mi);
+  row.querySelector(".sub").textContent = it.region + " · " + relation(it.tz, now);
+  const t = row.querySelector(".time");
+  t.replaceChildren(tp.hm, tp.ap ? el("small", {}, tp.ap) : "");
+}
+function render() {
+  const rows = live(), now = new Date();
+  list.replaceChildren();
+  if (!rows.length) list.append(el("div", { id: "empty" }, "No cities — search above to add one."));
+  for (const it of rows) {
+    const x = el("button", { class: "ghost sm danger x", title: "Remove " + it.name }, "×");
+    x.onclick = e => {
+      e.stopPropagation();
+      if (!x.classList.contains("armed")) { // the desktop's two-click armed ×
+        x.classList.add("armed");
+        setTimeout(() => x.classList.remove("armed"), 3000);
+        return;
+      }
+      removeCity(it.id);
+    };
+    const row = el("div", { class: "row", "data-id": it.id },
+      el("div", { class: "dial" }),
+      el("div", { class: "who" }, el("div", { class: "city", title: it.tz }, it.name), el("div", { class: "sub" })),
+      el("div", { class: "when" }, el("div", { class: "time" })),
+      x);
+    fillRow(row, it, now);
+    list.append(row);
+  }
+  $("#st-left").textContent = rows.length + (rows.length === 1 ? " city" : " cities");
+  hereLine(now);
+}
+// the status bar's own clock: the viewer's zone by its principal city
+const HERE_NAME = (() => {
+  const seg = LOCAL_TZ.split("/").pop().replace(/_/g, " ");
+  const c = CITIES.find(c => c.tz === LOCAL_TZ && c.n === seg) || CITIES.find(c => c.tz === LOCAL_TZ);
+  return c ? c.n : seg;
+})();
+function hereLine(now) {
+  const t = timeParts(LOCAL_TZ, now);
+  $("#st-right").textContent = "Here: " + HERE_NAME + " · " + t.hm + (t.ap ? " " + t.ap : "") + " · " + zoneLabel(LOCAL_TZ);
+}
+// hands and readouts move in place each minute, so an armed × survives
+function tick() {
+  const now = new Date();
+  for (const row of list.querySelectorAll(".row")) {
+    const it = items.find(i => i.id === row.dataset.id);
+    if (it && !it.deleted) fillRow(row, it, now);
+  }
+  hereLine(now);
+}
+function flash(id) {
+  const row = list.querySelector(`.row[data-id="${CSS.escape(id)}"]`);
+  if (!row) return;
+  row.scrollIntoView({ block: "nearest" });
+  row.classList.add("flash");
+  setTimeout(() => row.classList.remove("flash"), 900);
+}
+// ticks land just after each minute boundary; hidden windows sleep
+let tickT = null, paused = false;
+function schedule() {
+  clearTimeout(tickT);
+  tickT = setTimeout(() => { if (!paused) tick(); schedule(); }, 60000 - (Date.now() % 60000) + 80);
+}
+
+// ---- city search ----
+const q = $("#q"), drop = $("#drop");
+let hot = -1, results = [];
+const norm = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[’']/g, "").toLowerCase();
+const HAY = CITIES.map(c => norm(c.n + " " + c.r + " " + c.tz.replace(/[_/]/g, " ") + " " + (c.a || "")));
+function note(msg) {
+  drop.replaceChildren(el("div", { class: "note" }, msg));
+  drop.hidden = false;
+}
+function search() {
+  const raw = q.value.trim(), s = norm(raw);
+  if (!s) { drop.hidden = true; results = []; hot = -1; return; }
+  const terms = s.split(/\s+/);
+  const have = new Set(live().map(i => i.id));
+  results = [];
+  for (let i = 0; i < CITIES.length; i++) if (terms.every(t => HAY[i].includes(t))) results.push(CITIES[i]);
+  const starts = c => norm(c.n).startsWith(s) ? 0 : norm(c.n).startsWith(terms[0]) ? 1 : 2;
+  results.sort((a, b) => starts(a) - starts(b) || a.n.localeCompare(b.n) || a.r.localeCompare(b.r));
+  results = results.slice(0, 40);
+  hot = results.length ? 0 : -1;
+  if (!results.length) { note("No city matches “" + raw + "”"); return; }
+  drop.replaceChildren(...results.map((c, i) => {
+    const has = have.has(cityId(c));
+    const o = el("div", { class: "opt" + (i === hot ? " hot" : "") + (has ? " have" : "") },
+      el("b", {}, c.n + ", " + c.r), el("span", { class: "id" }, has ? "added" : zoneLabel(c.tz)));
+    o.addEventListener("mousedown", e => { e.preventDefault(); pick(i); });
+    return o;
+  }));
+  drop.hidden = false;
+  drop.scrollTop = 0;
+}
+function pick(i) {
+  const c = results[i];
+  if (!c) return;
+  q.value = "";
+  drop.hidden = true;
+  results = []; hot = -1;
+  if (MOBILE) q.blur(); // let the keyboard go so the new row shows
+  addCity(c);
+}
+let searchT = null;
+q.addEventListener("input", () => { clearTimeout(searchT); searchT = setTimeout(search, 120); });
+q.addEventListener("focus", () => { if (q.value.trim()) search(); });
+q.addEventListener("blur", () => setTimeout(() => { drop.hidden = true; }, 150));
+q.addEventListener("keydown", e => {
+  if (drop.hidden || !results.length) { if (e.key === "Escape") { drop.hidden = true; q.value = ""; } return; }
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    hot = e.key === "ArrowDown" ? Math.min(hot + 1, results.length - 1) : Math.max(hot - 1, 0);
+    drop.querySelectorAll(".opt").forEach((o, i) => o.classList.toggle("hot", i === hot));
+    const o = drop.querySelectorAll(".opt")[hot];
+    if (o) o.scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter") {
+    e.preventDefault(); pick(hot >= 0 ? hot : 0);
+  } else if (e.key === "Escape") {
+    drop.hidden = true;
+  }
+});
+
+// ---- desktop window plumbing (same bridge as the other apps) ----
+window.addEventListener("pointerdown", () => {
+  if (window.parent !== window) parent.postMessage({ exe: "focus" }, location.origin);
+}, { capture: true, passive: true });
+
+const grow = $("#grow");
+if (window.parent === window) grow.style.display = "none";
+grow.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  grow.setPointerCapture(e.pointerId);
+  const sx = e.clientX, sy = e.clientY;
+  const move = ev =>
+    parent.postMessage({ exe: "grow", dx: ev.clientX - sx, dy: ev.clientY - sy }, location.origin);
+  const up = () => {
+    grow.removeEventListener("pointermove", move);
+    grow.removeEventListener("pointerup", up);
+    parent.postMessage({ exe: "grow-end" }, location.origin);
+  };
+  grow.addEventListener("pointermove", move);
+  grow.addEventListener("pointerup", up);
+  parent.postMessage({ exe: "grow-start" }, location.origin);
+});
+
+// OS 9 scrollbar end-merges need the same scrolled/at-end flags as the desktop
+document.addEventListener("scroll", e => {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  t.classList.toggle("scrolled-y", t.scrollTop >= 1);
+  t.classList.toggle("at-y-end", t.scrollTop >= 1 && t.scrollTop >= t.scrollHeight - t.clientHeight - 1);
+}, { capture: true, passive: true });
+
+// hide/show from the desktop pause and resume the minute tick; a peer's or
+// another window's write (forwarded as data-changed) is merged in
+window.addEventListener("message", async e => {
+  if (e.origin !== location.origin || !e.data || typeof e.data.exe !== "string") return;
+  if (e.data.exe === "hide") {
+    paused = true;
+    clearTimeout(tickT);
+    if (saveT || saving) saveNow(true);
+  } else if (e.data.exe === "show") {
+    paused = false;
+    tick();
+    schedule();
+  } else if (e.data.exe === "data-changed") {
+    if (e.data.client && e.data.client === CLIENT) return; // our own write
+    if (!loaded || e.data.path !== "clocks.json" || saveT || saving) return;
+    try {
+      const r = await api(DOC_URL);
+      if (r.status === 404) return;
+      mergeIn(await r.json());
+      render();
+    } catch (err) {}
+  }
+});
+
+// Load the list, retrying a transient failure with backoff. Saves stay
+// blocked (loaded=false) until a GET succeeds so a failed load can't clobber
+// the stored list with the default city — but a daemon restart must not
+// silently disable saving for the whole session, so we keep trying.
+let tries = 0;
+async function load() {
+  try {
+    const r = await api(DOC_URL);
+    if (r.status === 404) seedDefault();
+    else { items = []; mergeIn(await r.json()); }
+    loaded = true;
+    render();
+    schedule();
+  } catch (e) {
+    console.error("world clock load failed:", e);
+    if (tries++ < 12) setTimeout(load, 5000);
+    // the first attempt still paints the default city so the app is usable
+    if (tries === 1) { seedDefault(); render(); schedule(); }
+  }
+}
+load();
+</script>
+</body>
+</html>

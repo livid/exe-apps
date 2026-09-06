@@ -1,0 +1,5 @@
+{
+  "title": "World Clock",
+  "icon": "icon.svg",
+  "window": { "width": 380, "height": 420, "grow": true }
+}

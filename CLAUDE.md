@@ -96,6 +96,23 @@ after 30 days — that's what lets two nodes' edits merge item-by-item.
   Gotchas encoded there: only type-R stations serve 6-minute curves (type-S
   fall back to cosine fit between hi/lo); fetch `time_zone=gmt`, render in
   viewer-local time; station list cached slim in localStorage for a week.
+- **World Clock** — the desktop's menubar clock opens it (the shell calls
+  `openAppWin("WorldClock")` when `/v1/apps` lists the folder). A list of
+  cities with a 15px pixel dial each (the phone menubar's face at 2x, hands
+  rasterised with Bresenham), the time in the viewer's own format, and
+  "Today / Tomorrow, +16h" against the viewer's zone (¼ ½ ¾ for the odd
+  offsets). Search is local: `CITIES` embeds every IANA zone's principal
+  city from tzdata's zone1970.tab (US states / Canadian provinces, other
+  countries by name) plus well-known cities sharing a zone and a few
+  aliases (NYC, LA, SF, Saigon…) — regenerate it from tzdata rather than
+  editing by hand. `clocks.json` is `{version:1, items:[{id,name,region,tz,
+  created,updated,deleted?}]}` with content-derived ids (`name|tz`, so two
+  nodes adding the same city agree); tombstones drop name/region/tz; the
+  daemon merges it item-by-item (internal/peer/merge.go matches the full key
+  `WorldClock/clocks.json` — the City app has an unrelated cities.json).
+  Default is Los Angeles, CA when the doc is absent; removing uses the
+  two-click armed ×; the minute tick sleeps on hide and resumes on show.
+
 - **Paint** — MacPaint homage: 1-bit page (512×384 default; Resize dialog
   goes up to 1152×1440, the saved PNG carries the size), tool + pattern
   palettes, QuickDraw square pen. The truth is one ImageData; every mark goes through

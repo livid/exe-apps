@@ -39,3 +39,7 @@ outside the served tree in `~/.exe/appdata/<AppName>/`.
   9410580); Today / 3 Days / 7 Days ranges; search any NOAA tide-prediction
   station. Reference stations draw the real 6-minute curve, subordinate
   stations get a cosine fit between highs and lows.
+- **World Clock** — opens from the desktop's menubar clock. A list of cities
+  with a pixel dial each, the local time, and the day and offset against
+  yours ("Tomorrow, +16h"). Search any city to add it; the × removes it.
+  Defaults to Los Angeles, CA.
