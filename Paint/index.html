@@ -27,6 +27,8 @@ button.ghost:active { background: #666; color: #fff;
     inset 2px 2px 0 #555, inset -2px -2px 0 #777; }
 /* the Return-triggered default button gets the black ring */
 button.ghost.default { outline: 2px solid var(--black); outline-offset: 1px; border-radius: 4px; }
+button.ghost:disabled { color: #777; border-color: #888; box-shadow: none; background: var(--g300); }
+button.ghost.default:disabled { outline-color: #888; }
 
 input[type=text] { background: #fff; color: var(--black);
   border: 1px solid var(--black); border-radius: 0; padding: 2px 5px; font: inherit; font-size: 12px;
@@ -35,22 +37,51 @@ input[type=text] { background: #fff; color: var(--black);
     1px 1px 0 #fff, 1px 0 0 #fff, 0 1px 0 #fff; }
 input[type=text]:focus { outline: 2px solid #9999fe; outline-offset: 0; }
 
-#bar { display: flex; gap: 8px; padding: 8px 10px 7px; align-items: center; }
+/* the button row scrolls sideways when the window is narrower than it
+   (a phone): no scrollbar, the row itself drags, nothing shrinks */
+#bar { display: flex; gap: 8px; padding: 8px 10px 7px; align-items: center; flex: none;
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none; touch-action: pan-x; }
+#bar::-webkit-scrollbar { display: none; }
+#bar > * { flex: none; white-space: nowrap; }
 #dims { margin-left: auto; font-size: 11px; color: #555; }
 #saved { margin-left: 8px; font-size: 11px; color: #555; }
 
-/* Canvas Size dialog, Platinum-style */
-#dlg-wrap { position: fixed; inset: 0; z-index: 10; display: flex;
+/* dialogs, Platinum-style: the HIG's 12px from every edge, 20px buttons
+   58px wide and 12px apart, the default one rightmost */
+.dlg-wrap { position: fixed; inset: 0; z-index: 10; display: flex;
   align-items: center; justify-content: center; }
-#dlg-wrap[hidden] { display: none; }
-#dlg { background: var(--g300); border: 1px solid var(--black); padding: 12px 14px 10px;
+.dlg-wrap[hidden] { display: none; }
+.dlg { background: var(--g300); border: 1px solid var(--black); padding: 12px;
   box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #999, 2px 2px 0 rgba(0,0,0,.35);
-  min-width: 220px; }
-#dlg .dlg-title { font-weight: bold; margin-bottom: 10px; }
-#dlg .dlg-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-#dlg .dlg-row label { width: 44px; }
-#dlg .dlg-note { font-size: 10px; color: #555; margin: 4px 0 10px; }
-#dlg .dlg-btns { display: flex; justify-content: flex-end; gap: 10px; }
+  min-width: 220px; max-width: calc(100vw - 24px); }
+.dlg .dlg-title { font-weight: bold; margin-bottom: 10px; }
+.dlg .dlg-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.dlg .dlg-row[hidden] { display: none; }
+.dlg:focus { outline: none; }
+.dlg .dlg-row label { width: 44px; }
+.dlg .dlg-note { font-size: 10px; color: #555; margin: 4px 0 10px; }
+.dlg .dlg-btns { display: flex; justify-content: flex-end; gap: 12px; margin-top: 12px; }
+.dlg .dlg-btns .ghost { min-width: 58px; }
+.dlg .dlg-err { font-size: 10px; color: #7a1010; margin-top: 4px; min-height: 14px; }
+
+/* Save / Load: the Workspace's Paint folder as a sunken Finder list (the
+   Notes listbox block); 8 rows of 18px, filled in place once the folder
+   answers so nothing moves */
+#fdlg { width: 326px; }
+#fdlg .dlg-title { margin-bottom: 2px; }
+#fdlg .dlg-note { margin: 0 0 8px; }
+#fdlg .dlg-row label { width: 54px; }
+#fdlg input[type=text] { width: auto; flex: 1; min-width: 0; }
+.listbox { background: #fff; border: 1px solid var(--black); overflow-y: auto; overflow-x: hidden;
+  box-shadow: -1px -1px 0 var(--g600), -1px 0 0 var(--g600), 0 -1px 0 var(--g600),
+    1px 1px 0 #fff, 1px 0 0 #fff, 0 1px 0 #fff; }
+#flist { height: 146px; margin-bottom: 10px; }
+.frow { display: flex; align-items: center; gap: 8px; height: 18px; padding: 0 6px; }
+.frow .fn { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.frow .fm { flex: none; font-size: 10px; color: #777; }
+.frow.sel { background: var(--hl); color: #fff; }
+.frow.sel .fm { color: #fff; }
+.frow.muted { color: #777; }
 
 #main { flex: 1; display: flex; min-height: 0; border-top: 1px solid var(--black); }
 
@@ -95,7 +126,9 @@ input[type=text]:focus { outline: 2px solid #9999fe; outline-offset: 0; }
 /* MacPaint's bottom palette: current pattern swatch + 2x19 pattern cells */
 #patbar { flex: none; display: flex; align-items: center; gap: 8px; height: 37px;
   border-top: 1px solid var(--black); background: var(--g300); padding: 0 20px 0 8px;
-  box-shadow: inset 1px 1px 0 rgba(255,255,255,.6); overflow: hidden; }
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.6); overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; touch-action: pan-x; }
+#patbar::-webkit-scrollbar { display: none; }
 #patcur { width: 34px; height: 26px; border: 1px solid var(--black); background: #fff;
   box-shadow: 1px 1px 0 rgba(0,0,0,.3); flex: none; }
 #pats { display: grid; grid-template-columns: repeat(19, 17px); grid-auto-rows: 13px;
@@ -104,6 +137,8 @@ input[type=text]:focus { outline: 2px solid #9999fe; outline-offset: 0; }
 
 #grow { position: fixed; right: 0; bottom: 0; width: 15px; height: 15px;
   touch-action: none; z-index: 6; }
+/* a phone's window fills the screen: no grow tile */
+body.mobile #grow { display: none; }
 
 /* Mac OS 9 scrollbars — the desktop's pixel-sampled spec (see Tides) */
 ::-webkit-scrollbar { width: 15px; height: 15px; }
@@ -154,6 +189,8 @@ input[type=text]:focus { outline: 2px solid #9999fe; outline-offset: 0; }
   <button class="ghost" id="undo">Undo</button>
   <button class="ghost" id="clear">Clear</button>
   <button class="ghost" id="resize">Resize</button>
+  <button class="ghost" id="save">Save…</button>
+  <button class="ghost" id="load">Load…</button>
   <button class="ghost" id="export">Export</button>
   <span id="dims"></span>
   <span id="saved"></span>
@@ -179,8 +216,8 @@ input[type=text]:focus { outline: 2px solid #9999fe; outline-offset: 0; }
   <div id="pats"></div>
 </div>
 
-<div id="dlg-wrap" hidden>
-  <div id="dlg">
+<div id="dlg-wrap" class="dlg-wrap" hidden>
+  <div id="dlg" class="dlg">
     <div class="dlg-title">Canvas Size</div>
     <div class="dlg-row"><label for="dlg-w">Width:</label><input type="text" id="dlg-w" autocomplete="off"> pixels</div>
     <div class="dlg-row"><label for="dlg-h">Height:</label><input type="text" id="dlg-h" autocomplete="off"> pixels</div>
@@ -188,6 +225,21 @@ input[type=text]:focus { outline: 2px solid #9999fe; outline-offset: 0; }
     <div class="dlg-btns">
       <button class="ghost" id="dlg-cancel">Cancel</button>
       <button class="ghost default" id="dlg-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Save… / Load…: paintings as PNGs in the Workspace's Paint folder -->
+<div id="fdlg-wrap" class="dlg-wrap" hidden>
+  <div id="fdlg" class="dlg" tabindex="-1">
+    <div class="dlg-title" id="fdlg-title">Save Painting</div>
+    <div class="dlg-note">Workspace:Paint</div>
+    <div class="listbox" id="flist"></div>
+    <div class="dlg-row" id="fdlg-namerow"><label for="fdlg-name">Save as:</label><input type="text" id="fdlg-name" autocomplete="off" spellcheck="false"></div>
+    <div class="dlg-err" id="fdlg-err"></div>
+    <div class="dlg-btns">
+      <button class="ghost" id="fdlg-cancel">Cancel</button>
+      <button class="ghost default" id="fdlg-ok">Save</button>
     </div>
   </div>
 </div>
@@ -214,6 +266,18 @@ const DOC_URL = "/v1/apps/" + encodeURIComponent(APP) + "/data/canvas.png";
 // identifies this window's writes so the daemon's change events can be
 // echo-suppressed here (we made the write) but delivered to other windows
 const CLIENT = Math.random().toString(36).slice(2) + Date.now().toString(36);
+// Save… / Load… keep paintings as PNGs in this Workspace folder, where the
+// desktop's Finder shows them and any node syncs them.
+const WS_DIR = "Paint";
+const wsUrl = name => "/v1/workspace/" + encodeURIComponent(WS_DIR) + "/" + encodeURIComponent(name);
+// A phone shows no grow tile. The desktop passes its own verdict as
+// ?mobile=1 (it also honours ?mobile=0); opened bare, the app runs the
+// desktop's test itself: phone UA, or a small coarse-pointer screen.
+const IS_MOBILE = new URLSearchParams(location.search).has("mobile")
+  ? new URLSearchParams(location.search).get("mobile") !== "0"
+  : /iPhone|iPod|Android.*Mobile|Windows Phone/i.test(navigator.userAgent)
+    || (matchMedia("(pointer: coarse)").matches && Math.min(screen.width, screen.height) < 700);
+if (IS_MOBILE) document.body.classList.add("mobile");
 
 async function api(url, opts = {}) {
   opts.headers = Object.assign({}, opts.headers);
@@ -248,6 +312,24 @@ function setDocSize(w, h) {
   dc.height = ov.height = scratch.height = h;
   pageEl.style.width = w + "px";
   $("#dims").textContent = w + "×" + h;
+}
+
+// pageFromBitmap replaces the whole page with bmp drawn at dw x dh on a
+// w x h page (the caller picks the fit), thresholded to 1-bit — the wire
+// format is 1-bit anyway. Resizing the canvases clears them, so this always
+// starts from a white page: a reload never ORs stale ink into the new art.
+function pageFromBitmap(bmp, w, h, dw, dh) {
+  if (w !== W || h !== H) setDocSize(w, h);
+  img = dctx.createImageData(w, h);
+  img.data.fill(255);
+  dirty = null;
+  sctx.clearRect(0, 0, w, h);
+  sctx.drawImage(bmp, 0, 0, dw, dh);
+  const s = sctx.getImageData(0, 0, w, h).data;
+  for (let i = 0; i < w * h; i++)
+    if (s[i * 4 + 3] >= 128 && s[i * 4] < 128) img.data.set([38, 38, 38, 255], i * 4);
+  sctx.clearRect(0, 0, w, h);
+  dctx.putImageData(img, 0, 0);
 }
 
 let dirty = null; // {x0,y0,x1,y1} accumulated since last flush
@@ -492,6 +574,159 @@ $("#dlg").addEventListener("keydown", e => {
   e.stopPropagation(); // keep Ctrl+Z etc. away from the canvas while typing
   if (e.key === "Enter") applyResize();
   if (e.key === "Escape") closeDlg();
+});
+
+// ---- Save… / Load…: PNGs in the Workspace's Paint folder ------------------
+// The working page keeps auto-saving to the app's data dir; these are the
+// named copies, in Workspace:Paint where the Finder shows them. Both share
+// one Standard File-style dialog: a list of the folder's PNGs, plus a name
+// field when saving. A name already in the list turns Save into Replace.
+// Loading is one undoable op; a picture bigger than the page limit is
+// scaled to fit, then thresholded like everything else.
+const fdlgWrap = $("#fdlg-wrap"), fdlgTitle = $("#fdlg-title"), flist = $("#flist");
+const fname = $("#fdlg-name"), fnameRow = $("#fdlg-namerow"), ferr = $("#fdlg-err");
+const fok = $("#fdlg-ok");
+let fmode = null;   // "save" | "load" while the dialog is open
+let fentries = [];  // the folder's PNGs, as listed
+let fsel = null;    // the highlighted row's name
+let docName = "";   // the Workspace file this page was last saved to / loaded from
+                    // (the dialogs offer it again; the button row has no room for it)
+let fbusy = false;
+// a typed name becomes one safe PNG file name inside the folder
+function cleanName(raw) {
+  let n = raw.trim().replace(/[\/\\:]+/g, "-").replace(/^\.+/, "");
+  if (!n) return "";
+  if (!/\.png$/i.test(n)) n += ".png";
+  return n;
+}
+// Finder-style default: the first free "Painting N.png"
+function freeName() {
+  const have = new Set(fentries.map(e => e.name.toLowerCase()));
+  for (let i = 1; ; i++) if (!have.has(("painting " + i + ".png"))) return "Painting " + i + ".png";
+}
+function fmtWhen(t) {
+  const d = new Date(t);
+  return d.toDateString() === new Date().toDateString()
+    ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+    : d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+async function listPaintings() {
+  const r = await api("/v1/workspace?dir=" + encodeURIComponent(WS_DIR));
+  if (r.status === 404) return []; // the folder appears with the first save
+  const data = await r.json();
+  return data.entries.filter(e => !e.dir && /\.png$/i.test(e.name));
+}
+function syncOk() {
+  if (fmode === "save") {
+    const n = cleanName(fname.value);
+    const exists = fentries.some(e => e.name === n);
+    fok.textContent = exists ? "Replace" : "Save";
+    fok.disabled = fbusy || !n;
+  } else {
+    fok.textContent = "Load";
+    fok.disabled = fbusy || !fsel;
+  }
+}
+function selectRow(name) {
+  fsel = name;
+  flist.querySelectorAll(".frow").forEach(r => r.classList.toggle("sel", r.dataset.name === name));
+  if (fmode === "save" && name) fname.value = name;
+  syncOk();
+}
+function renderList() {
+  flist.replaceChildren();
+  if (!fentries.length) {
+    const r = document.createElement("div");
+    r.className = "frow muted";
+    r.textContent = "No paintings yet";
+    flist.appendChild(r);
+    return;
+  }
+  for (const e of fentries) {
+    const r = document.createElement("div");
+    r.className = "frow"; r.dataset.name = e.name;
+    r.innerHTML = '<span class="fn"></span><span class="fm"></span>';
+    r.firstChild.textContent = e.name;
+    r.lastChild.textContent = fmtWhen(e.modified);
+    r.addEventListener("pointerdown", () => selectRow(e.name));
+    r.addEventListener("dblclick", () => { selectRow(e.name); fdlgOk(); });
+    flist.appendChild(r);
+  }
+}
+async function openFileDlg(mode) {
+  commitText();
+  fmode = mode; fsel = null; fentries = []; fbusy = false;
+  ferr.textContent = "";
+  fdlgTitle.textContent = mode === "save" ? "Save Painting" : "Load Painting";
+  fnameRow.hidden = mode !== "save";
+  fname.value = docName;
+  flist.replaceChildren(); // the box keeps its size; rows fill it in place
+  syncOk();
+  fdlgWrap.hidden = false;
+  // keys (Return, Escape, arrows) must land inside the dialog
+  if (mode === "save") { fname.focus(); fname.select(); } else $("#fdlg").focus();
+  try { fentries = await listPaintings(); }
+  catch (err) { ferr.textContent = "Couldn't list the folder: " + err.message; }
+  if (fdlgWrap.hidden || fmode !== mode) return; // closed meanwhile
+  renderList();
+  if (mode === "save") {
+    if (!fname.value) { fname.value = freeName(); fname.select(); }
+    const n = cleanName(fname.value);
+    if (fentries.some(e => e.name === n)) selectRow(n);
+  } else if (docName && fentries.some(e => e.name === docName)) selectRow(docName);
+  syncOk();
+}
+function closeFileDlg() { fdlgWrap.hidden = true; fmode = null; }
+
+async function saveToWorkspace(name) {
+  dropSelection(true); commitText();
+  const blob = await new Promise(res => dc.toBlob(res, "image/png"));
+  const r = await api(wsUrl(name), { method: "PUT", body: blob });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  docName = name;
+}
+async function loadFromWorkspace(name) {
+  const r = await api(wsUrl(name));
+  if (!r.ok) throw new Error(r.status === 404 ? "that file is gone" : "HTTP " + r.status);
+  const bmp = await createImageBitmap(await r.blob());
+  dropSelection(false); commitText();
+  snapshot();
+  const k = Math.min(1, 1152 / bmp.width, 1440 / bmp.height); // fit the page limit
+  const dw = Math.max(1, Math.round(bmp.width * k)), dh = Math.max(1, Math.round(bmp.height * k));
+  pageFromBitmap(bmp, Math.max(64, dw), Math.max(64, dh), dw, dh);
+  docName = name;
+  scheduleSave();
+}
+async function fdlgOk() {
+  if (fok.disabled || fbusy) return;
+  const name = fmode === "save" ? cleanName(fname.value) : fsel;
+  if (!name) return;
+  fbusy = true; syncOk(); ferr.textContent = "";
+  try {
+    if (fmode === "save") await saveToWorkspace(name); else await loadFromWorkspace(name);
+    closeFileDlg();
+  } catch (err) {
+    console.error("paint " + fmode + " failed:", err);
+    ferr.textContent = (fmode === "save" ? "Couldn't save: " : "Couldn't load: ") + err.message;
+  }
+  fbusy = false; syncOk();
+}
+$("#save").addEventListener("click", () => openFileDlg("save"));
+$("#load").addEventListener("click", () => openFileDlg("load"));
+$("#fdlg-cancel").addEventListener("click", closeFileDlg);
+fok.addEventListener("click", fdlgOk);
+fname.addEventListener("input", () => { fsel = null; flist.querySelectorAll(".frow.sel").forEach(r => r.classList.remove("sel")); syncOk(); });
+$("#fdlg").addEventListener("keydown", e => {
+  e.stopPropagation(); // keep Ctrl+Z etc. away from the canvas while typing
+  if (e.key === "Enter") { e.preventDefault(); fdlgOk(); }
+  else if (e.key === "Escape") closeFileDlg();
+  else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && fentries.length && e.target !== fname) {
+    e.preventDefault();
+    const i = fentries.findIndex(en => en.name === fsel);
+    const j = e.key === "ArrowDown" ? Math.min(fentries.length - 1, i + 1) : Math.max(0, i - 1);
+    selectRow(fentries[j].name);
+    flist.children[j].scrollIntoView({ block: "nearest" });
+  }
 });
 
 // ---- ink helpers ----------------------------------------------------------
@@ -863,17 +1098,7 @@ async function load() {
     if (r.status === 404) { loaded = true; return; }
     const blob = await r.blob();
     const bmp = await createImageBitmap(blob);
-    if (bmp.width !== W || bmp.height !== H) { // adopt the saved page size
-      setDocSize(bmp.width, bmp.height);
-      img = dctx.createImageData(W, H);
-      img.data.fill(255);
-    }
-    sctx.drawImage(bmp, 0, 0);
-    const s = sctx.getImageData(0, 0, W, H).data;
-    for (let i = 0; i < W * H; i++) // threshold: the wire format is 1-bit anyway
-      if (s[i * 4 + 3] >= 128 && s[i * 4] < 128) img.data.set([38, 38, 38, 255], i * 4);
-    sctx.clearRect(0, 0, W, H);
-    dctx.putImageData(img, 0, 0);
+    pageFromBitmap(bmp, bmp.width, bmp.height, bmp.width, bmp.height); // adopts the saved page size
     loaded = true;
   } catch (err) {
     console.error("paint load failed:", err);

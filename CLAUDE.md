@@ -126,4 +126,15 @@ after 30 days — that's what lets two nodes' edits merge item-by-item.
   MacPaint's "no line": shape borders vanish (filled shapes commit fill-only,
   previewed with a dashed guide), the line tool draws nothing, and pencil/
   brush fall back to the thinnest pen. Auto-saves the page as PNG to the
-  app-data API, re-thresholded on load.
+  app-data API, re-thresholded on load (`pageFromBitmap` always starts from
+  a white page, so a sync reload never ORs stale ink in). Save… / Load…
+  keep named copies in the Workspace's `Paint` folder (`/v1/workspace/
+  Paint/<name>.png`, listed with `?dir=Paint`; the folder appears with the
+  first save) through one Standard File-style dialog: a sunken list of the
+  folder's PNGs, a "Save as:" field whose name turns the button into
+  Replace when it already exists, "Painting N.png" as the free default;
+  Load is one undoable op and scales anything past the 1152×1440 page
+  limit to fit before thresholding. The button row and the pattern bar
+  scroll sideways with no scrollbar (`scrollbar-width: none`), which is
+  how they fit a phone; a phone (`?mobile=1`, body.mobile) also hides the
+  grow tile.
