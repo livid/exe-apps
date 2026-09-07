@@ -592,12 +592,25 @@ let fsel = null;    // the highlighted row's name
 let docName = "";   // the Workspace file this page was last saved to / loaded from
                     // (the dialogs offer it again; the button row has no room for it)
 let fbusy = false;
-// a typed name becomes one safe PNG file name inside the folder
+// A typed name becomes one safe PNG file name inside the folder, whatever
+// was typed: "Boat", "Boat.PNG", "Boat.jpg", "Boat.png.png" and "Boat." all
+// save as Boat.png; path characters turn into dashes; a bare extension or
+// dots alone are no name at all.
+const EXT_RE = /\.(png|jpe?g|gif|bmp|webp|tiff?)$/i;
 function cleanName(raw) {
-  let n = raw.trim().replace(/[\/\\:]+/g, "-").replace(/^\.+/, "");
-  if (!n) return "";
-  if (!/\.png$/i.test(n)) n += ".png";
-  return n;
+  let n = raw.trim().replace(/[\/\\:]+/g, "-");
+  for (let m = n; ; n = m) { // peel every picture extension and trailing dots
+    m = n.replace(EXT_RE, "").replace(/[.\s]+$/, "");
+    if (m === n) break;
+  }
+  n = n.replace(/^[.\s]+/, ""); // last, so a bare ".png" is no name, not "png"
+  return n ? n + ".png" : "";
+}
+// select the name without its extension, so typing over the default keeps
+// the .png (a whole-name selection lost it as soon as the user typed)
+function selectStem() {
+  const n = fname.value, stem = n.replace(/\.png$/i, "");
+  fname.setSelectionRange(0, stem.length);
 }
 // Finder-style default: the first free "Painting N.png"
 function freeName() {
@@ -664,13 +677,13 @@ async function openFileDlg(mode) {
   syncOk();
   fdlgWrap.hidden = false;
   // keys (Return, Escape, arrows) must land inside the dialog
-  if (mode === "save") { fname.focus(); fname.select(); } else $("#fdlg").focus();
+  if (mode === "save") { fname.focus(); selectStem(); } else $("#fdlg").focus();
   try { fentries = await listPaintings(); }
   catch (err) { ferr.textContent = "Couldn't list the folder: " + err.message; }
   if (fdlgWrap.hidden || fmode !== mode) return; // closed meanwhile
   renderList();
   if (mode === "save") {
-    if (!fname.value) { fname.value = freeName(); fname.select(); }
+    if (!fname.value) { fname.value = freeName(); selectStem(); }
     const n = cleanName(fname.value);
     if (fentries.some(e => e.name === n)) selectRow(n);
   } else if (docName && fentries.some(e => e.name === docName)) selectRow(docName);
@@ -716,6 +729,8 @@ $("#load").addEventListener("click", () => openFileDlg("load"));
 $("#fdlg-cancel").addEventListener("click", closeFileDlg);
 fok.addEventListener("click", fdlgOk);
 fname.addEventListener("input", () => { fsel = null; flist.querySelectorAll(".frow.sel").forEach(r => r.classList.remove("sel")); syncOk(); });
+// leaving the field shows the name exactly as it will be saved
+fname.addEventListener("blur", () => { const n = cleanName(fname.value); if (n) fname.value = n; syncOk(); });
 $("#fdlg").addEventListener("keydown", e => {
   e.stopPropagation(); // keep Ctrl+Z etc. away from the canvas while typing
   if (e.key === "Enter") { e.preventDefault(); fdlgOk(); }
