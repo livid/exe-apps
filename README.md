@@ -17,8 +17,8 @@ in `~/.exe/config.json`:
 ```
 
 (also editable in the desktop's Configuration window, under Daemon). Every
-valid bundle shows up as a desktop icon, in the desktop menu and in the
-Windows list; `~/.exe/apps` wins name collisions with this repo.
+valid bundle shows up as a desktop icon and in the desktop menu's app list;
+`~/.exe/apps` wins name collisions with this repo.
 
 ## Bundle layout
 
