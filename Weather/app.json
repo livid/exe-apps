@@ -1,0 +1,5 @@
+{
+  "title": "Weather",
+  "icon": "icon.svg",
+  "window": { "width": 440, "height": 520, "grow": true }
+}

@@ -114,6 +114,45 @@ after 30 days — that's what lets two nodes' edits merge item-by-item.
   Default is Los Angeles, CA when the doc is absent; removing uses the
   two-click armed ×; the minute tick sleeps on hide and resumes on show.
 
+- **Weather** — the World Clock's list shape, each row a 32-grid condition
+  icon (`ART` in index.html, generated pixel art: sun, moon, cloud, rain,
+  snow, sleet, thunder, fog; icon.svg is the sun-behind-cloud one), the
+  temperature and today's high/low, unfolding on click — the Finder list
+  view's disclosure triangle, sampled from a lossless OS 9 capture — into
+  every field Open-Meteo's forecast endpoint serves, in four folding
+  sections: Now (the 15 current variables plus the reading's time and
+  interval), Place (the geocoder's record and the model's grid point,
+  elevation, zone, offset, generation time), Daily (7 days × 59
+  aggregates) and Hourly (48 hours × 65 surface variables), the tables in
+  bordered boxes that scroll sideways under the OS 9 horizontal bar with
+  a sticky label column, the current hour tinted. A `.popup` units menu
+  (°C · km/h · mm or °F · mph · in, defaulting from the browser locale)
+  refetches, since the API converts server-side. Search is Open-Meteo's
+  geocoder (`geocoding-api.open-meteo.com/v1/search`, ≥2 chars, 250 ms
+  debounce, a sequence number drops stale answers); one forecast call per
+  city, three at a time, with `timezone=auto&forecast_days=7&
+  forecast_hours=48`, the API's local ISO times shown as the city's wall
+  clock in the viewer's format. Forecasts are cached in localStorage
+  (`exe-weather-cache:<App>`, with the units they came in) so a reopen
+  paints at once, and re-asked when older than 10 minutes on a one-minute
+  tick that sleeps on hide; which cities and sections are unfolded is
+  per-viewer UI state in localStorage too. `places.json` is `{version:1,
+  items:[{id,name,region,country,cc,lat,lon,elev?,tz,pop?,feature,created,
+  updated,deleted?}]}` — the geocoder's record keyed by its GeoNames id
+  (`geo:5368361`) so two nodes adding the same result agree; tombstones
+  keep only id and stamps; the daemon merges it item by item (merge.go
+  matches the full key `Weather/places.json`, numbers as pointers so a
+  sea-level elevation survives). Default is Los Angeles when the doc is
+  absent. The three variable lists are what the API accepted on
+  2026-09-09 — one unknown name fails the whole request, so regenerate
+  from the docs rather than guess; the daily aggregates the default model
+  leaves null (updraft, growing degree days, the layered soil means), the
+  pressure-level columns and `minutely_15` are left out on purpose.
+  Headless check: `~/tools/playwright/exe-weather-test.js` (mocks the
+  document, calls Open-Meteo for real; `frame.click` in that harness can
+  take seconds, so a timed state like the 3-second armed × is driven with
+  DOM clicks).
+
 - **Paint** — MacPaint homage: 1-bit page (512×384 default; Resize dialog
   goes up to 1152×1440, the saved PNG carries the size), tool + pattern
   palettes, QuickDraw square pen. The truth is one ImageData; every mark goes through

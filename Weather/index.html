@@ -1,0 +1,888 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Weather</title>
+<style>
+/* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
+:root {
+  --black: #262626;
+  --g200: #eee; --g300: #ddd; --g400: #ccc; --g500: #bbb; --g600: #999;
+  --hl: #333399; --red: #cc3333;
+  --font: "Charcoal", "Chicago", "Geneva", "Lucida Grande", "Lucida Sans", Geneva, Verdana, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; font: 12px/1.45 var(--font); color: var(--black); background: var(--g200);
+  user-select: none; cursor: default; overflow: hidden; display: flex; flex-direction: column; }
+
+#bar { display: flex; gap: 8px; padding: 10px 10px 8px; align-items: center; }
+input[type=text] { background: #fff; color: var(--black);
+  border: 1px solid var(--black); border-radius: 0; padding: 2px 5px; font: inherit; font-size: 12px;
+  height: 20px; line-height: 14px;
+  box-shadow: -1px -1px 0 var(--g600), -1px 0 0 var(--g600), 0 -1px 0 var(--g600),
+    1px 1px 0 #fff, 1px 0 0 #fff, 0 1px 0 #fff; }
+input[type=text]:focus { outline: 2px solid #9999fe; outline-offset: 0; }
+
+button { font: inherit; cursor: default; }
+button.ghost { background: var(--g300); color: var(--black);
+  border: 1px solid var(--black); border-radius: 3px;
+  padding: 2px 13px; font-size: 12px; line-height: 14px; font-weight: bold; height: 20px;
+  box-shadow: inset 1px 1px 0 var(--g300), inset -1px -1px 0 #777,
+    inset 2px 2px 0 #fff, inset -2px -2px 0 #aaa; }
+button.ghost:active { background: #666; color: #fff;
+  box-shadow: inset 1px 1px 0 #444, inset -1px -1px 0 #888,
+    inset 2px 2px 0 #555, inset -2px -2px 0 #777; }
+button.ghost.danger { color: #7a1010; }
+button.ghost.armed { background: var(--red); color: #fff;
+  box-shadow: inset 1px 1px 0 #e88, inset -1px -1px 0 #911; }
+button.ghost.sm { padding: 1px 8px; font-size: 10px; border-radius: 3px; height: auto; }
+
+#q-wrap { position: relative; flex: 1; min-width: 0; }
+#q { width: 100%; }
+#drop { position: absolute; left: 0; right: 0; top: 21px; z-index: 5;
+  background: #fff; border: 1px solid var(--black); box-shadow: 2px 2px 0 rgba(0,0,0,.35);
+  max-height: 208px; overflow-y: auto; overflow-x: hidden; }
+#drop .opt { display: flex; gap: 6px; padding: 3px 6px; white-space: nowrap; overflow: hidden; }
+#drop .opt b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: normal; }
+#drop .opt .id { flex: none; color: #777; font-size: 10px; }
+#drop .opt.have b { color: #777; }
+#drop .opt.hot, #drop .opt:hover { background: var(--hl); color: #fff; }
+#drop .opt.hot b, #drop .opt:hover b, #drop .opt.hot .id, #drop .opt:hover .id { color: #ccf; }
+#drop .opt.hot b, #drop .opt:hover b { color: #fff; }
+#drop .note { padding: 4px 6px; color: #555; font-size: 11px; }
+
+/* Pop-up menu button (Blue Pencil's block, from HIG fig. 2-7): a 19px
+   rounded black outline, white top and left, #aaa bottom, a 21px arrow
+   well on the right with its own bevel, a transparent native select
+   inside. Every 1px line is a border on a box of its own. */
+.popup { position: relative; display: block; height: 19px; overflow: hidden;
+  border: 1px solid #000; border-radius: 3px; background: var(--g300); }
+.popup::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: calc(100% - 21px);
+  box-sizing: border-box; border-top: 1px solid #fff; border-left: 1px solid #fff; border-bottom: 1px solid #aaa; }
+.popup .well { position: absolute; right: 0; top: 1px; bottom: 0; width: 21px;
+  border-left: 1px solid #aaa; pointer-events: none; }
+.popup .well i { position: absolute; left: 1px; top: 0; right: 0; bottom: 0;
+  border-right: 1px solid #777; border-bottom: 1px solid #777; }
+.popup .well b { position: absolute; inset: 0;
+  border-top: 1px solid #fff; border-left: 1px solid #fff;
+  border-right: 1px solid #aaa; border-bottom: 1px solid #aaa;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="7" height="10" shape-rendering="crispEdges"><path fill="black" d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM0 6h7v1H0zM1 7h5v1H1zM2 8h3v1H2zM3 9h1v1H3z"/></svg>') 4px 1px no-repeat; }
+@media (min-resolution: 1.01dppx) and (max-resolution: 1.99dppx) {
+  .popup .well b { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="7" height="10" shape-rendering="geometricPrecision"><path fill="black" d="M3.5 0L7 4H0zM0 6h7l-3.5 4z"/></svg>'); }
+}
+.popup select { position: absolute; inset: 0; width: 100%; height: 100%; appearance: none;
+  background: transparent; border: 0; border-radius: 0; padding: 0 27px 0 6px; margin: 0;
+  color: #000; font: 12px/17px var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.popup select:focus { outline: none; }
+#units-wrap { flex: none; width: 124px; }
+
+/* the cities are a document area: flush left/right/bottom, separator on
+   top, an always-on OS 9 scrollbar like a Finder list */
+#list { flex: 1; min-height: 0; background: #fff; border-top: 1px solid var(--black);
+  overflow-y: scroll; overflow-x: hidden; }
+.row { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 8px; border-bottom: 1px solid #efefef; }
+.row.flash { background: #e6e6ff; }
+/* the Finder list view's disclosure triangle, sampled from Mac OS 9:
+   lavender face, black outline, a one-pixel gray shadow to the lower right */
+.tri { flex: none; width: 12px; height: 12px; background: no-repeat center;
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="9" height="12" shape-rendering="crispEdges"><path fill="%23000000" d="M0 0h1v1H0zM0 1h1v1H0zM1 1h1v1H1zM0 2h1v1H0zM2 2h1v1H2zM0 3h1v1H0zM3 3h1v1H3zM0 4h1v1H0zM4 4h1v1H4zM0 5h1v1H0zM5 5h1v1H5zM0 6h1v1H0zM4 6h1v1H4zM0 7h1v1H0zM3 7h1v1H3zM0 8h1v1H0zM2 8h1v1H2zM0 9h1v1H0zM1 9h1v1H1zM0 10h1v1H0z"/><path fill="%23ccccff" d="M1 2h1v1H1zM1 3h1v1H1zM1 4h1v1H1zM1 5h1v1H1zM1 6h1v1H1zM1 7h1v1H1z"/><path fill="%239999ff" d="M2 3h1v1H2zM2 4h1v1H2zM3 4h1v1H3zM2 5h1v1H2zM3 5h1v1H3zM2 6h1v1H2zM1 8h1v1H1z"/><path fill="%236666cc" d="M4 5h1v1H4zM3 6h1v1H3zM2 7h1v1H2z"/><path fill="%23888888" d="M5 6h1v1H5zM4 7h1v1H4zM3 8h1v1H3zM2 9h1v1H2zM1 10h1v1H1z"/><path fill="%23bbbbbb" d="M6 6h1v1H6zM5 7h1v1H5zM4 8h1v1H4zM3 9h1v1H3zM2 10h1v1H2zM1 11h1v1H1z"/></svg>'); }
+.open > .row .tri, .sec.open .tri { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="9" shape-rendering="crispEdges"><path fill="%23000000" d="M0 0h1v1H0zM1 0h1v1H1zM2 0h1v1H2zM3 0h1v1H3zM4 0h1v1H4zM5 0h1v1H5zM6 0h1v1H6zM7 0h1v1H7zM8 0h1v1H8zM9 0h1v1H9zM10 0h1v1H10zM1 1h1v1H1zM9 1h1v1H9zM2 2h1v1H2zM8 2h1v1H8zM3 3h1v1H3zM7 3h1v1H7zM4 4h1v1H4zM6 4h1v1H6zM5 5h1v1H5z"/><path fill="%23ccccff" d="M2 1h1v1H2zM3 1h1v1H3zM4 1h1v1H4zM5 1h1v1H5zM6 1h1v1H6zM7 1h1v1H7z"/><path fill="%239999ff" d="M8 1h1v1H8zM3 2h1v1H3zM4 2h1v1H4zM5 2h1v1H5zM6 2h1v1H6zM4 3h1v1H4zM5 3h1v1H5z"/><path fill="%23888888" d="M10 1h1v1H10zM9 2h1v1H9zM8 3h1v1H8zM7 4h1v1H7zM6 5h1v1H6z"/><path fill="%23bbbbbb" d="M11 1h1v1H11zM10 2h1v1H10zM9 3h1v1H9zM8 4h1v1H8zM7 5h1v1H7zM6 6h1v1H6z"/><path fill="%236666cc" d="M7 2h1v1H7zM6 3h1v1H6zM5 4h1v1H5z"/></svg>'); }
+.icon { flex: none; width: 32px; height: 32px; }
+.icon svg { display: block; width: 32px; height: 32px; }
+.who { flex: 1; min-width: 0; }
+.city { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub { font-size: 11px; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.when { flex: none; text-align: right; }
+.temp { font-size: 18px; font-weight: bold; line-height: 20px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hilo { font-size: 11px; color: #777; line-height: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; min-height: 14px; }
+.row .x { flex: none; }
+#empty { padding: 14px 10px; color: #777; }
+
+/* an opened city: its sections indented under the row, each with its own
+   triangle; label/value pairs for Now and Place, day and hour tables for
+   the forecast, in bordered boxes that scroll sideways */
+.detail { display: none; padding: 2px 10px 6px 24px; border-bottom: 1px solid #efefef; }
+.open > .detail { display: block; }
+.sec { display: flex; align-items: center; gap: 6px; height: 20px; font-size: 11px; font-weight: bold; }
+.sec .tri { width: 12px; height: 12px; }
+.sec .n { font-weight: normal; color: #777; }
+.body { display: none; padding: 0 0 6px 18px; }
+.sec.open + .body { display: block; }
+.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 14px;
+  font-size: 11px; line-height: 16px; }
+.kv .k { color: #555; white-space: nowrap; }
+.kv .v { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.tbox { border: 1px solid var(--black); background: #fff; overflow-x: scroll; overflow-y: hidden; margin: 2px 0 2px; }
+.tbox table { border-collapse: separate; border-spacing: 0; font-size: 11px; line-height: 15px;
+  font-variant-numeric: tabular-nums; }
+.tbox th, .tbox td { padding: 0 6px; white-space: nowrap; border-bottom: 1px solid #efefef; text-align: right; font-weight: normal; }
+.tbox th.lab { position: sticky; left: 0; background: #fff; text-align: left; color: #555; border-right: 1px solid var(--black); z-index: 1; }
+.tbox thead th { background: var(--g200); text-align: center; border-bottom: 1px solid var(--black); font-weight: bold; }
+.tbox thead th.lab { background: var(--g200); }
+.tbox thead tr.days th { border-bottom: 1px solid #ccc; font-weight: normal; color: #555; }
+.tbox thead tr.days th.lab { border-bottom: 1px solid #ccc; }
+.tbox td.day0 { border-left: 1px solid #ccc; }
+.tbox td.now { background: #e6e6ff; }
+.tbox tbody tr:last-child td, .tbox tbody tr:last-child th { border-bottom: 0; }
+.wait { font-size: 11px; color: #777; line-height: 16px; }
+
+/* 15px total (1px border + 14px face), same as the desktop's statusbars;
+   the grow tile's black top row lands on this border-top line */
+#status { display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--black);
+  background: var(--g300); font-size: 11px; color: #333; padding: 0 20px 0 8px; height: 15px;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.6), inset -1px -1px 0 #aaa; }
+#st-left { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#st-right { flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+#grow { position: fixed; right: 0; bottom: 0; width: 15px; height: 15px;
+  touch-action: none; z-index: 6; }
+
+/* Mac OS 9 scrollbars — the desktop's pixel-sampled spec, adapted for a
+   document window: the host frame (or a bordered box) draws the outer black
+   line, so bars are 15px (1px leading separator + the sampled 14px face)
+   with no trailing border of their own — otherwise the edge doubles to 2px.
+   Vertical is the city list against the window frame; horizontal is the
+   forecast tables inside their own boxes. */
+::-webkit-scrollbar { width: 15px; height: 15px; }
+::-webkit-scrollbar-track:vertical { border-left: 1px solid var(--black);
+  background: linear-gradient(to right, #777 0, #777 1px, #888 1px, #888 2px, #aaa 2px, #aaa 12px, #bbb 12px, #bbb 13px, #ccc 13px, #ccc 14px); }
+::-webkit-scrollbar-track:horizontal { border-top: 1px solid var(--black);
+  background: linear-gradient(to bottom, #777 0, #777 1px, #888 1px, #888 2px, #aaa 2px, #aaa 12px, #bbb 12px, #bbb 13px, #ccc 13px, #ccc 14px); }
+::-webkit-scrollbar-thumb:vertical { border: 1px solid var(--black); border-right: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="0" width="6" height="1" fill="%23ccccff"/><rect x="4" y="1" width="7" height="1" fill="%23333399"/><rect x="3" y="2" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="2" width="6" height="1" fill="%23ccccff"/><rect x="4" y="3" width="7" height="1" fill="%23333399"/><rect x="3" y="4" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="4" width="6" height="1" fill="%23ccccff"/><rect x="4" y="5" width="7" height="1" fill="%23333399"/><rect x="3" y="6" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="6" width="6" height="1" fill="%23ccccff"/><rect x="4" y="7" width="7" height="1" fill="%23333399"/></svg>') center no-repeat,
+    linear-gradient(to right, #ccccff 0 1px, #9999ff 1px 13px, #6666cc 13px 14px);
+  box-shadow: inset 0 1px 0 #ccccff, inset 0 -1px 0 #6666cc; }
+::-webkit-scrollbar-thumb:horizontal { border: 1px solid var(--black); border-bottom: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="14" shape-rendering="crispEdges"><rect x="0" y="3" width="1" height="1" fill="%23eeeeee"/><rect x="0" y="4" width="1" height="6" fill="%23ccccff"/><rect x="1" y="4" width="1" height="7" fill="%23333399"/><rect x="2" y="3" width="1" height="1" fill="%23eeeeee"/><rect x="2" y="4" width="1" height="6" fill="%23ccccff"/><rect x="3" y="4" width="1" height="7" fill="%23333399"/><rect x="4" y="3" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="4" width="1" height="6" fill="%23ccccff"/><rect x="5" y="4" width="1" height="7" fill="%23333399"/><rect x="6" y="3" width="1" height="1" fill="%23eeeeee"/><rect x="6" y="4" width="1" height="6" fill="%23ccccff"/><rect x="7" y="4" width="1" height="7" fill="%23333399"/></svg>') center no-repeat,
+    linear-gradient(to bottom, #ccccff 0 1px, #9999ff 1px 13px, #6666cc 13px 14px);
+  box-shadow: inset 1px 0 0 #ccccff, inset -1px 0 0 #6666cc; }
+::-webkit-scrollbar-thumb:vertical:active {
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23ccccff"/><rect x="4" y="0" width="6" height="1" fill="%239999ff"/><rect x="4" y="1" width="7" height="1" fill="%23000066"/><rect x="3" y="2" width="1" height="1" fill="%23ccccff"/><rect x="4" y="2" width="6" height="1" fill="%239999ff"/><rect x="4" y="3" width="7" height="1" fill="%23000066"/><rect x="3" y="4" width="1" height="1" fill="%23ccccff"/><rect x="4" y="4" width="6" height="1" fill="%239999ff"/><rect x="4" y="5" width="7" height="1" fill="%23000066"/><rect x="3" y="6" width="1" height="1" fill="%23ccccff"/><rect x="4" y="6" width="6" height="1" fill="%239999ff"/><rect x="4" y="7" width="7" height="1" fill="%23000066"/></svg>') center no-repeat,
+    linear-gradient(to right, #9999ff 0 1px, #6666cc 1px 13px, #333399 13px 14px);
+  box-shadow: inset 0 1px 0 #9999ff, inset 0 -1px 0 #333399; }
+::-webkit-scrollbar-thumb:horizontal:active {
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="14" shape-rendering="crispEdges"><rect x="0" y="3" width="1" height="1" fill="%23ccccff"/><rect x="0" y="4" width="1" height="6" fill="%239999ff"/><rect x="1" y="4" width="1" height="7" fill="%23000066"/><rect x="2" y="3" width="1" height="1" fill="%23ccccff"/><rect x="2" y="4" width="1" height="6" fill="%239999ff"/><rect x="3" y="4" width="1" height="7" fill="%23000066"/><rect x="4" y="3" width="1" height="1" fill="%23ccccff"/><rect x="4" y="4" width="1" height="6" fill="%239999ff"/><rect x="5" y="4" width="1" height="7" fill="%23000066"/><rect x="6" y="3" width="1" height="1" fill="%23ccccff"/><rect x="6" y="4" width="1" height="6" fill="%239999ff"/><rect x="7" y="4" width="1" height="7" fill="%23000066"/></svg>') center no-repeat,
+    linear-gradient(to bottom, #9999ff 0 1px, #6666cc 1px 13px, #333399 13px 14px);
+  box-shadow: inset 1px 0 0 #9999ff, inset -1px 0 0 #333399; }
+:not(.scrolled-y)::-webkit-scrollbar-thumb:vertical {
+  border-top-color: #ccccff; box-shadow: inset 0 -1px 0 #6666cc; }
+:not(.scrolled-y)::-webkit-scrollbar-thumb:vertical:active {
+  border-top-color: #9999ff; box-shadow: inset 0 -1px 0 #333399; }
+.at-y-end::-webkit-scrollbar-thumb:vertical {
+  border-bottom-color: #6666cc; box-shadow: inset 0 1px 0 #ccccff; }
+.at-y-end::-webkit-scrollbar-thumb:vertical:active {
+  border-bottom-color: #333399; box-shadow: inset 0 1px 0 #9999ff; }
+:not(.scrolled-x)::-webkit-scrollbar-thumb:horizontal {
+  border-left-color: #ccccff; box-shadow: inset -1px 0 0 #6666cc; }
+:not(.scrolled-x)::-webkit-scrollbar-thumb:horizontal:active {
+  border-left-color: #9999ff; box-shadow: inset -1px 0 0 #333399; }
+.at-x-end::-webkit-scrollbar-thumb:horizontal {
+  border-right-color: #6666cc; box-shadow: inset 1px 0 0 #ccccff; }
+.at-x-end::-webkit-scrollbar-thumb:horizontal:active {
+  border-right-color: #333399; box-shadow: inset 1px 0 0 #9999ff; }
+::-webkit-scrollbar-button { display: block; width: 16px; height: 16px;
+  background: #ddd; border: 1px solid var(--black);
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #bbb;
+  background-position: center; background-repeat: no-repeat; }
+::-webkit-scrollbar-button:vertical { border-right: 0; }
+::-webkit-scrollbar-button:vertical:end:increment:enabled { height: 14px; border-top: 0; border-bottom: 0; }
+::-webkit-scrollbar-button:horizontal { border-bottom: 0; }
+::-webkit-scrollbar-button:horizontal:end:increment:enabled { width: 14px; border-left: 0; border-right: 0; }
+::-webkit-scrollbar-button:vertical:decrement {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M3 0h2v1h-2z M2 1h4v1h-4z M1 2h6v1h-6z M0 3h8v1h-8z"/></svg>'); }
+::-webkit-scrollbar-button:vertical:increment {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M0 0h8v1h-8z M1 1h6v1h-6z M2 2h4v1h-4z M3 3h2v1h-2z"/></svg>'); }
+::-webkit-scrollbar-button:horizontal:decrement {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="4" height="8" shape-rendering="crispEdges"><path fill="black" d="M0 3h1v2h-1z M1 2h1v4h-1z M2 1h1v6h-1z M3 0h1v8h-1z"/></svg>'); }
+::-webkit-scrollbar-button:horizontal:increment {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="4" height="8" shape-rendering="crispEdges"><path fill="black" d="M0 0h1v8h-1z M1 1h1v6h-1z M2 2h1v4h-1z M3 3h1v2h-1z"/></svg>'); }
+::-webkit-scrollbar-button:active { background-color: #777;
+  box-shadow: inset 1px 1px 0 #555, inset -1px -1px 0 #999; }
+::-webkit-scrollbar-button:vertical:start:decrement,
+::-webkit-scrollbar-button:vertical:start:increment,
+::-webkit-scrollbar-button:horizontal:start:decrement,
+::-webkit-scrollbar-button:horizontal:start:increment { display: none; }
+/* Disabled (nothing to scroll), sampled from OS 9: the strip goes flat #eee
+   between the rails, arrows ghost to #888 with no button face or bevel,
+   and a 1px #888 line separates the two arrows. The list sits in this
+   state until it holds more cities than the window shows; a forecast
+   table narrower than its box too. */
+::-webkit-scrollbar-track:disabled { background: #eee; }
+::-webkit-scrollbar-button:disabled { background-color: #eee; box-shadow: none; border: 0; }
+::-webkit-scrollbar-button:vertical:disabled { border-left: 1px solid var(--black); }
+::-webkit-scrollbar-button:horizontal:disabled { border-top: 1px solid var(--black); }
+::-webkit-scrollbar-button:vertical:end:increment:disabled { border-top: 1px solid #888; }
+::-webkit-scrollbar-button:horizontal:end:increment:disabled { border-left: 1px solid #888; }
+/* OS 9 draws a darker #555 line where the disabled arrow pair meets the track */
+::-webkit-scrollbar-button:vertical:end:decrement:disabled { border-top: 1px solid #555; }
+::-webkit-scrollbar-button:horizontal:end:decrement:disabled { border-left: 1px solid #555; }
+::-webkit-scrollbar-button:vertical:decrement:disabled {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="%23888888" d="M3 0h2v1h-2z M2 1h4v1h-4z M1 2h6v1h-6z M0 3h8v1h-8z"/></svg>'); }
+::-webkit-scrollbar-button:vertical:increment:disabled {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="%23888888" d="M0 0h8v1h-8z M1 1h6v1h-6z M2 2h4v1h-4z M3 3h2v1h-2z"/></svg>'); }
+::-webkit-scrollbar-button:horizontal:decrement:disabled {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="4" height="8" shape-rendering="crispEdges"><path fill="%23888888" d="M0 3h1v2h-1z M1 2h1v4h-1z M2 1h1v6h-1z M3 0h1v8h-1z"/></svg>'); }
+::-webkit-scrollbar-button:horizontal:increment:disabled {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="4" height="8" shape-rendering="crispEdges"><path fill="%23888888" d="M0 0h1v8h-1z M1 1h1v6h-1z M2 2h1v4h-1z M3 3h1v2h-1z"/></svg>'); }
+::-webkit-scrollbar-corner { background: var(--g300); }
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <div id="q-wrap">
+    <input type="text" id="q" placeholder="Add a city…" autocomplete="off" spellcheck="false">
+    <div id="drop" hidden></div>
+  </div>
+  <span class="popup" id="units-wrap"><select id="units" title="Units">
+    <option value="metric">°C · km/h · mm</option>
+    <option value="us">°F · mph · in</option>
+  </select><span class="well"><i><b></b></i></span></span>
+</div>
+<div id="list"></div>
+<div id="status">
+  <span id="st-left">…</span>
+  <span id="st-right"></span>
+</div>
+<!-- grow box sampled pixel-for-pixel from Mac OS 9 (Infinite Mac) -->
+<svg id="grow" width="15" height="15" viewBox="0 0 15 15" shape-rendering="crispEdges">
+  <rect width="15" height="15" fill="#ccc"/>
+  <path fill="#000" d="M0 0h15v1H0zM0 1h1v14H0z"/>
+  <path fill="#fff" d="M1 1h14v1H1zM1 2h1v13H1z"/>
+  <path fill="#fff" d="M9 4h2v1H9zM8 5h1v1H8zM7 6h1v1H7zM6 7h1v1H6zM5 8h1v1H5zM4 9h1v1H4zM11 6h2v1h-2zM10 7h1v1h-1zM9 8h1v1H9zM8 9h1v1H8zM7 10h1v1H7zM6 11h1v1H6zM13 8h2v1h-2zM12 9h1v1h-1zM11 10h1v1h-1zM10 11h1v1h-1zM9 12h1v1H9zM8 13h1v1H8z"/>
+  <path fill="#777" d="M10 5h1v1h-1zM9 6h1v1H9zM8 7h1v1H8zM7 8h1v1H7zM6 9h1v1H6zM5 10h1v1H5zM12 7h1v1h-1zM11 8h1v1h-1zM10 9h1v1h-1zM9 10h1v1H9zM8 11h1v1H8zM7 12h1v1H7zM14 9h1v1h-1zM13 10h1v1h-1zM12 11h1v1h-1zM11 12h1v1h-1zM10 13h1v1h-1zM9 14h1v1H9z"/>
+  <path fill="#aaa" d="M4 10h1v1H4zM6 12h1v1H6zM8 14h1v1H8z"/>
+</svg>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v);
+  }
+  for (const kid of kids) n.append(kid);
+  return n;
+}
+
+// The desktop passes its API token in the iframe URL; the app name comes
+// from the path so a renamed bundle folder keeps working.
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+const MOBILE = new URLSearchParams(location.search).has("mobile");
+const APP = decodeURIComponent(location.pathname.split("/")[2] || "Weather");
+const DOC_URL = "/v1/apps/" + encodeURIComponent(APP) + "/data/places.json";
+// identifies this window's writes so the daemon's change events can be
+// echo-suppressed here (we made the write) but delivered to other windows
+const CLIENT = Math.random().toString(36).slice(2) + Date.now().toString(36);
+const TOMBSTONE_TTL = 30 * 86400000;
+// Open-Meteo refreshes its current block every 15 minutes; asking more
+// often than every 10 only re-reads the same numbers
+const FRESH_MS = 10 * 60000;
+// Los Angeles as the geocoder describes it (its GeoNames record), the
+// same default as the World Clock
+const DEFAULT_PLACE = { id: "geo:5368361", name: "Los Angeles", region: "California", country: "United States", cc: "US",
+  lat: 34.05223, lon: -118.24368, elev: 89, tz: "America/Los_Angeles", pop: 3820914, feature: "PPLA2" };
+
+async function api(url, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers);
+  if (TOKEN) opts.headers["Authorization"] = "Bearer " + TOKEN;
+  opts.headers["X-Exe-Client"] = CLIENT;
+  const r = await fetch(url, opts);
+  if (!r.ok && r.status !== 404) throw new Error("HTTP " + r.status);
+  return r;
+}
+
+// ---- Open-Meteo: every variable its forecast endpoint serves ----
+// https://open-meteo.com/en/docs — the current block, the hourly surface
+// set (the pressure-level columns are a separate product), and the daily
+// aggregates the default model fills in. A name the API stops knowing
+// would fail the whole request, so the lists match what it accepted today.
+const CURRENT = ["temperature_2m", "relative_humidity_2m", "apparent_temperature", "is_day", "precipitation", "rain",
+  "showers", "snowfall", "weather_code", "cloud_cover", "pressure_msl", "surface_pressure", "wind_speed_10m",
+  "wind_direction_10m", "wind_gusts_10m"];
+const HOURLY = ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "apparent_temperature", "precipitation_probability",
+  "precipitation", "rain", "showers", "snowfall", "snow_depth", "weather_code", "pressure_msl", "surface_pressure", "cloud_cover",
+  "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high", "visibility", "evapotranspiration", "et0_fao_evapotranspiration",
+  "vapour_pressure_deficit", "wind_speed_10m", "wind_speed_80m", "wind_speed_120m", "wind_speed_180m", "wind_direction_10m",
+  "wind_direction_80m", "wind_direction_120m", "wind_direction_180m", "wind_gusts_10m", "temperature_80m", "temperature_120m",
+  "temperature_180m", "soil_temperature_0cm", "soil_temperature_6cm", "soil_temperature_18cm", "soil_temperature_54cm",
+  "soil_moisture_0_to_1cm", "soil_moisture_1_to_3cm", "soil_moisture_3_to_9cm", "soil_moisture_9_to_27cm", "soil_moisture_27_to_81cm",
+  "uv_index", "uv_index_clear_sky", "is_day", "sunshine_duration", "wet_bulb_temperature_2m", "total_column_integrated_water_vapour",
+  "cape", "lifted_index", "convective_inhibition", "freezing_level_height", "boundary_layer_height", "shortwave_radiation",
+  "direct_radiation", "diffuse_radiation", "direct_normal_irradiance", "global_tilted_irradiance", "terrestrial_radiation",
+  "shortwave_radiation_instant", "direct_radiation_instant", "diffuse_radiation_instant", "direct_normal_irradiance_instant",
+  "global_tilted_irradiance_instant", "terrestrial_radiation_instant"];
+const DAILY = ["weather_code", "temperature_2m_max", "temperature_2m_min", "temperature_2m_mean", "apparent_temperature_max",
+  "apparent_temperature_min", "apparent_temperature_mean", "sunrise", "sunset", "daylight_duration", "sunshine_duration",
+  "uv_index_max", "uv_index_clear_sky_max", "precipitation_sum", "rain_sum", "showers_sum", "snowfall_sum",
+  "snowfall_water_equivalent_sum", "precipitation_hours", "precipitation_probability_max", "precipitation_probability_min",
+  "precipitation_probability_mean", "wind_speed_10m_max", "wind_speed_10m_min", "wind_speed_10m_mean", "wind_gusts_10m_max",
+  "wind_gusts_10m_min", "wind_gusts_10m_mean", "wind_direction_10m_dominant", "shortwave_radiation_sum",
+  "et0_fao_evapotranspiration", "et0_fao_evapotranspiration_sum", "relative_humidity_2m_max", "relative_humidity_2m_min",
+  "relative_humidity_2m_mean", "dew_point_2m_max", "dew_point_2m_min", "dew_point_2m_mean", "wet_bulb_temperature_2m_max",
+  "wet_bulb_temperature_2m_min", "wet_bulb_temperature_2m_mean", "cloud_cover_max", "cloud_cover_min", "cloud_cover_mean",
+  "pressure_msl_max", "pressure_msl_min", "pressure_msl_mean", "surface_pressure_max", "surface_pressure_min",
+  "surface_pressure_mean", "visibility_max", "visibility_min", "visibility_mean", "cape_max", "cape_min", "cape_mean",
+  "vapour_pressure_deficit_max", "soil_moisture_0_to_10cm_mean", "leaf_wetness_probability_mean"];
+// the API's names, spelled out
+const LABELS = {
+  temperature_2m: "Temperature", relative_humidity_2m: "Humidity", dew_point_2m: "Dew point", apparent_temperature: "Feels like",
+  is_day: "Day or night", precipitation: "Precipitation", precipitation_probability: "Chance of precipitation", rain: "Rain",
+  showers: "Showers", snowfall: "Snowfall", snow_depth: "Snow depth", weather_code: "Conditions", cloud_cover: "Cloud cover",
+  cloud_cover_low: "Low cloud", cloud_cover_mid: "Mid cloud", cloud_cover_high: "High cloud", pressure_msl: "Pressure (sea level)",
+  surface_pressure: "Surface pressure", visibility: "Visibility", evapotranspiration: "Evapotranspiration",
+  et0_fao_evapotranspiration: "Reference ET₀ (FAO)", vapour_pressure_deficit: "Vapour pressure deficit",
+  wind_speed_10m: "Wind (10 m)", wind_speed_80m: "Wind (80 m)", wind_speed_120m: "Wind (120 m)", wind_speed_180m: "Wind (180 m)",
+  wind_direction_10m: "Wind direction (10 m)", wind_direction_80m: "Wind direction (80 m)", wind_direction_120m: "Wind direction (120 m)",
+  wind_direction_180m: "Wind direction (180 m)", wind_gusts_10m: "Gusts", temperature_80m: "Temperature (80 m)",
+  temperature_120m: "Temperature (120 m)", temperature_180m: "Temperature (180 m)", soil_temperature_0cm: "Soil temperature (surface)",
+  soil_temperature_6cm: "Soil temperature (6 cm)", soil_temperature_18cm: "Soil temperature (18 cm)", soil_temperature_54cm: "Soil temperature (54 cm)",
+  soil_moisture_0_to_1cm: "Soil moisture (0–1 cm)", soil_moisture_1_to_3cm: "Soil moisture (1–3 cm)", soil_moisture_3_to_9cm: "Soil moisture (3–9 cm)",
+  soil_moisture_9_to_27cm: "Soil moisture (9–27 cm)", soil_moisture_27_to_81cm: "Soil moisture (27–81 cm)", uv_index: "UV index",
+  uv_index_clear_sky: "UV index, clear sky", sunshine_duration: "Sunshine", wet_bulb_temperature_2m: "Wet-bulb temperature",
+  total_column_integrated_water_vapour: "Column water vapour", cape: "CAPE", lifted_index: "Lifted index",
+  convective_inhibition: "Convective inhibition", freezing_level_height: "Freezing level", boundary_layer_height: "Boundary layer height",
+  shortwave_radiation: "Shortwave radiation", direct_radiation: "Direct radiation", diffuse_radiation: "Diffuse radiation",
+  direct_normal_irradiance: "Direct normal irradiance", global_tilted_irradiance: "Global tilted irradiance",
+  terrestrial_radiation: "Terrestrial radiation", shortwave_radiation_instant: "Shortwave radiation (instant)",
+  direct_radiation_instant: "Direct radiation (instant)", diffuse_radiation_instant: "Diffuse radiation (instant)",
+  direct_normal_irradiance_instant: "Direct normal irradiance (instant)", global_tilted_irradiance_instant: "Global tilted irradiance (instant)",
+  terrestrial_radiation_instant: "Terrestrial radiation (instant)",
+  temperature_2m_max: "High", temperature_2m_min: "Low", temperature_2m_mean: "Mean temperature",
+  apparent_temperature_max: "Feels-like high", apparent_temperature_min: "Feels-like low", apparent_temperature_mean: "Feels-like mean",
+  sunrise: "Sunrise", sunset: "Sunset", daylight_duration: "Daylight", uv_index_max: "UV index max", uv_index_clear_sky_max: "UV index max, clear sky",
+  precipitation_sum: "Precipitation", rain_sum: "Rain", showers_sum: "Showers", snowfall_sum: "Snowfall",
+  snowfall_water_equivalent_sum: "Snowfall, water equivalent", precipitation_hours: "Hours of precipitation",
+  precipitation_probability_max: "Chance of precipitation, max", precipitation_probability_min: "Chance of precipitation, min",
+  precipitation_probability_mean: "Chance of precipitation, mean", wind_speed_10m_max: "Wind max", wind_speed_10m_min: "Wind min",
+  wind_speed_10m_mean: "Wind mean", wind_gusts_10m_max: "Gusts max", wind_gusts_10m_min: "Gusts min", wind_gusts_10m_mean: "Gusts mean",
+  wind_direction_10m_dominant: "Wind direction, dominant", shortwave_radiation_sum: "Shortwave radiation",
+  et0_fao_evapotranspiration_sum: "Reference ET₀ (FAO), sum", relative_humidity_2m_max: "Humidity max", relative_humidity_2m_min: "Humidity min",
+  relative_humidity_2m_mean: "Humidity mean", dew_point_2m_max: "Dew point max", dew_point_2m_min: "Dew point min", dew_point_2m_mean: "Dew point mean",
+  wet_bulb_temperature_2m_max: "Wet-bulb max", wet_bulb_temperature_2m_min: "Wet-bulb min", wet_bulb_temperature_2m_mean: "Wet-bulb mean",
+  cloud_cover_max: "Cloud cover max", cloud_cover_min: "Cloud cover min", cloud_cover_mean: "Cloud cover mean",
+  pressure_msl_max: "Pressure max (sea level)", pressure_msl_min: "Pressure min (sea level)", pressure_msl_mean: "Pressure mean (sea level)",
+  surface_pressure_max: "Surface pressure max", surface_pressure_min: "Surface pressure min", surface_pressure_mean: "Surface pressure mean",
+  visibility_max: "Visibility max", visibility_min: "Visibility min", visibility_mean: "Visibility mean", cape_max: "CAPE max",
+  cape_min: "CAPE min", cape_mean: "CAPE mean", vapour_pressure_deficit_max: "Vapour pressure deficit max",
+  soil_moisture_0_to_10cm_mean: "Soil moisture (0–10 cm) mean", leaf_wetness_probability_mean: "Leaf wetness chance",
+};
+// WMO weather interpretation codes: the text and which icon
+const WMO = { 0: ["Clear sky", "clear"], 1: ["Mainly clear", "clear"], 2: ["Partly cloudy", "partly"], 3: ["Overcast", "overcast"],
+  45: ["Fog", "fog"], 48: ["Rime fog", "fog"], 51: ["Light drizzle", "drizzle"], 53: ["Drizzle", "drizzle"], 55: ["Dense drizzle", "drizzle"],
+  56: ["Light freezing drizzle", "sleet"], 57: ["Freezing drizzle", "sleet"], 61: ["Light rain", "rain"], 63: ["Rain", "rain"],
+  65: ["Heavy rain", "rain"], 66: ["Light freezing rain", "sleet"], 67: ["Freezing rain", "sleet"], 71: ["Light snow", "snow"],
+  73: ["Snow", "snow"], 75: ["Heavy snow", "snow"], 77: ["Snow grains", "snow"], 80: ["Light showers", "rain"], 81: ["Showers", "rain"],
+  82: ["Violent showers", "rain"], 85: ["Light snow showers", "snow"], 86: ["Snow showers", "snow"], 95: ["Thunderstorm", "thunder"],
+  96: ["Thunderstorm, light hail", "thunder"], 99: ["Thunderstorm, heavy hail", "thunder"] };
+const wmoText = code => (WMO[code] || ["Code " + code])[0];
+const wmoIcon = (code, day) => {
+  const k = (WMO[code] || [, "unknown"])[1];
+  return k === "clear" ? (day ? "clear_day" : "clear_night") : k === "partly" ? (day ? "partly_day" : "partly_night") : k;
+};
+// 32-grid pixel art, one object per condition (the same grid as the
+// desktop's icons); icon.svg is the partly_day one
+const ART = {"clear_day": "<path fill=\"#ee9900\" d=\"M20 11h1v1H20zM21 12h1v1H21zM21 13h1v1H21zM21 14h1v1H21zM22 15h1v1H22zM22 16h1v1H22zM22 17h1v1H22zM21 18h1v1H21zM21 19h1v1H21zM11 20h1v1H11zM21 20h1v1H21zM12 21h3v1H12zM18 21h3v1H18zM15 22h3v1H15z\"/><path fill=\"#ffcc00\" d=\"M15 11h3v1H15zM12 12h9v1H12zM12 13h9v1H12zM12 14h9v1H12zM11 15h11v1H11zM11 16h11v1H11zM11 17h11v1H11zM12 18h9v1H12zM12 19h9v1H12zM12 20h9v1H12zM15 21h3v1H15z\"/><path fill=\"#ffee88\" d=\"M15 10h3v1H15zM12 11h3v1H12zM18 11h2v1H18zM11 12h1v1H11zM11 13h1v1H11zM11 14h1v1H11zM10 15h1v1H10zM10 16h1v1H10zM10 17h1v1H10zM11 18h1v1H11zM11 19h1v1H11z\"/><path fill=\"#000000\" d=\"M16 5h1v1H16zM16 6h1v1H16zM16 7h1v1H16zM8 8h1v1H8zM24 8h1v1H24zM9 9h1v1H9zM15 9h3v1H15zM23 9h1v1H23zM10 10h1v1H10zM12 10h3v1H12zM18 10h3v1H18zM22 10h1v1H22zM11 11h1v1H11zM21 11h1v1H21zM10 12h1v1H10zM22 12h1v1H22zM10 13h1v1H10zM22 13h1v1H22zM10 14h1v1H10zM22 14h1v1H22zM9 15h1v1H9zM23 15h1v1H23zM5 16h3v1H5zM9 16h1v1H9zM23 16h1v1H23zM25 16h3v1H25zM9 17h1v1H9zM23 17h1v1H23zM10 18h1v1H10zM22 18h1v1H22zM10 19h1v1H10zM22 19h1v1H22zM10 20h1v1H10zM22 20h1v1H22zM11 21h1v1H11zM21 21h1v1H21zM10 22h1v1H10zM12 22h3v1H12zM18 22h3v1H18zM22 22h1v1H22zM9 23h1v1H9zM15 23h3v1H15zM23 23h1v1H23zM8 24h1v1H8zM24 24h1v1H24zM16 25h1v1H16zM16 26h1v1H16zM16 27h1v1H16z\"/>", "clear_night": "<path fill=\"#cccc99\" d=\"M14 11h1v1H14zM14 12h1v1H14zM13 13h1v1H13zM13 14h1v1H13zM13 15h1v1H13zM14 16h1v1H14zM14 17h1v1H14zM15 18h1v1H15zM16 19h1v1H16zM12 20h1v1H12zM13 21h3v1H13zM19 21h1v1H19zM16 22h3v1H16z\"/><path fill=\"#ffff99\" d=\"M8 6h1v1H8zM7 7h1v1H7zM9 7h1v1H9zM8 8h1v1H8zM25 8h1v1H25zM24 9h1v1H24zM26 9h1v1H26zM25 10h1v1H25zM7 21h1v1H7zM6 22h1v1H6zM8 22h1v1H8zM7 23h1v1H7z\"/><path fill=\"#ffffcc\" d=\"M8 7h1v1H8zM25 9h1v1H25zM13 12h1v1H13zM12 15h1v1H12zM12 16h2v1H12zM12 17h2v1H12zM13 18h2v1H13zM13 19h3v1H13zM13 20h4v1H13zM16 21h2v1H16zM7 22h1v1H7z\"/><path fill=\"#ffffff\" d=\"M13 11h1v1H13zM12 12h1v1H12zM12 13h1v1H12zM12 14h1v1H12zM11 15h1v1H11zM11 16h1v1H11zM11 17h1v1H11zM12 18h1v1H12zM12 19h1v1H12zM17 20h1v1H17zM18 21h1v1H18z\"/><path fill=\"#000000\" d=\"M16 9h2v1H16zM13 10h4v1H13zM12 11h1v1H12zM15 11h1v1H15zM11 12h1v1H11zM15 12h1v1H15zM11 13h1v1H11zM14 13h1v1H14zM11 14h1v1H11zM14 14h1v1H14zM10 15h1v1H10zM14 15h1v1H14zM10 16h1v1H10zM15 16h1v1H15zM10 17h1v1H10zM15 17h1v1H15zM11 18h1v1H11zM16 18h1v1H16zM11 19h1v1H11zM17 19h1v1H17zM11 20h1v1H11zM18 20h2v1H18zM23 20h1v1H23zM12 21h1v1H12zM20 21h3v1H20zM13 22h3v1H13zM19 22h3v1H19zM16 23h3v1H16z\"/>", "partly_day": "<path fill=\"#cccccc\" d=\"M23 15h1v1H23zM24 16h1v1H24zM24 17h1v1H24zM29 20h1v1H29zM29 21h1v1H29zM30 22h1v1H30zM30 23h1v1H30zM30 24h1v1H30zM29 25h1v1H29zM9 26h2v1H9zM14 26h11v1H14zM28 26h2v1H28zM11 27h3v1H11zM25 27h3v1H25z\"/><path fill=\"#ee9900\" d=\"M14 6h1v1H14zM15 7h1v1H15zM15 8h1v1H15zM16 9h1v1H16zM16 10h1v1H16zM16 11h1v1H16zM15 12h1v1H15zM7 13h1v1H7zM15 13h1v1H15zM8 14h2v1H8zM13 14h2v1H13zM10 15h3v1H10z\"/><path fill=\"#ffcc00\" d=\"M10 6h3v1H10zM8 7h7v1H8zM8 8h7v1H8zM7 9h9v1H7zM7 10h9v1H7zM7 11h9v1H7zM8 12h7v1H8zM8 13h7v1H8zM10 14h3v1H10z\"/><path fill=\"#ffee88\" d=\"M10 5h3v1H10zM8 6h2v1H8zM13 6h1v1H13zM7 7h1v1H7zM7 8h1v1H7zM6 9h1v1H6zM6 10h1v1H6zM6 11h1v1H6zM7 12h1v1H7z\"/><path fill=\"#ffffff\" d=\"M18 14h3v1H18zM15 15h8v1H15zM14 16h10v1H14zM14 17h10v1H14zM13 18h13v1H13zM11 19h17v1H11zM9 20h20v1H9zM9 21h20v1H9zM8 22h22v1H8zM8 23h22v1H8zM8 24h22v1H8zM9 25h20v1H9zM11 26h3v1H11zM25 26h3v1H25z\"/><path fill=\"#000000\" d=\"M11 0h1v1H11zM11 1h1v1H11zM11 2h1v1H11zM4 3h1v1H4zM18 3h1v1H18zM5 4h1v1H5zM10 4h3v1H10zM17 4h1v1H17zM8 5h2v1H8zM13 5h2v1H13zM7 6h1v1H7zM15 6h1v1H15zM6 7h1v1H6zM16 7h1v1H16zM6 8h1v1H6zM16 8h1v1H16zM5 9h1v1H5zM17 9h1v1H17zM1 10h3v1H1zM5 10h1v1H5zM17 10h1v1H17zM19 10h3v1H19zM5 11h1v1H5zM17 11h1v1H17zM6 12h1v1H6zM16 12h1v1H16zM6 13h1v1H6zM16 13h1v1H16zM18 13h3v1H18zM7 14h1v1H7zM15 14h3v1H15zM21 14h3v1H21zM8 15h2v1H8zM13 15h2v1H13zM24 15h1v1H24zM5 16h1v1H5zM10 16h4v1H10zM25 16h1v1H25zM4 17h1v1H4zM13 17h1v1H13zM25 17h1v1H25zM11 18h2v1H11zM26 18h2v1H26zM9 19h2v1H9zM28 19h2v1H28zM8 20h1v1H8zM30 20h1v1H30zM8 21h1v1H8zM30 21h1v1H30zM7 22h1v1H7zM31 22h1v1H31zM7 23h1v1H7zM31 23h1v1H31zM7 24h1v1H7zM31 24h1v1H31zM8 25h1v1H8zM30 25h1v1H30zM8 26h1v1H8zM30 26h1v1H30zM9 27h2v1H9zM14 27h11v1H14zM28 27h2v1H28zM11 28h3v1H11zM25 28h3v1H25z\"/>", "partly_night": "<path fill=\"#cccc99\" d=\"M9 6h1v1H9zM8 7h1v1H8zM8 8h1v1H8zM8 9h1v1H8zM9 10h1v1H9zM9 11h1v1H9zM10 12h1v1H10zM7 13h1v1H7zM8 14h2v1H8zM13 14h1v1H13zM10 15h3v1H10z\"/><path fill=\"#cccccc\" d=\"M23 15h1v1H23zM24 16h1v1H24zM24 17h1v1H24zM29 20h1v1H29zM29 21h1v1H29zM30 22h1v1H30zM30 23h1v1H30zM30 24h1v1H30zM29 25h1v1H29zM9 26h2v1H9zM14 26h11v1H14zM28 26h2v1H28zM11 27h3v1H11zM25 27h3v1H25z\"/><path fill=\"#ffff99\" d=\"M26 4h1v1H26zM6 5h1v1H6zM25 5h1v1H25zM27 5h1v1H27zM5 6h1v1H5zM26 6h1v1H26z\"/><path fill=\"#ffffcc\" d=\"M26 5h1v1H26zM6 6h1v1H6zM7 9h1v1H7zM7 10h2v1H7zM7 11h2v1H7zM8 12h2v1H8zM8 13h3v1H8zM10 14h2v1H10z\"/><path fill=\"#ffffff\" d=\"M8 6h1v1H8zM7 7h1v1H7zM7 8h1v1H7zM6 9h1v1H6zM6 10h1v1H6zM6 11h1v1H6zM7 12h1v1H7zM11 13h1v1H11zM12 14h1v1H12zM18 14h3v1H18zM15 15h8v1H15zM14 16h10v1H14zM14 17h10v1H14zM13 18h13v1H13zM11 19h17v1H11zM9 20h20v1H9zM9 21h20v1H9zM8 22h22v1H8zM8 23h22v1H8zM8 24h22v1H8zM9 25h20v1H9zM11 26h3v1H11zM25 26h3v1H25z\"/><path fill=\"#000000\" d=\"M10 4h2v1H10zM8 5h3v1H8zM7 6h1v1H7zM10 6h1v1H10zM6 7h1v1H6zM9 7h1v1H9zM6 8h1v1H6zM9 8h1v1H9zM5 9h1v1H5zM9 9h1v1H9zM5 10h1v1H5zM10 10h1v1H10zM5 11h1v1H5zM10 11h1v1H10zM6 12h1v1H6zM11 12h1v1H11zM6 13h1v1H6zM12 13h2v1H12zM18 13h3v1H18zM7 14h1v1H7zM14 14h4v1H14zM21 14h3v1H21zM8 15h2v1H8zM13 15h2v1H13zM24 15h1v1H24zM10 16h4v1H10zM25 16h1v1H25zM13 17h1v1H13zM25 17h1v1H25zM11 18h2v1H11zM26 18h2v1H26zM9 19h2v1H9zM28 19h2v1H28zM8 20h1v1H8zM30 20h1v1H30zM8 21h1v1H8zM30 21h1v1H30zM7 22h1v1H7zM31 22h1v1H31zM7 23h1v1H7zM31 23h1v1H31zM7 24h1v1H7zM31 24h1v1H31zM8 25h1v1H8zM30 25h1v1H30zM8 26h1v1H8zM30 26h1v1H30zM9 27h2v1H9zM14 27h11v1H14zM28 27h2v1H28zM11 28h3v1H11zM25 28h3v1H25z\"/>", "cloudy": "<path fill=\"#cccccc\" d=\"M21 14h1v1H21zM22 15h1v1H22zM22 16h1v1H22zM27 19h1v1H27zM27 20h1v1H27zM28 21h1v1H28zM28 22h1v1H28zM28 23h1v1H28zM27 24h1v1H27zM7 25h2v1H7zM12 25h11v1H12zM26 25h2v1H26zM9 26h3v1H9zM23 26h3v1H23z\"/><path fill=\"#ffffff\" d=\"M16 13h3v1H16zM13 14h8v1H13zM12 15h10v1H12zM12 16h10v1H12zM11 17h13v1H11zM9 18h17v1H9zM7 19h20v1H7zM7 20h20v1H7zM6 21h22v1H6zM6 22h22v1H6zM6 23h22v1H6zM7 24h20v1H7zM9 25h3v1H9zM23 25h3v1H23z\"/><path fill=\"#000000\" d=\"M16 12h3v1H16zM13 13h3v1H13zM19 13h3v1H19zM12 14h1v1H12zM22 14h1v1H22zM11 15h1v1H11zM23 15h1v1H23zM11 16h1v1H11zM23 16h1v1H23zM9 17h2v1H9zM24 17h2v1H24zM7 18h2v1H7zM26 18h2v1H26zM6 19h1v1H6zM28 19h1v1H28zM6 20h1v1H6zM28 20h1v1H28zM5 21h1v1H5zM29 21h1v1H29zM5 22h1v1H5zM29 22h1v1H29zM5 23h1v1H5zM29 23h1v1H29zM6 24h1v1H6zM28 24h1v1H28zM6 25h1v1H6zM28 25h1v1H28zM7 26h2v1H7zM12 26h11v1H12zM26 26h2v1H26zM9 27h3v1H9zM23 27h3v1H23z\"/>", "overcast": "<path fill=\"#aaaaaa\" d=\"M19 10h1v1H19zM20 11h1v1H20zM20 12h1v1H20zM25 15h1v1H25zM25 16h1v1H25zM26 17h1v1H26zM26 18h1v1H26zM26 19h1v1H26zM5 21h2v1H5zM7 22h1v1H7z\"/><path fill=\"#cccccc\" d=\"M23 17h1v1H23zM24 18h1v1H24zM24 19h1v1H24zM29 22h1v1H29zM29 23h1v1H29zM30 24h1v1H30zM30 25h1v1H30zM30 26h1v1H30zM29 27h1v1H29zM9 28h2v1H9zM14 28h11v1H14zM28 28h2v1H28zM11 29h3v1H11zM25 29h3v1H25z\"/><path fill=\"#dddddd\" d=\"M14 10h3v1H14zM11 11h9v1H11zM11 12h9v1H11zM10 13h12v1H10zM9 14h13v1H9zM7 15h11v1H7zM21 15h3v1H21zM6 16h9v1H6zM24 16h1v1H24zM5 17h9v1H5zM25 17h1v1H25zM5 18h8v1H5zM5 19h8v1H5zM6 20h5v1H6zM7 21h2v1H7z\"/><path fill=\"#eeeeee\" d=\"M14 9h3v1H14zM11 10h3v1H11zM17 10h2v1H17zM10 11h1v1H10zM10 12h1v1H10zM9 13h1v1H9zM7 14h2v1H7zM22 14h2v1H22zM5 15h2v1H5zM24 15h1v1H24zM5 16h1v1H5zM4 17h1v1H4zM4 18h1v1H4zM4 19h1v1H4zM5 20h1v1H5z\"/><path fill=\"#ffffff\" d=\"M18 16h3v1H18zM15 17h8v1H15zM14 18h10v1H14zM14 19h10v1H14zM13 20h13v1H13zM11 21h17v1H11zM9 22h20v1H9zM9 23h20v1H9zM8 24h22v1H8zM8 25h22v1H8zM8 26h22v1H8zM9 27h20v1H9zM11 28h3v1H11zM25 28h3v1H25z\"/><path fill=\"#000000\" d=\"M14 8h3v1H14zM11 9h3v1H11zM17 9h3v1H17zM10 10h1v1H10zM20 10h1v1H20zM9 11h1v1H9zM21 11h1v1H21zM9 12h1v1H9zM21 12h1v1H21zM7 13h2v1H7zM22 13h2v1H22zM5 14h2v1H5zM24 14h2v1H24zM4 15h1v1H4zM18 15h3v1H18zM26 15h1v1H26zM4 16h1v1H4zM15 16h3v1H15zM21 16h3v1H21zM26 16h1v1H26zM3 17h1v1H3zM14 17h1v1H14zM24 17h1v1H24zM27 17h1v1H27zM3 18h1v1H3zM13 18h1v1H13zM25 18h1v1H25zM27 18h1v1H27zM3 19h1v1H3zM13 19h1v1H13zM25 19h1v1H25zM27 19h1v1H27zM4 20h1v1H4zM11 20h2v1H11zM26 20h2v1H26zM4 21h1v1H4zM9 21h2v1H9zM28 21h2v1H28zM5 22h2v1H5zM8 22h1v1H8zM30 22h1v1H30zM7 23h2v1H7zM30 23h1v1H30zM7 24h1v1H7zM31 24h1v1H31zM7 25h1v1H7zM31 25h1v1H31zM7 26h1v1H7zM31 26h1v1H31zM8 27h1v1H8zM30 27h1v1H30zM8 28h1v1H8zM30 28h1v1H30zM9 29h2v1H9zM14 29h11v1H14zM28 29h2v1H28zM11 30h3v1H11zM25 30h3v1H25z\"/>", "fog": "<path fill=\"#888888\" d=\"M5 22h22v1H5zM7 25h18v1H7zM5 28h18v1H5z\"/><path fill=\"#cccccc\" d=\"M21 7h1v1H21zM22 8h1v1H22zM22 9h1v1H22zM27 12h1v1H27zM27 13h1v1H27zM28 14h1v1H28zM28 15h1v1H28zM28 16h1v1H28zM27 17h1v1H27zM7 18h2v1H7zM12 18h11v1H12zM26 18h2v1H26zM9 19h3v1H9zM23 19h3v1H23zM5 23h22v1H5zM7 26h18v1H7zM5 29h18v1H5z\"/><path fill=\"#ffffff\" d=\"M16 6h3v1H16zM13 7h8v1H13zM12 8h10v1H12zM12 9h10v1H12zM11 10h13v1H11zM9 11h17v1H9zM7 12h20v1H7zM7 13h20v1H7zM6 14h22v1H6zM6 15h22v1H6zM6 16h22v1H6zM7 17h20v1H7zM9 18h3v1H9zM23 18h3v1H23z\"/><path fill=\"#000000\" d=\"M16 5h3v1H16zM13 6h3v1H13zM19 6h3v1H19zM12 7h1v1H12zM22 7h1v1H22zM11 8h1v1H11zM23 8h1v1H23zM11 9h1v1H11zM23 9h1v1H23zM9 10h2v1H9zM24 10h2v1H24zM7 11h2v1H7zM26 11h2v1H26zM6 12h1v1H6zM28 12h1v1H28zM6 13h1v1H6zM28 13h1v1H28zM5 14h1v1H5zM29 14h1v1H29zM5 15h1v1H5zM29 15h1v1H29zM5 16h1v1H5zM29 16h1v1H29zM6 17h1v1H6zM28 17h1v1H28zM6 18h1v1H6zM28 18h1v1H28zM7 19h2v1H7zM12 19h11v1H12zM26 19h2v1H26zM9 20h3v1H9zM23 20h3v1H23z\"/>", "drizzle": "<path fill=\"#3366cc\" d=\"M10 23h1v1H10zM17 23h1v1H17zM24 23h1v1H24zM9 24h2v1H9zM16 24h2v1H16zM23 24h2v1H23zM9 25h2v1H9zM16 25h2v1H16zM23 25h2v1H23zM9 26h2v1H9zM16 26h2v1H16zM23 26h2v1H23z\"/><path fill=\"#6699ff\" d=\"M9 22h2v1H9zM16 22h2v1H16zM23 22h2v1H23z\"/><path fill=\"#99ccff\" d=\"M9 23h1v1H9zM16 23h1v1H16zM23 23h1v1H23z\"/><path fill=\"#cccccc\" d=\"M21 6h1v1H21zM22 7h1v1H22zM22 8h1v1H22zM27 11h1v1H27zM27 12h1v1H27zM28 13h1v1H28zM28 14h1v1H28zM28 15h1v1H28zM27 16h1v1H27zM7 17h2v1H7zM12 17h11v1H12zM26 17h2v1H26zM9 18h3v1H9zM23 18h3v1H23z\"/><path fill=\"#ffffff\" d=\"M16 5h3v1H16zM13 6h8v1H13zM12 7h10v1H12zM12 8h10v1H12zM11 9h13v1H11zM9 10h17v1H9zM7 11h20v1H7zM7 12h20v1H7zM6 13h22v1H6zM6 14h22v1H6zM6 15h22v1H6zM7 16h20v1H7zM9 17h3v1H9zM23 17h3v1H23z\"/><path fill=\"#000000\" d=\"M16 4h3v1H16zM13 5h3v1H13zM19 5h3v1H19zM12 6h1v1H12zM22 6h1v1H22zM11 7h1v1H11zM23 7h1v1H23zM11 8h1v1H11zM23 8h1v1H23zM9 9h2v1H9zM24 9h2v1H24zM7 10h2v1H7zM26 10h2v1H26zM6 11h1v1H6zM28 11h1v1H28zM6 12h1v1H6zM28 12h1v1H28zM5 13h1v1H5zM29 13h1v1H29zM5 14h1v1H5zM29 14h1v1H29zM5 15h1v1H5zM29 15h1v1H29zM6 16h1v1H6zM28 16h1v1H28zM6 17h1v1H6zM28 17h1v1H28zM7 18h2v1H7zM12 18h11v1H12zM26 18h2v1H26zM9 19h3v1H9zM23 19h3v1H23z\"/>", "rain": "<path fill=\"#3366cc\" d=\"M9 22h1v1H9zM16 22h1v1H16zM23 22h1v1H23zM8 23h2v1H8zM15 23h2v1H15zM22 23h2v1H22zM8 24h2v1H8zM15 24h2v1H15zM22 24h2v1H22zM8 25h2v1H8zM15 25h2v1H15zM22 25h2v1H22zM12 27h1v1H12zM19 27h1v1H19zM26 27h1v1H26zM11 28h2v1H11zM18 28h2v1H18zM25 28h2v1H25zM11 29h2v1H11zM18 29h2v1H18zM25 29h2v1H25zM11 30h2v1H11zM18 30h2v1H18zM25 30h2v1H25z\"/><path fill=\"#6699ff\" d=\"M8 21h2v1H8zM15 21h2v1H15zM22 21h2v1H22zM11 26h2v1H11zM18 26h2v1H18zM25 26h2v1H25z\"/><path fill=\"#99ccff\" d=\"M8 22h1v1H8zM15 22h1v1H15zM22 22h1v1H22zM11 27h1v1H11zM18 27h1v1H18zM25 27h1v1H25z\"/><path fill=\"#aaaaaa\" d=\"M21 6h1v1H21zM22 7h1v1H22zM22 8h1v1H22zM27 11h1v1H27zM27 12h1v1H27zM28 13h1v1H28zM28 14h1v1H28zM28 15h1v1H28zM27 16h1v1H27zM7 17h2v1H7zM12 17h11v1H12zM26 17h2v1H26zM9 18h3v1H9zM23 18h3v1H23z\"/><path fill=\"#dddddd\" d=\"M16 6h3v1H16zM13 7h9v1H13zM13 8h9v1H13zM12 9h12v1H12zM11 10h13v1H11zM9 11h17v1H9zM8 12h19v1H8zM7 13h21v1H7zM7 14h21v1H7zM7 15h21v1H7zM8 16h19v1H8zM9 17h3v1H9zM23 17h3v1H23z\"/><path fill=\"#eeeeee\" d=\"M16 5h3v1H16zM13 6h3v1H13zM19 6h2v1H19zM12 7h1v1H12zM12 8h1v1H12zM11 9h1v1H11zM9 10h2v1H9zM24 10h2v1H24zM7 11h2v1H7zM26 11h1v1H26zM7 12h1v1H7zM6 13h1v1H6zM6 14h1v1H6zM6 15h1v1H6zM7 16h1v1H7z\"/><path fill=\"#000000\" d=\"M16 4h3v1H16zM13 5h3v1H13zM19 5h3v1H19zM12 6h1v1H12zM22 6h1v1H22zM11 7h1v1H11zM23 7h1v1H23zM11 8h1v1H11zM23 8h1v1H23zM9 9h2v1H9zM24 9h2v1H24zM7 10h2v1H7zM26 10h2v1H26zM6 11h1v1H6zM28 11h1v1H28zM6 12h1v1H6zM28 12h1v1H28zM5 13h1v1H5zM29 13h1v1H29zM5 14h1v1H5zM29 14h1v1H29zM5 15h1v1H5zM29 15h1v1H29zM6 16h1v1H6zM28 16h1v1H28zM6 17h1v1H6zM28 17h1v1H28zM7 18h2v1H7zM12 18h11v1H12zM26 18h2v1H26zM9 19h3v1H9zM23 19h3v1H23z\"/>", "snow": "<path fill=\"#3366cc\" d=\"M10 22h1v1H10zM24 22h1v1H24zM8 24h1v1H8zM12 24h1v1H12zM22 24h1v1H22zM26 24h1v1H26zM17 25h1v1H17zM10 26h1v1H10zM24 26h1v1H24zM15 27h1v1H15zM19 27h1v1H19zM17 29h1v1H17z\"/><path fill=\"#99ccff\" d=\"M10 23h1v1H10zM24 23h1v1H24zM9 24h1v1H9zM11 24h1v1H11zM23 24h1v1H23zM25 24h1v1H25zM10 25h1v1H10zM24 25h1v1H24zM17 26h1v1H17zM16 27h1v1H16zM18 27h1v1H18zM17 28h1v1H17z\"/><path fill=\"#cccccc\" d=\"M21 6h1v1H21zM22 7h1v1H22zM22 8h1v1H22zM27 11h1v1H27zM27 12h1v1H27zM28 13h1v1H28zM28 14h1v1H28zM28 15h1v1H28zM27 16h1v1H27zM7 17h2v1H7zM12 17h11v1H12zM26 17h2v1H26zM9 18h3v1H9zM23 18h3v1H23z\"/><path fill=\"#ffffff\" d=\"M16 5h3v1H16zM13 6h8v1H13zM12 7h10v1H12zM12 8h10v1H12zM11 9h13v1H11zM9 10h17v1H9zM7 11h20v1H7zM7 12h20v1H7zM6 13h22v1H6zM6 14h22v1H6zM6 15h22v1H6zM7 16h20v1H7zM9 17h3v1H9zM23 17h3v1H23zM10 24h1v1H10zM24 24h1v1H24zM17 27h1v1H17z\"/><path fill=\"#000000\" d=\"M16 4h3v1H16zM13 5h3v1H13zM19 5h3v1H19zM12 6h1v1H12zM22 6h1v1H22zM11 7h1v1H11zM23 7h1v1H23zM11 8h1v1H11zM23 8h1v1H23zM9 9h2v1H9zM24 9h2v1H24zM7 10h2v1H7zM26 10h2v1H26zM6 11h1v1H6zM28 11h1v1H28zM6 12h1v1H6zM28 12h1v1H28zM5 13h1v1H5zM29 13h1v1H29zM5 14h1v1H5zM29 14h1v1H29zM5 15h1v1H5zM29 15h1v1H29zM6 16h1v1H6zM28 16h1v1H28zM6 17h1v1H6zM28 17h1v1H28zM7 18h2v1H7zM12 18h11v1H12zM26 18h2v1H26zM9 19h3v1H9zM23 19h3v1H23z\"/>", "sleet": "<path fill=\"#3366cc\" d=\"M9 23h1v1H9zM21 23h1v1H21zM8 24h2v1H8zM15 24h1v1H15zM20 24h2v1H20zM8 25h2v1H8zM20 25h2v1H20zM27 25h1v1H27zM8 26h2v1H8zM13 26h1v1H13zM17 26h1v1H17zM20 26h2v1H20zM25 27h1v1H25zM29 27h1v1H29zM15 28h1v1H15zM27 29h1v1H27z\"/><path fill=\"#6699ff\" d=\"M8 22h2v1H8zM20 22h2v1H20z\"/><path fill=\"#99ccff\" d=\"M8 23h1v1H8zM20 23h1v1H20zM15 25h1v1H15zM14 26h1v1H14zM16 26h1v1H16zM27 26h1v1H27zM15 27h1v1H15zM26 27h1v1H26zM28 27h1v1H28zM27 28h1v1H27z\"/><path fill=\"#aaaaaa\" d=\"M21 6h1v1H21zM22 7h1v1H22zM22 8h1v1H22zM27 11h1v1H27zM27 12h1v1H27zM28 13h1v1H28zM28 14h1v1H28zM28 15h1v1H28zM27 16h1v1H27zM7 17h2v1H7zM12 17h11v1H12zM26 17h2v1H26zM9 18h3v1H9zM23 18h3v1H23z\"/><path fill=\"#dddddd\" d=\"M16 6h3v1H16zM13 7h9v1H13zM13 8h9v1H13zM12 9h12v1H12zM11 10h13v1H11zM9 11h17v1H9zM8 12h19v1H8zM7 13h21v1H7zM7 14h21v1H7zM7 15h21v1H7zM8 16h19v1H8zM9 17h3v1H9zM23 17h3v1H23z\"/><path fill=\"#eeeeee\" d=\"M16 5h3v1H16zM13 6h3v1H13zM19 6h2v1H19zM12 7h1v1H12zM12 8h1v1H12zM11 9h1v1H11zM9 10h2v1H9zM24 10h2v1H24zM7 11h2v1H7zM26 11h1v1H26zM7 12h1v1H7zM6 13h1v1H6zM6 14h1v1H6zM6 15h1v1H6zM7 16h1v1H7z\"/><path fill=\"#ffffff\" d=\"M15 26h1v1H15zM27 27h1v1H27z\"/><path fill=\"#000000\" d=\"M16 4h3v1H16zM13 5h3v1H13zM19 5h3v1H19zM12 6h1v1H12zM22 6h1v1H22zM11 7h1v1H11zM23 7h1v1H23zM11 8h1v1H11zM23 8h1v1H23zM9 9h2v1H9zM24 9h2v1H24zM7 10h2v1H7zM26 10h2v1H26zM6 11h1v1H6zM28 11h1v1H28zM6 12h1v1H6zM28 12h1v1H28zM5 13h1v1H5zM29 13h1v1H29zM5 14h1v1H5zM29 14h1v1H29zM5 15h1v1H5zM29 15h1v1H29zM6 16h1v1H6zM28 16h1v1H28zM6 17h1v1H6zM28 17h1v1H28zM7 18h2v1H7zM12 18h11v1H12zM26 18h2v1H26zM9 19h3v1H9zM23 19h3v1H23z\"/>", "thunder": "<path fill=\"#3366cc\" d=\"M8 23h1v1H8zM26 23h1v1H26zM7 24h2v1H7zM25 24h2v1H25zM7 25h2v1H7zM25 25h2v1H25zM7 26h2v1H7zM25 26h2v1H25z\"/><path fill=\"#6699ff\" d=\"M7 22h2v1H7zM25 22h2v1H25z\"/><path fill=\"#99ccff\" d=\"M7 23h1v1H7zM25 23h1v1H25z\"/><path fill=\"#aaaaaa\" d=\"M21 6h1v1H21zM22 7h1v1H22zM22 8h1v1H22zM27 11h1v1H27zM27 12h1v1H27zM28 13h1v1H28zM28 14h1v1H28zM28 15h1v1H28zM27 16h1v1H27zM7 17h2v1H7zM12 17h11v1H12zM26 17h2v1H26zM9 18h3v1H9zM23 18h3v1H23z\"/><path fill=\"#dddddd\" d=\"M16 6h3v1H16zM13 7h9v1H13zM13 8h9v1H13zM12 9h12v1H12zM11 10h13v1H11zM9 11h17v1H9zM8 12h19v1H8zM7 13h21v1H7zM7 14h21v1H7zM7 15h21v1H7zM8 16h19v1H8zM9 17h3v1H9zM23 17h3v1H23z\"/><path fill=\"#eeeeee\" d=\"M16 5h3v1H16zM13 6h3v1H13zM19 6h2v1H19zM12 7h1v1H12zM12 8h1v1H12zM11 9h1v1H11zM9 10h2v1H9zM24 10h2v1H24zM7 11h2v1H7zM26 11h1v1H26zM7 12h1v1H7zM6 13h1v1H6zM6 14h1v1H6zM6 15h1v1H6zM7 16h1v1H7z\"/><path fill=\"#ffcc00\" d=\"M17 20h2v1H17zM16 21h2v1H16zM16 22h2v1H16zM15 23h3v1H15zM16 24h4v1H16zM16 25h3v1H16zM16 26h2v1H16zM16 27h1v1H16zM15 28h1v1H15z\"/><path fill=\"#ffee88\" d=\"M16 20h1v1H16zM15 22h1v1H15zM15 24h1v1H15z\"/><path fill=\"#000000\" d=\"M16 4h3v1H16zM13 5h3v1H13zM19 5h3v1H19zM12 6h1v1H12zM22 6h1v1H22zM11 7h1v1H11zM23 7h1v1H23zM11 8h1v1H11zM23 8h1v1H23zM9 9h2v1H9zM24 9h2v1H24zM7 10h2v1H7zM26 10h2v1H26zM6 11h1v1H6zM28 11h1v1H28zM6 12h1v1H6zM28 12h1v1H28zM5 13h1v1H5zM29 13h1v1H29zM5 14h1v1H5zM29 14h1v1H29zM5 15h1v1H5zM29 15h1v1H29zM6 16h1v1H6zM28 16h1v1H28zM6 17h1v1H6zM28 17h1v1H28zM7 18h2v1H7zM12 18h11v1H12zM26 18h2v1H26zM9 19h3v1H9zM16 19h4v1H16zM23 19h3v1H23zM15 20h1v1H15zM19 20h1v1H19zM15 21h1v1H15zM18 21h1v1H18zM14 22h1v1H14zM18 22h1v1H18zM14 23h1v1H14zM18 23h2v1H18zM13 24h2v1H13zM20 24h1v1H20zM14 25h2v1H14zM19 25h1v1H19zM15 26h1v1H15zM18 26h1v1H18zM15 27h1v1H15zM17 27h1v1H17zM14 28h1v1H14zM16 28h1v1H16zM14 29h2v1H14zM14 30h1v1H14z\"/>", "unknown": "<path fill=\"#cccccc\" d=\"M21 14h1v1H21zM22 15h1v1H22zM22 16h1v1H22zM27 19h1v1H27zM27 20h1v1H27zM28 21h1v1H28zM28 22h1v1H28zM28 23h1v1H28zM27 24h1v1H27zM7 25h2v1H7zM12 25h11v1H12zM26 25h2v1H26zM9 26h3v1H9zM23 26h3v1H23z\"/><path fill=\"#ffffff\" d=\"M16 13h3v1H16zM13 14h8v1H13zM12 15h10v1H12zM12 16h10v1H12zM11 17h13v1H11zM9 18h17v1H9zM7 19h20v1H7zM7 20h20v1H7zM6 21h22v1H6zM6 22h22v1H6zM6 23h22v1H6zM7 24h20v1H7zM9 25h3v1H9zM23 25h3v1H23z\"/><path fill=\"#000000\" d=\"M16 12h3v1H16zM13 13h3v1H13zM19 13h3v1H19zM12 14h1v1H12zM22 14h1v1H22zM11 15h1v1H11zM23 15h1v1H23zM11 16h1v1H11zM23 16h1v1H23zM9 17h2v1H9zM24 17h2v1H24zM7 18h2v1H7zM26 18h2v1H26zM6 19h1v1H6zM28 19h1v1H28zM6 20h1v1H6zM28 20h1v1H28zM5 21h1v1H5zM29 21h1v1H29zM5 22h1v1H5zM29 22h1v1H29zM5 23h1v1H5zM29 23h1v1H29zM6 24h1v1H6zM28 24h1v1H28zM6 25h1v1H6zM28 25h1v1H28zM7 26h2v1H7zM12 26h11v1H12zM26 26h2v1H26zM9 27h3v1H9zM23 27h3v1H23z\"/>"};
+const iconSvg = kind => `<svg width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">${ART[kind] || ART.unknown}</svg>`;
+
+// ---- units: the viewer's choice, kept in this browser (not synced) ----
+const UNIT_SETS = { metric: { temperature_unit: "celsius", wind_speed_unit: "kmh", precipitation_unit: "mm" },
+  us: { temperature_unit: "fahrenheit", wind_speed_unit: "mph", precipitation_unit: "inch" } };
+const UNITS_KEY = "exe-weather-units:" + APP;
+let units = (() => {
+  try { const u = localStorage.getItem(UNITS_KEY); if (UNIT_SETS[u]) return u; } catch (e) {}
+  return /-(US|LR|MM)$/i.test(navigator.language || "") ? "us" : "metric";
+})();
+$("#units").value = units;
+$("#units").addEventListener("change", () => {
+  units = $("#units").value;
+  try { localStorage.setItem(UNITS_KEY, units); } catch (e) {}
+  wx = {}; // the numbers come back in the new units; refetch everything
+  render();
+  refresh(true);
+});
+const unitText = u => u === "mp/h" ? "mph" : u === "inch" ? "in" : u === "wmo code" || u === "iso8601" || u === "undefined" ? "" : u || "";
+
+// ---- the document: {version:1, items:[{id,name,region,country,cc,lat,lon,elev,tz,pop,feature,created,updated,deleted?}]} ----
+// A place is the geocoder's record for a city, keyed by its GeoNames id so
+// two nodes adding the same search result agree; updated stamps and delete
+// tombstones let the daemon's node-to-node sync merge the list item by item
+// (internal/peer/merge.go knows this schema as "Weather/places.json").
+let items = [];
+const live = () => items.filter(i => !i.deleted).sort((a, b) => a.created - b.created || a.id.localeCompare(b.id));
+function clean(raw) {
+  const it = { id: String(raw.id), name: String(raw.name || ""), region: String(raw.region || ""), country: String(raw.country || ""),
+    cc: String(raw.cc || ""), lat: +raw.lat || 0, lon: +raw.lon || 0, tz: String(raw.tz || ""), feature: String(raw.feature || ""),
+    created: +raw.created || 0, updated: +raw.updated || 0 };
+  if (Number.isFinite(+raw.elev) && raw.elev !== null && raw.elev !== "") it.elev = +raw.elev;
+  if (Number.isFinite(+raw.pop) && raw.pop !== null && raw.pop !== "") it.pop = +raw.pop;
+  if (+raw.deleted) it.deleted = +raw.deleted;
+  return it;
+}
+// a tombstone keeps only its id and stamps
+function bury(it) { for (const k of ["name", "region", "country", "cc", "lat", "lon", "elev", "tz", "pop", "feature"]) delete it[k]; }
+function seedDefault() {
+  if (items.some(i => i.id === DEFAULT_PLACE.id)) return;
+  const now = Date.now();
+  items.push(Object.assign({}, DEFAULT_PLACE, { created: now, updated: now }));
+}
+// a peer's copy landed (sync, or another window): union by id, newer
+// updated wins, a tombstone wins a tie so a deletion can't be resurrected
+function mergeIn(d) {
+  for (const raw of (d && Array.isArray(d.items)) ? d.items : []) {
+    if (!raw || typeof raw.id !== "string") continue;
+    const inc = clean(raw);
+    const cur = items.find(i => i.id === inc.id);
+    if (!cur) { items.push(inc); continue; }
+    const cd = +cur.deleted || 0;
+    if (inc.updated > cur.updated || (inc.updated === cur.updated && inc.deleted && !cd)) {
+      for (const k of Object.keys(cur)) delete cur[k];
+      Object.assign(cur, inc);
+    }
+  }
+}
+// the geocoder's record, reduced to what the list keeps
+function placeOf(r) {
+  const p = { id: r.id != null ? "geo:" + r.id : r.name + "|" + r.latitude + "|" + r.longitude, name: String(r.name || ""),
+    region: String(r.admin1 || ""), country: String(r.country || ""), cc: String(r.country_code || ""),
+    lat: +r.latitude, lon: +r.longitude, tz: String(r.timezone || ""), feature: String(r.feature_code || "") };
+  if (Number.isFinite(+r.elevation) && r.elevation != null) p.elev = +r.elevation;
+  if (Number.isFinite(+r.population) && r.population != null) p.pop = +r.population;
+  return p;
+}
+// re-adding a buried city revives its record with a fresh stamp
+function addPlace(p) {
+  const now = Date.now();
+  const ex = items.find(i => i.id === p.id);
+  if (ex && !ex.deleted) { flash(p.id); return; }
+  if (ex) { for (const k of Object.keys(ex)) delete ex[k]; Object.assign(ex, p, { created: now, updated: now }); }
+  else items.push(Object.assign({}, p, { created: now, updated: now }));
+  save();
+  render();
+  flash(p.id);
+  refresh();
+}
+function removePlace(id) {
+  const it = items.find(i => i.id === id && !i.deleted);
+  if (!it) return;
+  it.deleted = it.updated = Date.now();
+  bury(it);
+  openIds.delete(id); saveOpen();
+  save();
+  render();
+}
+
+// Debounced whole-doc PUT, serialized so a slow write is never overtaken;
+// saves stay blocked until the initial GET settled so a failed load can't
+// be clobbered with the default city. keepalive on flush survives the
+// desktop tearing the iframe down mid-debounce.
+let saveT = null, saving = false, again = false, loaded = false;
+function save() {
+  if (!loaded) return;
+  clearTimeout(saveT);
+  saveT = setTimeout(saveNow, 300);
+}
+async function saveNow(flush) {
+  clearTimeout(saveT); saveT = null;
+  const now = Date.now();
+  items = items.filter(i => !i.deleted || now - i.deleted < TOMBSTONE_TTL);
+  const body = JSON.stringify({ version: 1, items }, null, 2);
+  // X-Exe-Seq is a content timestamp: the daemon drops a PUT older than one
+  // it already stored, so an in-flight save can't land stale over the flush.
+  const seq = { "X-Exe-Seq": String(now) };
+  if (flush) {
+    try { api(DOC_URL, { method: "PUT", keepalive: true, headers: seq, body }); } catch (e) {}
+    return;
+  }
+  if (saving) { again = true; return; }
+  saving = true;
+  try {
+    await api(DOC_URL, { method: "PUT", headers: seq, body });
+  } catch (e) { console.error("weather save failed:", e); }
+  saving = false;
+  if (again) { again = false; saveNow(); }
+}
+addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && (saveT || saving)) saveNow(true);
+  else if (document.visibilityState === "visible" && !paused) refresh();
+});
+addEventListener("pagehide", () => { if (saveT || saving) saveNow(true); });
+
+// ---- per-viewer UI state: which cities and sections are unfolded ----
+const OPEN_KEY = "exe-weather-open:" + APP, SEC_KEY = "exe-weather-sections:" + APP;
+let openIds = new Set(), secOpen = { now: true, place: false, daily: false, hourly: false };
+try { openIds = new Set(JSON.parse(localStorage.getItem(OPEN_KEY) || "[]")); } catch (e) {}
+try { Object.assign(secOpen, JSON.parse(localStorage.getItem(SEC_KEY) || "{}")); } catch (e) {}
+const saveOpen = () => { try { localStorage.setItem(OPEN_KEY, JSON.stringify([...openIds])); } catch (e) {} };
+const saveSec = () => { try { localStorage.setItem(SEC_KEY, JSON.stringify(secOpen)); } catch (e) {} };
+
+// ---- the forecasts: one Open-Meteo call per city, cached in this browser ----
+// wx[id] = {at, data}; the cache survives a reopen so the list paints at
+// once and only asks the API again when its copy is older than FRESH_MS
+const CACHE_KEY = "exe-weather-cache:" + APP;
+let wx = {}, lastOk = 0, lastFail = 0, fetching = 0;
+try {
+  const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+  if (c && c.units === units && c.wx) wx = c.wx;
+} catch (e) {}
+function saveCache() {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ units, wx })); } catch (e) {}
+}
+function forecastUrl(it) {
+  const u = new URLSearchParams(Object.assign({ latitude: it.lat, longitude: it.lon, timezone: "auto", forecast_days: 7,
+    forecast_hours: 48, current: CURRENT.join(","), hourly: HOURLY.join(","), daily: DAILY.join(",") }, UNIT_SETS[units]));
+  return "https://api.open-meteo.com/v1/forecast?" + u;
+}
+async function fetchOne(it) {
+  const r = await fetch(forecastUrl(it));
+  const d = await r.json();
+  if (!r.ok || d.error) throw new Error(d.reason || "HTTP " + r.status);
+  return d;
+}
+// fetch every city whose copy is stale (all of them when forced), a few at a
+// time so a long list doesn't burst; the rows fill in as answers land
+async function refresh(force) {
+  const now = Date.now();
+  const todo = live().filter(it => force || !wx[it.id] || now - wx[it.id].at > FRESH_MS);
+  if (!todo.length || fetching) { statusLine(); return; }
+  fetching = todo.length; statusLine();
+  let failed = false;
+  const worker = async () => {
+    for (let it; (it = todo.shift());) {
+      try {
+        const data = await fetchOne(it);
+        wx[it.id] = { at: Date.now(), data };
+        lastOk = Date.now();
+        const row = list.querySelector(`.item[data-id="${CSS.escape(it.id)}"]`);
+        if (row) fillItem(row, it);
+      } catch (e) { console.error("weather fetch failed:", it.name, e); failed = true; }
+      fetching--;
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  fetching = 0;
+  if (failed) lastFail = Date.now();
+  saveCache();
+  statusLine();
+}
+// every minute: a stale city (10 minutes) is asked again; hidden windows sleep
+let tickT = null, paused = false;
+function schedule() {
+  clearTimeout(tickT);
+  tickT = setTimeout(() => { if (!paused) refresh(); schedule(); }, 60000);
+}
+
+// ---- formatting ----
+const fmtCache = {};
+const fmt = (key, opts) => fmtCache[key] || (fmtCache[key] = new Intl.DateTimeFormat([], opts));
+// the API's local times ("2026-09-09T06:32") shown in the viewer's own
+// clock format; they are the city's wall clock already
+const clockOf = iso => { const m = /T(\d\d):(\d\d)/.exec(iso || ""); return m ? fmt("hm", { hour: "numeric", minute: "2-digit" }).format(new Date(2000, 0, 1, +m[1], +m[2])) : "—"; };
+const hourOf = iso => { const m = /T(\d\d)/.exec(iso || ""); return m ? fmt("h", { hour: "numeric" }).format(new Date(2000, 0, 1, +m[1])) : "—"; };
+const dayOf = iso => { const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(iso || ""); return m ? fmt("d", { weekday: "short", month: "numeric", day: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))) : "—"; };
+const weekdayOf = iso => { const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(iso || ""); return m ? fmt("wd", { weekday: "short", timeZone: "UTC" }).format(new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))) : ""; };
+const COMPASS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+const compass = deg => COMPASS[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16];
+const hm = s => { const m = Math.round(s / 60); return Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; };
+const num = v => typeof v === "number" ? (Number.isInteger(v) ? String(v) : String(+v.toFixed(2))) : String(v);
+// one value, by what the variable is; unit given when it belongs inline
+function fmtVal(name, v, unit, inline) {
+  if (v === null || v === undefined) return "—";
+  if (name === "weather_code") return wmoText(v);
+  if (name === "is_day") return v ? "Day" : "Night";
+  if (unit === "iso8601") return clockOf(v);
+  if (unit === "s") return hm(v);
+  if (/^wind_direction/.test(name)) return num(v) + "° " + compass(v);
+  if (unit === "%" || unit === "°C" || unit === "°F") return num(v) + unit;
+  const u = unitText(unit);
+  return inline && u ? num(v) + " " + u : num(v);
+}
+// a table row's label carries the unit once; a value that spells its own
+// (a time, a duration, a compass point, a percentage, a degree sign) needs none
+const labelOf = (name, unit) => {
+  const u = unitText(unit);
+  const own = unit === "iso8601" || unit === "s" || unit === "%" || unit === "°C" || unit === "°F" || /^wind_direction/.test(name);
+  return (LABELS[name] || name.replace(/_/g, " ")) + (u && !own ? " (" + u + ")" : "");
+};
+const deg = v => Math.round(v) + "°";
+const coord = v => String(+(+v).toFixed(5)); // the geocoder's five decimals, not num()'s two
+const tzLabel = (tz, abbr, off) => {
+  const h = Math.trunc(off / 3600), m = Math.abs(off % 3600) / 60;
+  return tz + " · " + abbr + " · UTC" + (off < 0 ? "−" : "+") + String(Math.abs(h)).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+};
+
+// ---- the list ----
+const list = $("#list");
+function fillItem(box, it) {
+  const row = box.querySelector(".row"), w = wx[it.id], d = w && w.data, c = d && d.current;
+  const sub = row.querySelector(".sub"), temp = row.querySelector(".temp"), hilo = row.querySelector(".hilo");
+  const where = it.region && it.region !== it.name ? it.region : it.country;
+  if (!c) {
+    sub.textContent = where + (w ? "" : " · " + (fetching ? "Loading…" : lastFail ? "Couldn't reach Open-Meteo" : "…"));
+    temp.textContent = "—"; hilo.textContent = " ";
+  } else {
+    row.querySelector(".icon").innerHTML = iconSvg(wmoIcon(c.weather_code, c.is_day));
+    sub.textContent = where + " · " + wmoText(c.weather_code);
+    temp.textContent = c.temperature_2m == null ? "—" : deg(c.temperature_2m);
+    const dy = d.daily || {};
+    hilo.textContent = dy.temperature_2m_max && dy.temperature_2m_max[0] != null
+      ? "H " + deg(dy.temperature_2m_max[0]) + "  L " + deg(dy.temperature_2m_min[0]) : " ";
+  }
+  if (box.classList.contains("open")) fillDetail(box.querySelector(".detail"), it);
+}
+function render() {
+  const rows = live();
+  list.replaceChildren();
+  if (!rows.length) list.append(el("div", { id: "empty" }, "No cities — search above to add one."));
+  for (const it of rows) {
+    const x = el("button", { class: "ghost sm danger x", title: "Remove " + it.name }, "×");
+    x.onclick = e => {
+      e.stopPropagation();
+      if (!x.classList.contains("armed")) { // the desktop's two-click armed ×
+        x.classList.add("armed");
+        setTimeout(() => x.classList.remove("armed"), 3000);
+        return;
+      }
+      removePlace(it.id);
+    };
+    const row = el("div", { class: "row" },
+      el("span", { class: "tri" }),
+      el("div", { class: "icon" }),
+      el("div", { class: "who" }, el("div", { class: "city", title: it.tz }, it.name), el("div", { class: "sub" })),
+      el("div", { class: "when" }, el("div", { class: "temp" }), el("div", { class: "hilo" })),
+      x);
+    const box = el("div", { class: "item" + (openIds.has(it.id) ? " open" : ""), "data-id": it.id }, row, el("div", { class: "detail" }));
+    row.addEventListener("click", () => {
+      box.classList.toggle("open");
+      if (box.classList.contains("open")) { openIds.add(it.id); fillDetail(box.querySelector(".detail"), it); }
+      else openIds.delete(it.id);
+      saveOpen();
+    });
+    fillItem(box, it);
+    list.append(box);
+  }
+  $("#st-left").textContent = rows.length + (rows.length === 1 ? " city" : " cities");
+  statusLine();
+}
+function statusLine() {
+  const t = lastOk ? fmt("hm", { hour: "numeric", minute: "2-digit" }).format(new Date(lastOk)) : "";
+  $("#st-right").textContent = fetching ? "Updating…" : lastFail > lastOk ? "Open-Meteo unreachable" + (t ? " · last " + t : "")
+    : t ? "Updated " + t : "";
+}
+function flash(id) {
+  const box = list.querySelector(`.item[data-id="${CSS.escape(id)}"]`);
+  if (!box) return;
+  box.scrollIntoView({ block: "nearest" });
+  box.firstChild.classList.add("flash");
+  setTimeout(() => box.firstChild.classList.remove("flash"), 900);
+}
+
+// ---- the detail: four folding sections under an opened city ----
+function section(key, title, note, body) {
+  const head = el("div", { class: "sec" + (secOpen[key] ? " open" : "") }, el("span", { class: "tri" }), title, el("span", { class: "n" }, note || ""));
+  head.addEventListener("click", () => {
+    head.classList.toggle("open");
+    secOpen[key] = head.classList.contains("open");
+    saveSec();
+    // every open city folds the same way
+    for (const h of list.querySelectorAll(`.sec[data-key="${key}"]`)) h.classList.toggle("open", secOpen[key]);
+  });
+  head.dataset.key = key;
+  return [head, el("div", { class: "body" }, body)];
+}
+const kv = pairs => el("div", { class: "kv" }, ...pairs.flatMap(([k, v]) => [el("span", { class: "k" }, k), el("span", { class: "v", title: v }, v)]));
+function fillDetail(det, it) {
+  const w = wx[it.id], d = w && w.data;
+  if (!d) { det.replaceChildren(el("div", { class: "wait" }, fetching ? "Waiting for Open-Meteo…" : "No forecast yet.")); return; }
+  const c = d.current, cu = d.current_units || {}, du = d.daily_units || {}, hu = d.hourly_units || {};
+  // Now: every current variable, plus when the API says it was measured
+  const now = kv([...CURRENT.map(n => [labelOf(n, ""), fmtVal(n, c[n], cu[n], true)]),
+    ["As of", clockOf(c.time) + " local, " + (c.interval / 60) + "-minute reading"]]);
+  // Place: the geocoder's record and the model's grid point
+  const place = kv([
+    ["Coordinates", coord(it.lat) + ", " + coord(it.lon)],
+    ["Model grid point", coord(d.latitude) + ", " + coord(d.longitude)],
+    ["Elevation", (it.elev != null ? num(it.elev) + " m" : "—") + " · model " + num(d.elevation) + " m"],
+    ["Time zone", tzLabel(d.timezone, d.timezone_abbreviation, d.utc_offset_seconds)],
+    ["Region", it.region || "—"], ["Country", it.country + (it.cc ? " (" + it.cc + ")" : "")],
+    ["Population", it.pop != null ? it.pop.toLocaleString() : "—"],
+    ["GeoNames", (it.id.startsWith("geo:") ? "#" + it.id.slice(4) : "—") + (it.feature ? " · " + it.feature : "")],
+    ["Forecast generated in", num(d.generationtime_ms) + " ms"]]);
+  // Daily: seven columns of days, one row per variable
+  const days = d.daily.time;
+  const dtab = el("table", {}, el("thead", {}, el("tr", {}, el("th", { class: "lab" }, ""), ...days.map(t => el("th", {}, dayOf(t))))),
+    el("tbody", {}, ...DAILY.map(n => el("tr", {}, el("th", { class: "lab" }, labelOf(n, du[n])),
+      ...days.map((t, i) => el("td", {}, fmtVal(n, d.daily[n] ? d.daily[n][i] : null, du[n])))))));
+  // Hourly: the next 48 hours, a day-name row over the hours
+  const hours = d.hourly.time, nowIso = (c.time || "").slice(0, 13);
+  const dayCells = [];
+  for (let i = 0; i < hours.length; i++) {
+    const wd = weekdayOf(hours[i]);
+    if (dayCells.length && dayCells[dayCells.length - 1].wd === wd) dayCells[dayCells.length - 1].n++;
+    else dayCells.push({ wd, n: 1 });
+  }
+  const dayStart = new Set(); { let i = 0; for (const dc of dayCells) { dayStart.add(i); i += dc.n; } }
+  const htab = el("table", {}, el("thead", {},
+      el("tr", { class: "days" }, el("th", { class: "lab" }, ""), ...dayCells.map(dc => el("th", { colspan: dc.n }, dc.wd))),
+      el("tr", {}, el("th", { class: "lab" }, ""), ...hours.map(t => el("th", {}, hourOf(t))))),
+    el("tbody", {}, ...HOURLY.map(n => el("tr", {}, el("th", { class: "lab" }, labelOf(n, hu[n])),
+      ...hours.map((t, i) => el("td", { class: (dayStart.has(i) && i ? "day0" : "") + (t.slice(0, 13) === nowIso ? " now" : "") },
+        fmtVal(n, d.hourly[n] ? d.hourly[n][i] : null, hu[n])))))));
+  det.replaceChildren(
+    ...section("now", "Now", CURRENT.length + " fields", now),
+    ...section("place", "Place", "", place),
+    ...section("daily", "Daily", days.length + " days · " + DAILY.length + " fields", el("div", { class: "tbox" }, dtab)),
+    ...section("hourly", "Hourly", hours.length + " hours · " + HOURLY.length + " fields", el("div", { class: "tbox" }, htab)));
+}
+
+// ---- city search: Open-Meteo's geocoder ----
+const q = $("#q"), drop = $("#drop");
+let hot = -1, results = [], searchSeq = 0;
+function note(msg) {
+  drop.replaceChildren(el("div", { class: "note" }, msg));
+  drop.hidden = false;
+}
+async function search() {
+  const raw = q.value.trim();
+  if (raw.length < 2) { drop.hidden = true; results = []; hot = -1; return; }
+  const seq = ++searchSeq;
+  if (!results.length) note("Searching…");
+  let found;
+  try {
+    const r = await fetch("https://geocoding-api.open-meteo.com/v1/search?" + new URLSearchParams({ name: raw, count: 10, language: "en", format: "json" }));
+    found = (await r.json()).results || [];
+  } catch (e) { if (seq === searchSeq) note("Couldn't reach Open-Meteo"); return; }
+  if (seq !== searchSeq || q.value.trim() !== raw) return; // a newer keystroke owns the box
+  const have = new Set(live().map(i => i.id));
+  results = found.map(placeOf);
+  hot = results.length ? 0 : -1;
+  if (!results.length) { note("No place matches “" + raw + "”"); return; }
+  drop.replaceChildren(...results.map((p, i) => {
+    const has = have.has(p.id);
+    const o = el("div", { class: "opt" + (i === hot ? " hot" : "") + (has ? " have" : "") },
+      el("b", {}, p.name + (p.region ? ", " + p.region : "") + (p.country ? ", " + p.country : "")),
+      el("span", { class: "id" }, has ? "added" : p.pop ? p.pop.toLocaleString() : p.cc));
+    o.addEventListener("mousedown", e => { e.preventDefault(); pick(i); });
+    return o;
+  }));
+  drop.hidden = false;
+  drop.scrollTop = 0;
+}
+function pick(i) {
+  const p = results[i];
+  if (!p) return;
+  q.value = "";
+  drop.hidden = true;
+  results = []; hot = -1; searchSeq++;
+  if (MOBILE) q.blur(); // let the keyboard go so the new row shows
+  addPlace(p);
+}
+let searchT = null;
+q.addEventListener("input", () => { clearTimeout(searchT); searchT = setTimeout(search, 250); });
+q.addEventListener("focus", () => { if (q.value.trim()) search(); });
+q.addEventListener("blur", () => setTimeout(() => { drop.hidden = true; }, 150));
+q.addEventListener("keydown", e => {
+  if (drop.hidden || !results.length) { if (e.key === "Escape") { drop.hidden = true; q.value = ""; } return; }
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    hot = e.key === "ArrowDown" ? Math.min(hot + 1, results.length - 1) : Math.max(hot - 1, 0);
+    drop.querySelectorAll(".opt").forEach((o, i) => o.classList.toggle("hot", i === hot));
+    const o = drop.querySelectorAll(".opt")[hot];
+    if (o) o.scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter") {
+    e.preventDefault(); pick(hot >= 0 ? hot : 0);
+  } else if (e.key === "Escape") {
+    drop.hidden = true;
+  }
+});
+
+// ---- desktop window plumbing (same bridge as the other apps) ----
+window.addEventListener("pointerdown", () => {
+  if (window.parent !== window) parent.postMessage({ exe: "focus" }, location.origin);
+}, { capture: true, passive: true });
+
+// no grow box on its own page, nor on a phone, where the window fills the
+// screen and the desktop hides its own grow boxes
+const grow = $("#grow");
+if (window.parent === window || MOBILE) grow.style.display = "none";
+if (MOBILE) $("#status").style.paddingRight = "8px";
+grow.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  grow.setPointerCapture(e.pointerId);
+  const sx = e.clientX, sy = e.clientY;
+  const move = ev =>
+    parent.postMessage({ exe: "grow", dx: ev.clientX - sx, dy: ev.clientY - sy }, location.origin);
+  const up = () => {
+    grow.removeEventListener("pointermove", move);
+    grow.removeEventListener("pointerup", up);
+    parent.postMessage({ exe: "grow-end" }, location.origin);
+  };
+  grow.addEventListener("pointermove", move);
+  grow.addEventListener("pointerup", up);
+  parent.postMessage({ exe: "grow-start" }, location.origin);
+});
+
+// OS 9 scrollbar end-merges need the same scrolled/at-end flags as the desktop
+document.addEventListener("scroll", e => {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  t.classList.toggle("scrolled-y", t.scrollTop >= 1);
+  t.classList.toggle("at-y-end", t.scrollTop >= 1 && t.scrollTop >= t.scrollHeight - t.clientHeight - 1);
+  t.classList.toggle("scrolled-x", t.scrollLeft >= 1);
+  t.classList.toggle("at-x-end", t.scrollLeft >= 1 && t.scrollLeft >= t.scrollWidth - t.clientWidth - 1);
+}, { capture: true, passive: true });
+
+// hide/show from the desktop pause and resume the refresh timer; a peer's or
+// another window's write (forwarded as data-changed) is merged in
+window.addEventListener("message", async e => {
+  if (e.origin !== location.origin || !e.data || typeof e.data.exe !== "string") return;
+  if (e.data.exe === "hide") {
+    paused = true;
+    clearTimeout(tickT);
+    if (saveT || saving) saveNow(true);
+  } else if (e.data.exe === "show") {
+    paused = false;
+    refresh();
+    schedule();
+  } else if (e.data.exe === "data-changed") {
+    if (e.data.client && e.data.client === CLIENT) return; // our own write
+    if (!loaded || e.data.path !== "places.json" || saveT || saving) return;
+    try {
+      const r = await api(DOC_URL);
+      if (r.status === 404) return;
+      mergeIn(await r.json());
+      render();
+      refresh();
+    } catch (err) {}
+  }
+});
+
+// Load the list, retrying a transient failure with backoff. Saves stay
+// blocked (loaded=false) until a GET succeeds so a failed load can't clobber
+// the stored list with the default city — but a daemon restart must not
+// silently disable saving for the whole session, so we keep trying.
+let tries = 0;
+async function load() {
+  try {
+    const r = await api(DOC_URL);
+    if (r.status === 404) seedDefault();
+    else { items = []; mergeIn(await r.json()); }
+    loaded = true;
+    render();
+    refresh();
+    schedule();
+  } catch (e) {
+    console.error("weather load failed:", e);
+    if (tries++ < 12) setTimeout(load, 5000);
+    // the first attempt still paints the default city so the app is usable
+    if (tries === 1) { seedDefault(); render(); refresh(); schedule(); }
+  }
+}
+load();
+</script>
+</body>
+</html>

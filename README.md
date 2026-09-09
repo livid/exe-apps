@@ -61,7 +61,7 @@ Joined exe desks sync app data between nodes, so every app here follows one
 persistence contract: a debounced whole-document PUT, serialized so a slow
 write is never overtaken, flushed on pagehide, and disabled until the first
 GET succeeds so an empty document can never clobber the stored one. Apps
-that hold records (Notes, Todo, World Clock) give every item an `id`,
+that hold records (Notes, Todo, World Clock, Weather) give every item an `id`,
 `created` and `updated` stamps, and leave a tombstone on delete, which is
 what lets two nodes' edits merge item by item; the daemon's merge schema for
 each file lives in exe's `internal/peer/merge.go`.
@@ -91,6 +91,14 @@ each file lives in exe's `internal/peer/merge.go`.
   against yours ("Tomorrow, +16h"). Search any city to add it (every IANA
   zone's principal city is built in); the × removes it. Defaults to Los
   Angeles, CA; `clocks.json`.
+
+- **Weather** — a list of cities like the World Clock's, each with a
+  pixel-art sky, the temperature and today's high and low. Click a city
+  and it unfolds into everything Open-Meteo knows: the current reading,
+  the place, seven days of daily figures and 48 hours of hourly ones,
+  every field the forecast API serves. Search any place to add it (the
+  Open-Meteo geocoder); a pop-up switches °C/km/h/mm and °F/mph/in.
+  Defaults to Los Angeles; `places.json`.
 
 ## Look
 
