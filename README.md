@@ -97,8 +97,8 @@ each file lives in exe's `internal/peer/merge.go`.
   and it unfolds into everything Open-Meteo knows: the current reading,
   the place, seven days of daily figures and 48 hours of hourly ones,
   every field the forecast API serves. Search any place to add it (the
-  Open-Meteo geocoder); a pop-up switches °C/km/h/mm and °F/mph/in.
-  Defaults to Los Angeles; `places.json`.
+  Open-Meteo geocoder); drag rows to reorder them; a pop-up switches
+  °C/km/h/mm and °F/mph/in. Defaults to Los Angeles; `places.json`.
 
 ## Look
 

@@ -136,9 +136,13 @@ after 30 days — that's what lets two nodes' edits merge item-by-item.
   (`exe-weather-cache:<App>`, with the units they came in) so a reopen
   paints at once, and re-asked when older than 10 minutes on a one-minute
   tick that sleeps on hide; which cities and sections are unfolded is
-  per-viewer UI state in localStorage too. `places.json` is `{version:1,
-  items:[{id,name,region,country,cc,lat,lon,elev?,tz,pop?,feature,created,
-  updated,deleted?}]}` — the geocoder's record keyed by its GeoNames id
+  per-viewer UI state in localStorage too. Rows drag-reorder exactly like
+  Todo's (press, move 4px, the black drop line, edge autoscroll): a
+  fractional `order` rank falling back to `created`, written with
+  `updated` on the dragged city only so a reorder merges as one item's
+  edit; a drop is not a click, so the row does not toggle. `places.json`
+  is `{version:1, items:[{id,name,region,country,cc,lat,lon,elev?,tz,pop?,
+  feature,order?,created,updated,deleted?}]}` — the geocoder's record keyed by its GeoNames id
   (`geo:5368361`) so two nodes adding the same result agree; tombstones
   keep only id and stamps; the daemon merges it item by item (merge.go
   matches the full key `Weather/places.json`, numbers as pointers so a
