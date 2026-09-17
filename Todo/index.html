@@ -81,6 +81,11 @@ button.ghost.sm { padding: 1px 8px; font-size: 10px; height: auto; }
    real OS 9 Finder window capture. */
 #grow { position: fixed; right: 0; bottom: 0; width: 15px; height: 15px;
   touch-action: none; z-index: 2; }
+/* a phone's window fills the screen: no grow tile, and no horizontal bar
+   either — it was only there to reserve the tile's corner, so the vertical
+   bar runs down to the host frame's line */
+body.mobile #grow { display: none; }
+body.mobile #list { overflow-x: hidden; }
 
 /* Mac OS 9 scrollbars — the desktop's pixel-sampled spec, adapted for a
    document window: the host frame draws the outer black line, so bars are
@@ -204,6 +209,9 @@ const DATA_URL = "/v1/apps/" + encodeURIComponent(APP) + "/data/todos.json";
 // identifies this window's writes so the daemon's change events can be
 // echo-suppressed here (we made the write) but delivered to other windows
 const CLIENT = Math.random().toString(36).slice(2) + Date.now().toString(36);
+// on a phone the desktop adds ?mobile=1: no grow tile (see body.mobile)
+const MOBILE = new URLSearchParams(location.search).has("mobile");
+if (MOBILE) document.body.classList.add("mobile");
 
 async function api(url, opts = {}) {
   opts.headers = Object.assign({}, opts.headers);
