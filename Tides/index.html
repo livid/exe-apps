@@ -598,8 +598,12 @@ window.addEventListener("pointerdown", () => {
   if (window.parent !== window) parent.postMessage({ exe: "focus" }, location.origin);
 }, { capture: true, passive: true });
 
+// no grow box on its own page, nor on a phone (?mobile=1), where the window
+// fills the screen and the desktop hides its own grow boxes
+const MOBILE = new URLSearchParams(location.search).has("mobile");
 const grow = $("#grow");
-if (window.parent === window) grow.style.display = "none";
+if (window.parent === window || MOBILE) grow.style.display = "none";
+if (MOBILE) $("#status").style.paddingRight = "8px";
 grow.addEventListener("pointerdown", e => {
   e.preventDefault();
   grow.setPointerCapture(e.pointerId);

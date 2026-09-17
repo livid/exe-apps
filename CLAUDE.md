@@ -42,6 +42,9 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   pointerdown so clicks raise the window; if `window.grow` is true, include
   the 15px grow-box SVG and stream `{exe:"grow", dx, dy}` / `grow-start` /
   `grow-end` so the desktop resizes the window. Copy both blocks as-is.
+  On a phone the desktop adds `?mobile=1` and the window fills the screen:
+  hide the grow tile there (and give the status line its 8px right padding
+  back; Todo also drops the horizontal bar that only reserved the corner).
   A closed window is hidden, not destroyed: the desktop posts `{exe:"hide"}`
   to the app's iframe on close and `{exe:"show"}` when it is reopened. An
   app with loops, timers or a simulation pauses on hide (and flushes any
