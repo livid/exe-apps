@@ -499,6 +499,12 @@ function save() {
   clearTimeout(saveT);
   saveT = setTimeout(saveNow, 300);
 }
+// X-Exe-Seq stamps count upward whatever the clock does: two snapshots in one
+// millisecond (a debounced save, then the unload flush right behind it) or a
+// clock set back would otherwise carry a stamp the daemon has already taken,
+// and the newer text be the one answered stale.
+let lastSeq = 0;
+const nextSeq = () => (lastSeq = Math.max(Date.now(), lastSeq + 1));
 async function saveNow(flush) {
   clearTimeout(saveT); saveT = null;
   const now = Date.now();
@@ -506,7 +512,7 @@ async function saveNow(flush) {
   const body = JSON.stringify({ version: 1, items }, null, 2);
   // X-Exe-Seq is a content timestamp: the daemon drops a PUT older than one
   // it already stored, so an in-flight save can't land stale over the flush.
-  const seq = { "X-Exe-Seq": String(now) };
+  const seq = { "X-Exe-Seq": String(nextSeq()) };
   if (flush) {
     try { api(DOC_URL, { method: "PUT", keepalive: true, headers: seq, body }); } catch (e) {}
     return;

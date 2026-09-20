@@ -1060,14 +1060,22 @@ function scheduleSave() {
 }
 // X-Exe-Seq is a content timestamp: the daemon rejects a PUT older than one
 // it already stored, so a slow in-flight save can't rename a stale canvas
-// over a newer one that a later save (or the unload flush) sent.
+// over a newer one that a later save (or the unload flush) sent. Stamps
+// count upward whatever the clock does — two snapshots in one millisecond,
+// or a clock set back, would otherwise carry a stamp the daemon has already
+// taken, and the newer canvas be the one answered stale. A stamp is taken
+// with its snapshot: toBlob reads the canvas when called and calls back
+// later, and a flush in between must outrank it.
+let lastSeq = 0;
+const nextSeq = () => (lastSeq = Math.max(Date.now(), lastSeq + 1));
 function doSave() {
   if (!loaded) return;
   if (saving) { savePending = true; return; }
   saving = true;
+  const seq = String(nextSeq());
   dc.toBlob(async blob => {
     try {
-      await api(DOC_URL, { method: "PUT", headers: { "X-Exe-Seq": String(Date.now()) }, body: blob });
+      await api(DOC_URL, { method: "PUT", headers: { "X-Exe-Seq": seq }, body: blob });
       savedEl.textContent = "Saved";
     } catch (err) {
       savedEl.textContent = "Save failed";
@@ -1090,7 +1098,7 @@ function flushSave() {
     const url = dc.toDataURL("image/png");
     const bytes = Uint8Array.from(atob(url.slice(url.indexOf(",") + 1)), c => c.charCodeAt(0));
     if (bytes.length < 60000) {
-      api(DOC_URL, { method: "PUT", keepalive: true, headers: { "X-Exe-Seq": String(Date.now()) }, body: bytes });
+      api(DOC_URL, { method: "PUT", keepalive: true, headers: { "X-Exe-Seq": String(nextSeq()) }, body: bytes });
       savedEl.textContent = "Saved";
       return;
     }

@@ -65,7 +65,10 @@ sync can merge or LWW its files: debounced whole-doc PUT, **serialized**
 (`saving`/`again` gate) so a slow write is never overtaken, `keepalive` flush
 on pagehide/visibilitychange, and a `loaded` guard — if the initial GET
 fails, saving stays disabled so an empty in-memory doc can never clobber the
-stored one. Every PUT carries `X-Exe-Seq: <Date.now()>` and
+stored one. Every PUT carries `X-Exe-Seq` — `nextSeq()`, which is
+`lastSeq = Math.max(Date.now(), lastSeq + 1)`, taken with the snapshot it
+stamps, so a save and the flush behind it in one millisecond, or a clock set
+back, still count upward — and
 `X-Exe-Client: <a random id made at load>`: the daemon drops a PUT stamped
 older than one it already took **from that client** (an in-flight save must
 not land over the pagehide flush) and answers `{"status":"stale"}`, and the
