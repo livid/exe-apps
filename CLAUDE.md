@@ -65,8 +65,18 @@ sync can merge or LWW its files: debounced whole-doc PUT, **serialized**
 (`saving`/`again` gate) so a slow write is never overtaken, `keepalive` flush
 on pagehide/visibilitychange, and a `loaded` guard — if the initial GET
 fails, saving stays disabled so an empty in-memory doc can never clobber the
-stored one. Record-bearing apps (Todo, Notes) give every item an `id`,
-`created`/`updated` epoch-ms stamps bumped on every change, and deletions
+stored one. Every PUT carries `X-Exe-Seq: <Date.now()>` and
+`X-Exe-Client: <a random id made at load>`: the daemon drops a PUT stamped
+older than one it already took **from that client** (an in-flight save must
+not land over the pagehide flush) and answers `{"status":"stale"}`, and the
+client id lets a window skip the `data-changed` echo of its own write. The
+seq is never held against another window's — two devices' clocks differ,
+and a save must not vanish for being stamped off the slower one; without
+the client id the daemon can only judge it file-wide, so send both. Which
+window's content wins is the app's job: reload on `data-changed` and keep a
+local record only when it is strictly newer. Record-bearing apps (Todo,
+Notes) give every item an `id`, `created`/`updated` epoch-ms stamps bumped
+on every change — an edit, never a background write — and deletions
 leave a `{id, deleted: <ms>, updated}` tombstone (text dropped) GC'd on save
 after 30 days — that's what lets two nodes' edits merge item-by-item.
 
