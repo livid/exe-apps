@@ -61,8 +61,10 @@ button.ghost.sm { padding: 1px 8px; font-size: 10px; border-radius: 3px; height:
    top, an always-on OS 9 scrollbar like a Finder list */
 #list { flex: 1; min-height: 0; background: #fff; border-top: 1px solid var(--black);
   overflow-y: scroll; overflow-x: hidden; position: relative; }
+/* rows keep the default touch-action so a finger pans the list; a touch
+   held still picks a row up instead (see beginDrag), with no iOS callout */
 .row { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 8px; border-bottom: 1px solid #efefef;
-  touch-action: none; }
+  -webkit-touch-callout: none; }
 .row.flash { background: #e6e6ff; }
 .row.dragging { background: #dfe3f5; }
 /* insertion caret while dragging a row: OS 9 list drop indicator — a solid
@@ -692,24 +694,39 @@ function flash(id) {
 // pointer (with edge autoscroll), and the drop writes the dragged city's
 // order as the midpoint of its new neighbours' keys. An opened city drags
 // with its detail; a sync-triggered render mid-drag cancels the drag rather
-// than dropping onto a list that just changed.
-let drag = null, justDragged = false; // {id, row, box, y0, clientY, active, gap, raf}
+// than dropping onto a list that just changed. A finger pans the list
+// instead: a touch picks its row up only after resting HOLD ms within 8px
+// (the phone's long press, as in iOS Reminders); moving sooner is a scroll,
+// which the browser takes with a pointercancel, and a quick lift a tap.
+const HOLD = 500;
+let drag = null, justDragged = false; // {id, row, box, pid, x0, y0, clientY, active, gap, raf, hold}
 function beginDrag(e, id, row, box) {
   cancelDrag();
-  drag = { id, row, box, y0: e.clientY, clientY: e.clientY, active: false, gap: -1, raf: 0 };
+  drag = { id, row, box, pid: e.pointerId, x0: e.clientX, y0: e.clientY, clientY: e.clientY,
+    active: false, gap: -1, raf: 0, hold: 0 };
+  if (e.pointerType !== "mouse") drag.hold = setTimeout(pickUp, HOLD);
   addEventListener("pointermove", dragMove);
   addEventListener("pointerup", dragUp);
   addEventListener("pointercancel", cancelDrag);
 }
-function dragMove(e) {
-  if (!drag) return;
-  drag.clientY = e.clientY;
-  if (!drag.active && Math.abs(e.clientY - drag.y0) >= 4) {
-    drag.active = true;
-    drag.row.classList.add("dragging");
-    drag.raf = requestAnimationFrame(dragFrame);
-  }
+function pickUp() {
+  drag.hold = 0;
+  drag.active = true;
+  drag.row.classList.add("dragging");
+  drag.raf = requestAnimationFrame(dragFrame);
 }
+function dragMove(e) {
+  if (!drag || e.pointerId !== drag.pid) return;
+  drag.clientY = e.clientY;
+  if (drag.active) return;
+  if (drag.hold) {
+    if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) >= 8) cancelDrag();
+  } else if (Math.abs(e.clientY - drag.y0) >= 4) pickUp();
+}
+// once a touch has picked a row up, its moves drag the row, not the list
+list.addEventListener("touchmove", e => { if (drag && drag.active) e.preventDefault(); }, { passive: false });
+// and a long press is not a context menu (Android fires one at the same time)
+addEventListener("contextmenu", e => { if (drag) e.preventDefault(); });
 // runs every frame while dragging so edge autoscroll keeps flowing (and the
 // line keeps tracking) even while the pointer holds still
 function dragFrame() {
@@ -730,7 +747,8 @@ function dragFrame() {
   line.style.top = Math.max(1, lineY) + "px"; // keep the 2px line inside the box at the very top
   drag.raf = requestAnimationFrame(dragFrame);
 }
-function dragUp() {
+function dragUp(e) {
+  if (drag && e.pointerId !== drag.pid) return;
   const d = drag;
   cancelDrag();
   if (!d || !d.active) return;
@@ -750,6 +768,7 @@ function dragUp() {
 }
 function cancelDrag() {
   if (!drag) return;
+  clearTimeout(drag.hold);
   cancelAnimationFrame(drag.raf);
   drag.row.classList.remove("dragging");
   const line = $("#dropline");

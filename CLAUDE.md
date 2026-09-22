@@ -93,8 +93,14 @@ after 30 days — that's what lets two nodes' edits merge item-by-item.
   drag-reorder via a fractional `order` rank (falls back to `created`, so
   unranked docs keep creation order): a drop writes order+updated on the
   dragged item only — midpoint of its new neighbors' keys — so a reorder
-  merges like any single-item edit. The daemon's merge struct must carry
-  every field the apps write (internal/peer/merge.go strips unknown keys).
+  merges like any single-item edit. A mouse picks a row up after 4px; a
+  finger pans the list (rows keep the default `touch-action` — `none`
+  there locked a phone's list) and picks a row up only after resting
+  500ms within 8px, the long press, when a non-passive `touchmove` on the
+  list stops the pan for the rest of the drag
+  (`~/tools/playwright/exe-apps-touch-reorder-test.js`). The daemon's
+  merge struct must carry every field the apps write
+  (internal/peer/merge.go strips unknown keys).
 
 - **Notes** — two-column Note Pad (Chat-window layout: 190px list + document).
   All notes live in one `notes.json` through the app-data API — one doc beats
@@ -157,8 +163,8 @@ after 30 days — that's what lets two nodes' edits merge item-by-item.
   paints at once, and re-asked when older than 10 minutes on a one-minute
   tick that sleeps on hide; which cities and sections are unfolded is
   per-viewer UI state in localStorage too. Rows drag-reorder exactly like
-  Todo's (press, move 4px, the black drop line, edge autoscroll): a
-  fractional `order` rank falling back to `created`, written with
+  Todo's (press, move 4px — a finger holds 500ms — the black drop line,
+  edge autoscroll): a fractional `order` rank falling back to `created`, written with
   `updated` on the dragged city only so a reorder merges as one item's
   edit; a drop is not a click, so the row does not toggle. `places.json`
   is `{version:1, items:[{id,name,region,country,cc,lat,lon,elev?,tz,pop?,
