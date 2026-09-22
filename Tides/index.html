@@ -227,6 +227,7 @@ async function saveNow(flush) {
 }
 addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden" && (saveT || saving)) saveNow(true);
+  else if (document.visibilityState === "visible" && !paused) tick(); // a throttled tab catches up
 });
 addEventListener("pagehide", () => { if (saveT || saving) saveNow(true); });
 
@@ -651,33 +652,54 @@ document.addEventListener("scroll", e => {
   el.classList.toggle("at-y-end", el.scrollTop >= 1 && el.scrollTop >= el.scrollHeight - el.clientHeight - 1);
 }, { capture: true, passive: true });
 
-// Node sync landed a peer's settings on disk (forwarded by the desktop as a
-// data-changed message): adopt them — settings are last-writer-wins. Skip
-// while a local save is in flight; it's about to overwrite anyway.
-window.addEventListener("message", async e => {
-  if (e.origin !== location.origin || !e.data || e.data.exe !== "data-changed") return;
-  if (e.data.client && e.data.client === CLIENT) return; // our own write
-  if (!loaded || e.data.path !== "settings.json" || saveT || saving) return;
-  try {
-    const r = await api(SETTINGS_URL);
-    if (r.status === 404) return;
-    const data = await r.json();
-    if (data && data.station && data.station.id) st.station = data.station;
-    if (data && [1, 3, 7].includes(data.range)) st.range = data.range;
-    syncSeg();
-    updateStatus();
-    loadTides();
-  } catch (err) {}
-});
-
-new ResizeObserver(() => draw()).observe(box);
-
-// redraw keeps the now-line moving; a date rollover refetches the range
-setInterval(() => {
+// The now-line and its clock move on the minute: each tick is aimed 80 ms
+// past the next boundary (World Clock's schedule), so the label never lags
+// the clock by most of a minute. A date rollover refetches the range. A
+// window the desktop has closed is only hidden, so it sleeps until show.
+let tickT = null, paused = false;
+function tick() {
   const { start } = rangeSpan();
   if (fetchedKey && fetchedKey !== st.station.id + "|" + st.range + "|" + start) loadTides();
   else { draw(); updateStatus(); }
-}, 60000);
+}
+function schedule() {
+  clearTimeout(tickT);
+  tickT = setTimeout(() => { if (!paused) tick(); schedule(); }, 60000 - (Date.now() % 60000) + 80);
+}
+schedule();
+
+// hide/show from the desktop pause and resume the minute tick (show ticks
+// at once, so a reopened window is current in its first frame). Node sync
+// landing a peer's settings on disk (forwarded by the desktop as a
+// data-changed message): adopt them — settings are last-writer-wins. Skip
+// while a local save is in flight; it's about to overwrite anyway.
+window.addEventListener("message", async e => {
+  if (e.origin !== location.origin || !e.data || typeof e.data.exe !== "string") return;
+  if (e.data.exe === "hide") {
+    paused = true;
+    clearTimeout(tickT);
+    if (saveT || saving) saveNow(true);
+  } else if (e.data.exe === "show") {
+    paused = false;
+    tick();
+    schedule();
+  } else if (e.data.exe === "data-changed") {
+    if (e.data.client && e.data.client === CLIENT) return; // our own write
+    if (!loaded || e.data.path !== "settings.json" || saveT || saving) return;
+    try {
+      const r = await api(SETTINGS_URL);
+      if (r.status === 404) return;
+      const data = await r.json();
+      if (data && data.station && data.station.id) st.station = data.station;
+      if (data && [1, 3, 7].includes(data.range)) st.range = data.range;
+      syncSeg();
+      updateStatus();
+      loadTides();
+    } catch (err) {}
+  }
+});
+
+new ResizeObserver(() => draw()).observe(box);
 
 // Load settings, retrying a transient failure with backoff. Saves stay
 // blocked (loaded=false) until a GET succeeds so a failed load can't clobber
