@@ -68,9 +68,12 @@ button.ghost.sm { padding: 1px 8px; font-size: 10px; border-radius: 3px; height:
    Chat statusbars: the 15px grow tile at bottom:0 then puts its black top
    row exactly on this border-top line and its face merges into the host
    chrome through the .window.grow corner punch-outs — every seam one line */
+/* overflow: clip — the 11px text's line box is taller than the 14px face and
+   hangs a pixel past the bar; clipped, that pixel is no scrollable overflow of
+   the page (docs/platinum.md, status bar) */
 #status { display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--black);
   background: var(--g300); font-size: 11px; color: #333; padding: 0 20px 0 8px; height: 15px;
-  box-shadow: inset 1px 1px 0 rgba(255,255,255,.6), inset -1px -1px 0 #aaa; }
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.6), inset -1px -1px 0 #aaa; overflow: clip; }
 #st-count { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #st-save { flex: none; }
 
