@@ -35,7 +35,11 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
 - **Look**: Mac OS 9 Platinum — the full guide (numbers, colours, rules) is
   `/www/exe/docs/platinum.md`. Copy the CSS blocks from an existing app —
   root color vars, beveled buttons, sunken text fields, and the pixel-sampled
-  OS 9 scrollbar block. Only the Return-triggered default button gets the
+  OS 9 scrollbar block. The pop-up menu button is the exception: it is one
+  shared stylesheet the daemon serves, `<link rel="stylesheet"
+  href="/platinum/popup.css">` in the head (Weather's units menu), with the
+  markup `<span class="popup"><select>…</select><span class="well"><i><b></b></i></span></span>`
+  and a width from the app; never copy the block. Only the Return-triggered default button gets the
   black ring; others stay plain. Bordered scroll containers share 1px edges
   with the scrollbar — reuse the existing block verbatim, don't restyle.
 - **Desktop bridge** (postMessage, same-origin): send `{exe:"focus"}` on
