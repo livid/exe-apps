@@ -87,6 +87,21 @@ on every change — an edit, never a background write — and deletions
 leave a `{id, deleted: <ms>, updated}` tombstone (text dropped) GC'd on save
 after 30 days — that's what lets two nodes' edits merge item-by-item.
 
+Reads never come out of the browser's cache: the daemon answers app data
+`Cache-Control: no-store` (since 2026-09-23), and an app can say
+`fetch(url, { cache: "no-store" })` as well. With only a Last-Modified,
+Chrome kept a file that had sat idle for hours "fresh" for a tenth of that
+age: a desk that had not saved since reread its old copy after every
+`data-changed`, and typing there took words written on another desk. When
+the desktop's change stream reopens after a gap (a daemon restart, a
+sleep) every app window gets `{exe: "data-resync"}` — nothing written
+meanwhile was announced, so read every file again as if each had changed
+(Blue Pencil also rereads when its page becomes visible). A field whose
+text the app saves as it is typed carries `data-autosave`: the desktop
+holds its update reload while any other typed field still has text, and a
+field that is never empty (Blue Pencil's) held a desk on an old build for
+days.
+
 - **Todo** — `todos.json` is `{version:2, items:[{id,text,done,created,
   updated,order?,deleted?}]}`; v1 bare arrays migrate on load with content-derived
   ids (`v1Id`) so two nodes migrating independently agree on them. Rows
