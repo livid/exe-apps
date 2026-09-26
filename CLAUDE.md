@@ -56,6 +56,13 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   The frame allows fullscreen, so an app may call
   `document.documentElement.requestFullscreen()` from a user gesture (City
   binds it to F) and `document.exitFullscreen()` to come back.
+- **Opening another app**: `{exe:"open-app", app:"Writer", path:"Planet/x/posts/y/index.md"}`
+  asks the desk for that app's window on a Workspace path (relative, no
+  `..`): a first open gets it as `?path=` in the frame's query, an open
+  window gets `{exe:"open", path}` posted into it. The desk also forwards
+  every Workspace change as `{exe:"workspace-changed", path, deleted,
+  client}` to every app frame; an app showing a file reloads it when it
+  holds nothing unsaved (the Writer) or refreshes its listing (Planet).
 - App name comes from `location.pathname.split("/")[2]`, token from
   `?token=` — don't hardcode either.
 - Vanilla JS + inline CSS in one index.html; no frameworks, no CDNs.
