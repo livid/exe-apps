@@ -144,7 +144,27 @@ days.
 - **Tides** — NOAA CO-OPS tide charts (fetches NOAA directly; CORS is open).
   Gotchas encoded there: only type-R stations serve 6-minute curves (type-S
   fall back to cosine fit between hi/lo); fetch `time_zone=gmt`, render in
-  viewer-local time; station list cached slim in localStorage for a week.
+  viewer-local time; station list cached slim in localStorage for a week
+  (`tides-stations-v2`, with each station's lat/lon). Weather rides each
+  high/low marker on its outer side — the temperature past the height and
+  clock, then the Weather app's 32-grid condition icon (`ART`/`WMO`
+  copied from Weather/index.html; keep the two in step), painted per DPR
+  into a sprite with every art pixel snapped to device pixels. One
+  Open-Meteo call per station and day covers the week from local midnight
+  (hourly temperature_2m, weather_code, is_day; °C, GMT unixtime), so the
+  range buttons never refetch; re-asked after 30 minutes on the minute
+  tick. `plan()` picks a tier from the markers' spacing and the plot's
+  height — icon + temperature (neighbouring highs, or lows, ≥ 34px apart),
+  temperature alone (≥ 20px), or none — and reserves its room past the
+  highest high and lowest low in the y scale before the forecast lands,
+  so nothing moves when it does. The now label lives in the margin over
+  the plot, where no stack reaches. The station's position is saved with
+  it in settings.json when picked; a settings file from before is looked
+  up once in NOAA's mdapi (`stations/<id>.json`) and kept in memory — no
+  background write. °C/°F is the shared `.popup`, per viewer in
+  localStorage (`exe-tides-units:<App>`), converted client-side. Checks:
+  `~/tools/playwright/exe-tides-now-label-test.js` (label text with the
+  temperature, fit, no overlap) and `exe-tides-tick-test.js`.
 - **World Clock** — the desktop's menubar clock opens it (the shell calls
   `openAppWin("World Clock")` when `/v1/apps` lists the folder). A list of
   cities with a 15px pixel dial each (the phone menubar's face at 2x, hands
