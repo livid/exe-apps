@@ -86,9 +86,9 @@ each file lives in exe's `internal/peer/merge.go`.
   9410580); Today / 3 Days / 7 Days; search any NOAA tide-prediction
   station. Reference stations draw the real 6-minute curve, subordinate
   stations get a cosine fit between highs and lows. Every high and low
-  carries the weather at that hour from Open-Meteo — the Weather app's
-  condition icon and the temperature — and the now label and the hover
-  balloon carry it too; a °C/°F menu beside the search.
+  carries the weather at that hour from Open-Meteo — a 16-pixel condition
+  icon, and the temperature after its clock ("8:33AM · 71°") — and the now
+  label and the hover balloon carry it too; a °C/°F menu beside the search.
 - **World Clock** — opens from the desktop's menubar clock. A list of
   cities, each with a pixel dial, the local time, and the day and offset
   against yours ("Tomorrow, +16h"). Search any city to add it (every IANA

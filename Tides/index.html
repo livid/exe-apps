@@ -400,8 +400,8 @@ $("#units").addEventListener("change", () => {
 });
 const fmtTemp = c => Math.round(units === "f" ? c * 9 / 5 + 32 : c) + "°";
 
-// WMO weather interpretation codes and the Weather app's 32-grid condition
-// art, copied from Weather/index.html (keep the two in step)
+// WMO weather interpretation codes, copied from Weather/index.html (keep
+// the two in step)
 const WMO = { 0: ["Clear sky", "clear"], 1: ["Mainly clear", "clear"], 2: ["Partly cloudy", "partly"], 3: ["Overcast", "overcast"],
   45: ["Fog", "fog"], 48: ["Rime fog", "fog"], 51: ["Light drizzle", "drizzle"], 53: ["Drizzle", "drizzle"], 55: ["Dense drizzle", "drizzle"],
   56: ["Light freezing drizzle", "sleet"], 57: ["Freezing drizzle", "sleet"], 61: ["Light rain", "rain"], 63: ["Rain", "rain"],
@@ -414,24 +414,234 @@ const wmoIcon = (code, day) => {
   const k = (WMO[code] || [, "unknown"])[1];
   return k === "clear" ? (day ? "clear_day" : "clear_night") : k === "partly" ? (day ? "partly_day" : "partly_night") : k;
 };
-const ART = {"clear_day": "<path fill=\"#ee9900\" d=\"M20 11h1v1H20zM21 12h1v1H21zM21 13h1v1H21zM21 14h1v1H21zM22 15h1v1H22zM22 16h1v1H22zM22 17h1v1H22zM21 18h1v1H21zM21 19h1v1H21zM11 20h1v1H11zM21 20h1v1H21zM12 21h3v1H12zM18 21h3v1H18zM15 22h3v1H15z\"/><path fill=\"#ffcc00\" d=\"M15 11h3v1H15zM12 12h9v1H12zM12 13h9v1H12zM12 14h9v1H12zM11 15h11v1H11zM11 16h11v1H11zM11 17h11v1H11zM12 18h9v1H12zM12 19h9v1H12zM12 20h9v1H12zM15 21h3v1H15z\"/><path fill=\"#ffee88\" d=\"M15 10h3v1H15zM12 11h3v1H12zM18 11h2v1H18zM11 12h1v1H11zM11 13h1v1H11zM11 14h1v1H11zM10 15h1v1H10zM10 16h1v1H10zM10 17h1v1H10zM11 18h1v1H11zM11 19h1v1H11z\"/><path fill=\"#000000\" d=\"M16 5h1v1H16zM16 6h1v1H16zM16 7h1v1H16zM8 8h1v1H8zM24 8h1v1H24zM9 9h1v1H9zM15 9h3v1H15zM23 9h1v1H23zM10 10h1v1H10zM12 10h3v1H12zM18 10h3v1H18zM22 10h1v1H22zM11 11h1v1H11zM21 11h1v1H21zM10 12h1v1H10zM22 12h1v1H22zM10 13h1v1H10zM22 13h1v1H22zM10 14h1v1H10zM22 14h1v1H22zM9 15h1v1H9zM23 15h1v1H23zM5 16h3v1H5zM9 16h1v1H9zM23 16h1v1H23zM25 16h3v1H25zM9 17h1v1H9zM23 17h1v1H23zM10 18h1v1H10zM22 18h1v1H22zM10 19h1v1H10zM22 19h1v1H22zM10 20h1v1H10zM22 20h1v1H22zM11 21h1v1H11zM21 21h1v1H21zM10 22h1v1H10zM12 22h3v1H12zM18 22h3v1H18zM22 22h1v1H22zM9 23h1v1H9zM15 23h3v1H15zM23 23h1v1H23zM8 24h1v1H8zM24 24h1v1H24zM16 25h1v1H16zM16 26h1v1H16zM16 27h1v1H16z\"/>", "clear_night": "<path fill=\"#cccc99\" d=\"M14 11h1v1H14zM14 12h1v1H14zM13 13h1v1H13zM13 14h1v1H13zM13 15h1v1H13zM14 16h1v1H14zM14 17h1v1H14zM15 18h1v1H15zM16 19h1v1H16zM12 20h1v1H12zM13 21h3v1H13zM19 21h1v1H19zM16 22h3v1H16z\"/><path fill=\"#ffff99\" d=\"M8 6h1v1H8zM7 7h1v1H7zM9 7h1v1H9zM8 8h1v1H8zM25 8h1v1H25zM24 9h1v1H24zM26 9h1v1H26zM25 10h1v1H25zM7 21h1v1H7zM6 22h1v1H6zM8 22h1v1H8zM7 23h1v1H7z\"/><path fill=\"#ffffcc\" d=\"M8 7h1v1H8zM25 9h1v1H25zM13 12h1v1H13zM12 15h1v1H12zM12 16h2v1H12zM12 17h2v1H12zM13 18h2v1H13zM13 19h3v1H13zM13 20h4v1H13zM16 21h2v1H16zM7 22h1v1H7z\"/><path fill=\"#ffffff\" d=\"M13 11h1v1H13zM12 12h1v1H12zM12 13h1v1H12zM12 14h1v1H12zM11 15h1v1H11zM11 16h1v1H11zM11 17h1v1H11zM12 18h1v1H12zM12 19h1v1H12zM17 20h1v1H17zM18 21h1v1H18z\"/><path fill=\"#000000\" d=\"M16 9h2v1H16zM13 10h4v1H13zM12 11h1v1H12zM15 11h1v1H15zM11 12h1v1H11zM15 12h1v1H15zM11 13h1v1H11zM14 13h1v1H14zM11 14h1v1H11zM14 14h1v1H14zM10 15h1v1H10zM14 15h1v1H14zM10 16h1v1H10zM15 16h1v1H15zM10 17h1v1H10zM15 17h1v1H15zM11 18h1v1H11zM16 18h1v1H16zM11 19h1v1H11zM17 19h1v1H17zM11 20h1v1H11zM18 20h2v1H18zM23 20h1v1H23zM12 21h1v1H12zM20 21h3v1H20zM13 22h3v1H13zM19 22h3v1H19zM16 23h3v1H16z\"/>", "partly_day": "<path fill=\"#cccccc\" d=\"M23 15h1v1H23zM24 16h1v1H24zM24 17h1v1H24zM29 20h1v1H29zM29 21h1v1H29zM30 22h1v1H30zM30 23h1v1H30zM30 24h1v1H30zM29 25h1v1H29zM9 26h2v1H9zM14 26h11v1H14zM28 26h2v1H28zM11 27h3v1H11zM25 27h3v1H25z\"/><path fill=\"#ee9900\" d=\"M14 6h1v1H14zM15 7h1v1H15zM15 8h1v1H15zM16 9h1v1H16zM16 10h1v1H16zM16 11h1v1H16zM15 12h1v1H15zM7 13h1v1H7zM15 13h1v1H15zM8 14h2v1H8zM13 14h2v1H13zM10 15h3v1H10z\"/><path fill=\"#ffcc00\" d=\"M10 6h3v1H10zM8 7h7v1H8zM8 8h7v1H8zM7 9h9v1H7zM7 10h9v1H7zM7 11h9v1H7zM8 12h7v1H8zM8 13h7v1H8zM10 14h3v1H10z\"/><path fill=\"#ffee88\" d=\"M10 5h3v1H10zM8 6h2v1H8zM13 6h1v1H13zM7 7h1v1H7zM7 8h1v1H7zM6 9h1v1H6zM6 10h1v1H6zM6 11h1v1H6zM7 12h1v1H7z\"/><path fill=\"#ffffff\" d=\"M18 14h3v1H18zM15 15h8v1H15zM14 16h10v1H14zM14 17h10v1H14zM13 18h13v1H13zM11 19h17v1H11zM9 20h20v1H9zM9 21h20v1H9zM8 22h22v1H8zM8 23h22v1H8zM8 24h22v1H8zM9 25h20v1H9zM11 26h3v1H11zM25 26h3v1H25z\"/><path fill=\"#000000\" d=\"M11 0h1v1H11zM11 1h1v1H11zM11 2h1v1H11zM4 3h1v1H4zM18 3h1v1H18zM5 4h1v1H5zM10 4h3v1H10zM17 4h1v1H17zM8 5h2v1H8zM13 5h2v1H13zM7 6h1v1H7zM15 6h1v1H15zM6 7h1v1H6zM16 7h1v1H16zM6 8h1v1H6zM16 8h1v1H16zM5 9h1v1H5zM17 9h1v1H17zM1 10h3v1H1zM5 10h1v1H5zM17 10h1v1H17zM19 10h3v1H19zM5 11h1v1H5zM17 11h1v1H17zM6 12h1v1H6zM16 12h1v1H16zM6 13h1v1H6zM16 13h1v1H16zM18 13h3v1H18zM7 14h1v1H7zM15 14h3v1H15zM21 14h3v1H21zM8 15h2v1H8zM13 15h2v1H13zM24 15h1v1H24zM5 16h1v1H5zM10 16h4v1H10zM25 16h1v1H25zM4 17h1v1H4zM13 17h1v1H13zM25 17h1v1H25zM11 18h2v1H11zM26 18h2v1H26zM9 19h2v1H9zM28 19h2v1H28zM8 20h1v1H8zM30 20h1v1H30zM8 21h1v1H8zM30 21h1v1H30zM7 22h1v1H7zM31 22h1v1H31zM7 23h1v1H7zM31 23h1v1H31zM7 24h1v1H7zM31 24h1v1H31zM8 25h1v1H8zM30 25h1v1H30zM8 26h1v1H8zM30 26h1v1H30zM9 27h2v1H9zM14 27h11v1H14zM28 27h2v1H28zM11 28h3v1H11zM25 28h3v1H25z\"/>", "partly_night": "<path fill=\"#cccc99\" d=\"M9 6h1v1H9zM8 7h1v1H8zM8 8h1v1H8zM8 9h1v1H8zM9 10h1v1H9zM9 11h1v1H9zM10 12h1v1H10zM7 13h1v1H7zM8 14h2v1H8zM13 14h1v1H13zM10 15h3v1H10z\"/><path fill=\"#cccccc\" d=\"M23 15h1v1H23zM24 16h1v1H24zM24 17h1v1H24zM29 20h1v1H29zM29 21h1v1H29zM30 22h1v1H30zM30 23h1v1H30zM30 24h1v1H30zM29 25h1v1H29zM9 26h2v1H9zM14 26h11v1H14zM28 26h2v1H28zM11 27h3v1H11zM25 27h3v1H25z\"/><path fill=\"#ffff99\" d=\"M26 4h1v1H26zM6 5h1v1H6zM25 5h1v1H25zM27 5h1v1H27zM5 6h1v1H5zM26 6h1v1H26z\"/><path fill=\"#ffffcc\" d=\"M26 5h1v1H26zM6 6h1v1H6zM7 9h1v1H7zM7 10h2v1H7zM7 11h2v1H7zM8 12h2v1H8zM8 13h3v1H8zM10 14h2v1H10z\"/><path fill=\"#ffffff\" d=\"M8 6h1v1H8zM7 7h1v1H7zM7 8h1v1H7zM6 9h1v1H6zM6 10h1v1H6zM6 11h1v1H6zM7 12h1v1H7zM11 13h1v1H11zM12 14h1v1H12zM18 14h3v1H18zM15 15h8v1H15zM14 16h10v1H14zM14 17h10v1H14zM13 18h13v1H13zM11 19h17v1H11zM9 20h20v1H9zM9 21h20v1H9zM8 22h22v1H8zM8 23h22v1H8zM8 24h22v1H8zM9 25h20v1H9zM11 26h3v1H11zM25 26h3v1H25z\"/><path fill=\"#000000\" d=\"M10 4h2v1H10zM8 5h3v1H8zM7 6h1v1H7zM10 6h1v1H10zM6 7h1v1H6zM9 7h1v1H9zM6 8h1v1H6zM9 8h1v1H9zM5 9h1v1H5zM9 9h1v1H9zM5 10h1v1H5zM10 10h1v1H10zM5 11h1v1H5zM10 11h1v1H10zM6 12h1v1H6zM11 12h1v1H11zM6 13h1v1H6zM12 13h2v1H12zM18 13h3v1H18zM7 14h1v1H7zM14 14h4v1H14zM21 14h3v1H21zM8 15h2v1H8zM13 15h2v1H13zM24 15h1v1H24zM10 16h4v1H10zM25 16h1v1H25zM13 17h1v1H13zM25 17h1v1H25zM11 18h2v1H11zM26 18h2v1H26zM9 19h2v1H9zM28 19h2v1H28zM8 20h1v1H8zM30 20h1v1H30zM8 21h1v1H8zM30 21h1v1H30zM7 22h1v1H7zM31 22h1v1H31zM7 23h1v1H7zM31 23h1v1H31zM7 24h1v1H7zM31 24h1v1H31zM8 25h1v1H8zM30 25h1v1H30zM8 26h1v1H8zM30 26h1v1H30zM9 27h2v1H9zM14 27h11v1H14zM28 27h2v1H28zM11 28h3v1H11zM25 28h3v1H25z\"/>", "cloudy": "<path fill=\"#cccccc\" d=\"M21 14h1v1H21zM22 15h1v1H22zM22 16h1v1H22zM27 19h1v1H27zM27 20h1v1H27zM28 21h1v1H28zM28 22h1v1H28zM28 23h1v1H28zM27 24h1v1H27zM7 25h2v1H7zM12 25h11v1H12zM26 25h2v1H26zM9 26h3v1H9zM23 26h3v1H23z\"/><path fill=\"#ffffff\" d=\"M16 13h3v1H16zM13 14h8v1H13zM12 15h10v1H12zM12 16h10v1H12zM11 17h13v1H11zM9 18h17v1H9zM7 19h20v1H7zM7 20h20v1H7zM6 21h22v1H6zM6 22h22v1H6zM6 23h22v1H6zM7 24h20v1H7zM9 25h3v1H9zM23 25h3v1H23z\"/><path fill=\"#000000\" d=\"M16 12h3v1H16zM13 13h3v1H13zM19 13h3v1H19zM12 14h1v1H12zM22 14h1v1H22zM11 15h1v1H11zM23 15h1v1H23zM11 16h1v1H11zM23 16h1v1H23zM9 17h2v1H9zM24 17h2v1H24zM7 18h2v1H7zM26 18h2v1H26zM6 19h1v1H6zM28 19h1v1H28zM6 20h1v1H6zM28 20h1v1H28zM5 21h1v1H5zM29 21h1v1H29zM5 22h1v1H5zM29 22h1v1H29zM5 23h1v1H5zM29 23h1v1H29zM6 24h1v1H6zM28 24h1v1H28zM6 25h1v1H6zM28 25h1v1H28zM7 26h2v1H7zM12 26h11v1H12zM26 26h2v1H26zM9 27h3v1H9zM23 27h3v1H23z\"/>", "overcast": "<path fill=\"#aaaaaa\" d=\"M19 10h1v1H19zM20 11h1v1H20zM20 12h1v1H20zM25 15h1v1H25zM25 16h1v1H25zM26 17h1v1H26zM26 18h1v1H26zM26 19h1v1H26zM5 21h2v1H5zM7 22h1v1H7z\"/><path fill=\"#cccccc\" d=\"M23 17h1v1H23zM24 18h1v1H24zM24 19h1v1H24zM29 22h1v1H29zM29 23h1v1H29zM30 24h1v1H30zM30 25h1v1H30zM30 26h1v1H30zM29 27h1v1H29zM9 28h2v1H9zM14 28h11v1H14zM28 28h2v1H28zM11 29h3v1H11zM25 29h3v1H25z\"/><path fill=\"#dddddd\" d=\"M14 10h3v1H14zM11 11h9v1H11zM11 12h9v1H11zM10 13h12v1H10zM9 14h13v1H9zM7 15h11v1H7zM21 15h3v1H21zM6 16h9v1H6zM24 16h1v1H24zM5 17h9v1H5zM25 17h1v1H25zM5 18h8v1H5zM5 19h8v1H5zM6 20h5v1H6zM7 21h2v1H7z\"/><path fill=\"#eeeeee\" d=\"M14 9h3v1H14zM11 10h3v1H11zM17 10h2v1H17zM10 11h1v1H10zM10 12h1v1H10zM9 13h1v1H9zM7 14h2v1H7zM22 14h2v1H22zM5 15h2v1H5zM24 15h1v1H24zM5 16h1v1H5zM4 17h1v1H4zM4 18h1v1H4zM4 19h1v1H4zM5 20h1v1H5z\"/><path fill=\"#ffffff\" d=\"M18 16h3v1H18zM15 17h8v1H15zM14 18h10v1H14zM14 19h10v1H14zM13 20h13v1H13zM11 21h17v1H11zM9 22h20v1H9zM9 23h20v1H9zM8 24h22v1H8zM8 25h22v1H8zM8 26h22v1H8zM9 27h20v1H9zM11 28h3v1H11zM25 28h3v1H25z\"/><path fill=\"#000000\" d=\"M14 8h3v1H14zM11 9h3v1H11zM17 9h3v1H17zM10 10h1v1H10zM20 10h1v1H20zM9 11h1v1H9zM21 11h1v1H21zM9 12h1v1H9zM21 12h1v1H21zM7 13h2v1H7zM22 13h2v1H22zM5 14h2v1H5zM24 14h2v1H24zM4 15h1v1H4zM18 15h3v1H18zM26 15h1v1H26zM4 16h1v1H4zM15 16h3v1H15zM21 16h3v1H21zM26 16h1v1H26zM3 17h1v1H3zM14 17h1v1H14zM24 17h1v1H24zM27 17h1v1H27zM3 18h1v1H3zM13 18h1v1H13zM25 18h1v1H25zM27 18h1v1H27zM3 19h1v1H3zM13 19h1v1H13zM25 19h1v1H25zM27 19h1v1H27zM4 20h1v1H4zM11 20h2v1H11zM26 20h2v1H26zM4 21h1v1H4zM9 21h2v1H9zM28 21h2v1H28zM5 22h2v1H5zM8 22h1v1H8zM30 22h1v1H30zM7 23h2v1H7zM30 23h1v1H30zM7 24h1v1H7zM31 24h1v1H31zM7 25h1v1H7zM31 25h1v1H31zM7 26h1v1H7zM31 26h1v1H31zM8 27h1v1H8zM30 27h1v1H30zM8 28h1v1H8zM30 28h1v1H30zM9 29h2v1H9zM14 29h11v1H14zM28 29h2v1H28zM11 30h3v1H11zM25 30h3v1H25z\"/>", "fog": "<path fill=\"#888888\" d=\"M5 22h22v1H5zM7 25h18v1H7zM5 28h18v1H5z\"/><path fill=\"#cccccc\" d=\"M21 7h1v1H21zM22 8h1v1H22zM22 9h1v1H22zM27 12h1v1H27zM27 13h1v1H27zM28 14h1v1H28zM28 15h1v1H28zM28 16h1v1H28zM27 17h1v1H27zM7 18h2v1H7zM12 18h11v1H12zM26 18h2v1H26zM9 19h3v1H9zM23 19h3v1H23zM5 23h22v1H5zM7 26h18v1H7zM5 29h18v1H5z\"/><path fill=\"#ffffff\" d=\"M16 6h3v1H16zM13 7h8v1H13zM12 8h10v1H12zM12 9h10v1H12zM11 10h13v1H11zM9 11h17v1H9zM7 12h20v1H7zM7 13h20v1H7zM6 14h22v1H6zM6 15h22v1H6zM6 16h22v1H6zM7 17h20v1H7zM9 18h3v1H9zM23 18h3v1H23z\"/><path fill=\"#000000\" d=\"M16 5h3v1H16zM13 6h3v1H13zM19 6h3v1H19zM12 7h1v1H12zM22 7h1v1H22zM11 8h1v1H11zM23 8h1v1H23zM11 9h1v1H11zM23 9h1v1H23zM9 10h2v1H9zM24 10h2v1H24zM7 11h2v1H7zM26 11h2v1H26zM6 12h1v1H6zM28 12h1v1H28zM6 13h1v1H6zM28 13h1v1H28zM5 14h1v1H5zM29 14h1v1H29zM5 15h1v1H5zM29 15h1v1H29zM5 16h1v1H5zM29 16h1v1H29zM6 17h1v1H6zM28 17h1v1H28zM6 18h1v1H6zM28 18h1v1H28zM7 19h2v1H7zM12 19h11v1H12zM26 19h2v1H26zM9 20h3v1H9zM23 20h3v1H23z\"/>", "drizzle": "<path fill=\"#3366cc\" d=\"M10 23h1v1H10zM17 23h1v1H17zM24 23h1v1H24zM9 24h2v1H9zM16 24h2v1H16zM23 24h2v1H23zM9 25h2v1H9zM16 25h2v1H16zM23 25h2v1H23zM9 26h2v1H9zM16 26h2v1H16zM23 26h2v1H23z\"/><path fill=\"#6699ff\" d=\"M9 22h2v1H9zM16 22h2v1H16zM23 22h2v1H23z\"/><path fill=\"#99ccff\" d=\"M9 23h1v1H9zM16 23h1v1H16zM23 23h1v1H23z\"/><path fill=\"#cccccc\" d=\"M21 6h1v1H21zM22 7h1v1H22zM22 8h1v1H22zM27 11h1v1H27zM27 12h1v1H27zM28 13h1v1H28zM28 14h1v1H28zM28 15h1v1H28zM27 16h1v1H27zM7 17h2v1H7zM12 17h11v1H12zM26 17h2v1H26zM9 18h3v1H9zM23 18h3v1H23z\"/><path fill=\"#ffffff\" d=\"M16 5h3v1H16zM13 6h8v1H13zM12 7h10v1H12zM12 8h10v1H12zM11 9h13v1H11zM9 10h17v1H9zM7 11h20v1H7zM7 12h20v1H7zM6 13h22v1H6zM6 14h22v1H6zM6 15h22v1H6zM7 16h20v1H7zM9 17h3v1H9zM23 17h3v1H23z\"/><path fill=\"#000000\" d=\"M16 4h3v1H16zM13 5h3v1H13zM19 5h3v1H19zM12 6h1v1H12zM22 6h1v1H22zM11 7h1v1H11zM23 7h1v1H23zM11 8h1v1H11zM23 8h1v1H23zM9 9h2v1H9zM24 9h2v1H24zM7 10h2v1H7zM26 10h2v1H26zM6 11h1v1H6zM28 11h1v1H28zM6 12h1v1H6zM28 12h1v1H28zM5 13h1v1H5zM29 13h1v1H29zM5 14h1v1H5zM29 14h1v1H29zM5 15h1v1H5zM29 15h1v1H29zM6 16h1v1H6zM28 16h1v1H28zM6 17h1v1H6zM28 17h1v1H28zM7 18h2v1H7zM12 18h11v1H12zM26 18h2v1H26zM9 19h3v1H9zM23 19h3v1H23z\"/>", "rain": "<path fill=\"#3366cc\" d=\"M9 22h1v1H9zM16 22h1v1H16zM23 22h1v1H23zM8 23h2v1H8zM15 23h2v1H15zM22 23h2v1H22zM8 24h2v1H8zM15 24h2v1H15zM22 24h2v1H22zM8 25h2v1H8zM15 25h2v1H15zM22 25h2v1H22zM12 27h1v1H12zM19 27h1v1H19zM26 27h1v1H26zM11 28h2v1H11zM18 28h2v1H18zM25 28h2v1H25zM11 29h2v1H11zM18 29h2v1H18zM25 29h2v1H25zM11 30h2v1H11zM18 30h2v1H18zM25 30h2v1H25z\"/><path fill=\"#6699ff\" d=\"M8 21h2v1H8zM15 21h2v1H15zM22 21h2v1H22zM11 26h2v1H11zM18 26h2v1H18zM25 26h2v1H25z\"/><path fill=\"#99ccff\" d=\"M8 22h1v1H8zM15 22h1v1H15zM22 22h1v1H22zM11 27h1v1H11zM18 27h1v1H18zM25 27h1v1H25z\"/><path fill=\"#aaaaaa\" d=\"M21 6h1v1H21zM22 7h1v1H22zM22 8h1v1H22zM27 11h1v1H27zM27 12h1v1H27zM28 13h1v1H28zM28 14h1v1H28zM28 15h1v1H28zM27 16h1v1H27zM7 17h2v1H7zM12 17h11v1H12zM26 17h2v1H26zM9 18h3v1H9zM23 18h3v1H23z\"/><path fill=\"#dddddd\" d=\"M16 6h3v1H16zM13 7h9v1H13zM13 8h9v1H13zM12 9h12v1H12zM11 10h13v1H11zM9 11h17v1H9zM8 12h19v1H8zM7 13h21v1H7zM7 14h21v1H7zM7 15h21v1H7zM8 16h19v1H8zM9 17h3v1H9zM23 17h3v1H23z\"/><path fill=\"#eeeeee\" d=\"M16 5h3v1H16zM13 6h3v1H13zM19 6h2v1H19zM12 7h1v1H12zM12 8h1v1H12zM11 9h1v1H11zM9 10h2v1H9zM24 10h2v1H24zM7 11h2v1H7zM26 11h1v1H26zM7 12h1v1H7zM6 13h1v1H6zM6 14h1v1H6zM6 15h1v1H6zM7 16h1v1H7z\"/><path fill=\"#000000\" d=\"M16 4h3v1H16zM13 5h3v1H13zM19 5h3v1H19zM12 6h1v1H12zM22 6h1v1H22zM11 7h1v1H11zM23 7h1v1H23zM11 8h1v1H11zM23 8h1v1H23zM9 9h2v1H9zM24 9h2v1H24zM7 10h2v1H7zM26 10h2v1H26zM6 11h1v1H6zM28 11h1v1H28zM6 12h1v1H6zM28 12h1v1H28zM5 13h1v1H5zM29 13h1v1H29zM5 14h1v1H5zM29 14h1v1H29zM5 15h1v1H5zM29 15h1v1H29zM6 16h1v1H6zM28 16h1v1H28zM6 17h1v1H6zM28 17h1v1H28zM7 18h2v1H7zM12 18h11v1H12zM26 18h2v1H26zM9 19h3v1H9zM23 19h3v1H23z\"/>", "snow": "<path fill=\"#3366cc\" d=\"M10 22h1v1H10zM24 22h1v1H24zM8 24h1v1H8zM12 24h1v1H12zM22 24h1v1H22zM26 24h1v1H26zM17 25h1v1H17zM10 26h1v1H10zM24 26h1v1H24zM15 27h1v1H15zM19 27h1v1H19zM17 29h1v1H17z\"/><path fill=\"#99ccff\" d=\"M10 23h1v1H10zM24 23h1v1H24zM9 24h1v1H9zM11 24h1v1H11zM23 24h1v1H23zM25 24h1v1H25zM10 25h1v1H10zM24 25h1v1H24zM17 26h1v1H17zM16 27h1v1H16zM18 27h1v1H18zM17 28h1v1H17z\"/><path fill=\"#cccccc\" d=\"M21 6h1v1H21zM22 7h1v1H22zM22 8h1v1H22zM27 11h1v1H27zM27 12h1v1H27zM28 13h1v1H28zM28 14h1v1H28zM28 15h1v1H28zM27 16h1v1H27zM7 17h2v1H7zM12 17h11v1H12zM26 17h2v1H26zM9 18h3v1H9zM23 18h3v1H23z\"/><path fill=\"#ffffff\" d=\"M16 5h3v1H16zM13 6h8v1H13zM12 7h10v1H12zM12 8h10v1H12zM11 9h13v1H11zM9 10h17v1H9zM7 11h20v1H7zM7 12h20v1H7zM6 13h22v1H6zM6 14h22v1H6zM6 15h22v1H6zM7 16h20v1H7zM9 17h3v1H9zM23 17h3v1H23zM10 24h1v1H10zM24 24h1v1H24zM17 27h1v1H17z\"/><path fill=\"#000000\" d=\"M16 4h3v1H16zM13 5h3v1H13zM19 5h3v1H19zM12 6h1v1H12zM22 6h1v1H22zM11 7h1v1H11zM23 7h1v1H23zM11 8h1v1H11zM23 8h1v1H23zM9 9h2v1H9zM24 9h2v1H24zM7 10h2v1H7zM26 10h2v1H26zM6 11h1v1H6zM28 11h1v1H28zM6 12h1v1H6zM28 12h1v1H28zM5 13h1v1H5zM29 13h1v1H29zM5 14h1v1H5zM29 14h1v1H29zM5 15h1v1H5zM29 15h1v1H29zM6 16h1v1H6zM28 16h1v1H28zM6 17h1v1H6zM28 17h1v1H28zM7 18h2v1H7zM12 18h11v1H12zM26 18h2v1H26zM9 19h3v1H9zM23 19h3v1H23z\"/>", "sleet": "<path fill=\"#3366cc\" d=\"M9 23h1v1H9zM21 23h1v1H21zM8 24h2v1H8zM15 24h1v1H15zM20 24h2v1H20zM8 25h2v1H8zM20 25h2v1H20zM27 25h1v1H27zM8 26h2v1H8zM13 26h1v1H13zM17 26h1v1H17zM20 26h2v1H20zM25 27h1v1H25zM29 27h1v1H29zM15 28h1v1H15zM27 29h1v1H27z\"/><path fill=\"#6699ff\" d=\"M8 22h2v1H8zM20 22h2v1H20z\"/><path fill=\"#99ccff\" d=\"M8 23h1v1H8zM20 23h1v1H20zM15 25h1v1H15zM14 26h1v1H14zM16 26h1v1H16zM27 26h1v1H27zM15 27h1v1H15zM26 27h1v1H26zM28 27h1v1H28zM27 28h1v1H27z\"/><path fill=\"#aaaaaa\" d=\"M21 6h1v1H21zM22 7h1v1H22zM22 8h1v1H22zM27 11h1v1H27zM27 12h1v1H27zM28 13h1v1H28zM28 14h1v1H28zM28 15h1v1H28zM27 16h1v1H27zM7 17h2v1H7zM12 17h11v1H12zM26 17h2v1H26zM9 18h3v1H9zM23 18h3v1H23z\"/><path fill=\"#dddddd\" d=\"M16 6h3v1H16zM13 7h9v1H13zM13 8h9v1H13zM12 9h12v1H12zM11 10h13v1H11zM9 11h17v1H9zM8 12h19v1H8zM7 13h21v1H7zM7 14h21v1H7zM7 15h21v1H7zM8 16h19v1H8zM9 17h3v1H9zM23 17h3v1H23z\"/><path fill=\"#eeeeee\" d=\"M16 5h3v1H16zM13 6h3v1H13zM19 6h2v1H19zM12 7h1v1H12zM12 8h1v1H12zM11 9h1v1H11zM9 10h2v1H9zM24 10h2v1H24zM7 11h2v1H7zM26 11h1v1H26zM7 12h1v1H7zM6 13h1v1H6zM6 14h1v1H6zM6 15h1v1H6zM7 16h1v1H7z\"/><path fill=\"#ffffff\" d=\"M15 26h1v1H15zM27 27h1v1H27z\"/><path fill=\"#000000\" d=\"M16 4h3v1H16zM13 5h3v1H13zM19 5h3v1H19zM12 6h1v1H12zM22 6h1v1H22zM11 7h1v1H11zM23 7h1v1H23zM11 8h1v1H11zM23 8h1v1H23zM9 9h2v1H9zM24 9h2v1H24zM7 10h2v1H7zM26 10h2v1H26zM6 11h1v1H6zM28 11h1v1H28zM6 12h1v1H6zM28 12h1v1H28zM5 13h1v1H5zM29 13h1v1H29zM5 14h1v1H5zM29 14h1v1H29zM5 15h1v1H5zM29 15h1v1H29zM6 16h1v1H6zM28 16h1v1H28zM6 17h1v1H6zM28 17h1v1H28zM7 18h2v1H7zM12 18h11v1H12zM26 18h2v1H26zM9 19h3v1H9zM23 19h3v1H23z\"/>", "thunder": "<path fill=\"#3366cc\" d=\"M8 23h1v1H8zM26 23h1v1H26zM7 24h2v1H7zM25 24h2v1H25zM7 25h2v1H7zM25 25h2v1H25zM7 26h2v1H7zM25 26h2v1H25z\"/><path fill=\"#6699ff\" d=\"M7 22h2v1H7zM25 22h2v1H25z\"/><path fill=\"#99ccff\" d=\"M7 23h1v1H7zM25 23h1v1H25z\"/><path fill=\"#aaaaaa\" d=\"M21 6h1v1H21zM22 7h1v1H22zM22 8h1v1H22zM27 11h1v1H27zM27 12h1v1H27zM28 13h1v1H28zM28 14h1v1H28zM28 15h1v1H28zM27 16h1v1H27zM7 17h2v1H7zM12 17h11v1H12zM26 17h2v1H26zM9 18h3v1H9zM23 18h3v1H23z\"/><path fill=\"#dddddd\" d=\"M16 6h3v1H16zM13 7h9v1H13zM13 8h9v1H13zM12 9h12v1H12zM11 10h13v1H11zM9 11h17v1H9zM8 12h19v1H8zM7 13h21v1H7zM7 14h21v1H7zM7 15h21v1H7zM8 16h19v1H8zM9 17h3v1H9zM23 17h3v1H23z\"/><path fill=\"#eeeeee\" d=\"M16 5h3v1H16zM13 6h3v1H13zM19 6h2v1H19zM12 7h1v1H12zM12 8h1v1H12zM11 9h1v1H11zM9 10h2v1H9zM24 10h2v1H24zM7 11h2v1H7zM26 11h1v1H26zM7 12h1v1H7zM6 13h1v1H6zM6 14h1v1H6zM6 15h1v1H6zM7 16h1v1H7z\"/><path fill=\"#ffcc00\" d=\"M17 20h2v1H17zM16 21h2v1H16zM16 22h2v1H16zM15 23h3v1H15zM16 24h4v1H16zM16 25h3v1H16zM16 26h2v1H16zM16 27h1v1H16zM15 28h1v1H15z\"/><path fill=\"#ffee88\" d=\"M16 20h1v1H16zM15 22h1v1H15zM15 24h1v1H15z\"/><path fill=\"#000000\" d=\"M16 4h3v1H16zM13 5h3v1H13zM19 5h3v1H19zM12 6h1v1H12zM22 6h1v1H22zM11 7h1v1H11zM23 7h1v1H23zM11 8h1v1H11zM23 8h1v1H23zM9 9h2v1H9zM24 9h2v1H24zM7 10h2v1H7zM26 10h2v1H26zM6 11h1v1H6zM28 11h1v1H28zM6 12h1v1H6zM28 12h1v1H28zM5 13h1v1H5zM29 13h1v1H29zM5 14h1v1H5zM29 14h1v1H29zM5 15h1v1H5zM29 15h1v1H29zM6 16h1v1H6zM28 16h1v1H28zM6 17h1v1H6zM28 17h1v1H28zM7 18h2v1H7zM12 18h11v1H12zM26 18h2v1H26zM9 19h3v1H9zM16 19h4v1H16zM23 19h3v1H23zM15 20h1v1H15zM19 20h1v1H19zM15 21h1v1H15zM18 21h1v1H18zM14 22h1v1H14zM18 22h1v1H18zM14 23h1v1H14zM18 23h2v1H18zM13 24h2v1H13zM20 24h1v1H20zM14 25h2v1H14zM19 25h1v1H19zM15 26h1v1H15zM18 26h1v1H18zM15 27h1v1H15zM17 27h1v1H17zM14 28h1v1H14zM16 28h1v1H16zM14 29h2v1H14zM14 30h1v1H14z\"/>", "unknown": "<path fill=\"#cccccc\" d=\"M21 14h1v1H21zM22 15h1v1H22zM22 16h1v1H22zM27 19h1v1H27zM27 20h1v1H27zM28 21h1v1H28zM28 22h1v1H28zM28 23h1v1H28zM27 24h1v1H27zM7 25h2v1H7zM12 25h11v1H12zM26 25h2v1H26zM9 26h3v1H9zM23 26h3v1H23z\"/><path fill=\"#ffffff\" d=\"M16 13h3v1H16zM13 14h8v1H13zM12 15h10v1H12zM12 16h10v1H12zM11 17h13v1H11zM9 18h17v1H9zM7 19h20v1H7zM7 20h20v1H7zM6 21h22v1H6zM6 22h22v1H6zM6 23h22v1H6zM7 24h20v1H7zM9 25h3v1H9zM23 25h3v1H23z\"/><path fill=\"#000000\" d=\"M16 12h3v1H16zM13 13h3v1H13zM19 13h3v1H19zM12 14h1v1H12zM22 14h1v1H22zM11 15h1v1H11zM23 15h1v1H23zM11 16h1v1H11zM23 16h1v1H23zM9 17h2v1H9zM24 17h2v1H24zM7 18h2v1H7zM26 18h2v1H26zM6 19h1v1H6zM28 19h1v1H28zM6 20h1v1H6zM28 20h1v1H28zM5 21h1v1H5zM29 21h1v1H29zM5 22h1v1H5zM29 22h1v1H29zM5 23h1v1H5zM29 23h1v1H29zM6 24h1v1H6zM28 24h1v1H28zM6 25h1v1H6zM28 25h1v1H28zM7 26h2v1H7zM12 26h11v1H12zM26 26h2v1H26zM9 27h3v1H9zM23 27h3v1H23z\"/>"};
+// The Weather app's conditions drawn again on the 16 grid, OS 9's small
+// icon size, in its 32-grid art's palette: one character a pixel, "." clear
+const PAL = { K: "#000000", y: "#ffcc00", w: "#ffee88", o: "#ee9900", c: "#ffffff", b: "#cccccc", g: "#dddddd",
+  p: "#eeeeee", d: "#aaaaaa", h: "#ffffcc", r: "#cccc99", s: "#ffff99", t: "#3366cc", u: "#6699ff", v: "#99ccff", e: "#888888" };
+const ICONS = {
+  clear_day: [
+    ".......K........",
+    ".......K........",
+    "..K.........K...",
+    "...K.KKKKK.K....",
+    "....KwwyyyK.....",
+    "...KwyyyyyoK....",
+    "...KwyyyyyoK....",
+    "KK.KyyyyyyoK.KK.",
+    "...KyyyyyooK....",
+    "...KyyyyyooK....",
+    "....KyoooooK....",
+    "...K.KKKKK.K....",
+    "..K.........K...",
+    ".......K........",
+    ".......K........",
+    "................"],
+  clear_night: [
+    "................",
+    "................",
+    "............s...",
+    "...........shs..",
+    ".......KKK..s...",
+    ".....KKhcK......",
+    "....KhhcK.......",
+    "....KhcK........",
+    "....KhcK........",
+    "....KhhcK.......",
+    "....KrhhcKKK....",
+    ".....KrrhhhK....",
+    "......KKKKK..s..",
+    "................",
+    "................",
+    "................"],
+  partly_day: [
+    "....K...........",
+    ".K.....K........",
+    "...KKK..........",
+    "..KwyyK.........",
+    "KKKwyyoKK.......",
+    "..KyyoK.........",
+    "...KKK..KKK.....",
+    ".K.....KcccKK...",
+    "....KKKccccccK..",
+    "...KcccccccccbK.",
+    "..KcccccccccccbK",
+    "..KcccccccccccbK",
+    "...KbbbbbbbbbbK.",
+    "....KKKKKKKKKK..",
+    "................",
+    "................"],
+  partly_night: [
+    "...KKKK.........",
+    "..KhcK.....s....",
+    ".KhcK.....shs...",
+    ".KhcK......s....",
+    ".KhhcK..........",
+    "..KrhhKK........",
+    "...KKKK.........",
+    "........KKK.....",
+    ".......KcccKK...",
+    "....KKKccccccK..",
+    "...KcccccccccbK.",
+    "..KcccccccccccbK",
+    "..KcccccccccccbK",
+    "...KbbbbbbbbbbK.",
+    "....KKKKKKKKKK..",
+    "................"],
+  cloudy: [
+    "................",
+    "................",
+    "................",
+    "................",
+    ".......KKK......",
+    "......KcccKK....",
+    "...KKKccccccK...",
+    "..KcccccccccbK..",
+    ".KcccccccccccbK.",
+    ".KcccccccccccbK.",
+    "..KbbbbbbbbbbK..",
+    "...KKKKKKKKKK...",
+    "................",
+    "................",
+    "................",
+    "................"],
+  overcast: [
+    "................",
+    "................",
+    "......KKK.......",
+    ".....KpppKK.....",
+    "..KKKpggggdK....",
+    ".KpggggggggdK...",
+    "KgggggggKKKgdK..",
+    "KggggggKcccKKK..",
+    ".KddKKKccccccK..",
+    "..KKcccccccccbK.",
+    "..KcccccccccccbK",
+    "..KcccccccccccbK",
+    "...KbbbbbbbbbbK.",
+    "....KKKKKKKKKK..",
+    "................",
+    "................"],
+  fog: [
+    "................",
+    ".......KKK......",
+    "......KcccKK....",
+    "...KKKccccccK...",
+    "..KcccccccccbK..",
+    ".KcccccccccccbK.",
+    ".KcccccccccccbK.",
+    "..KbbbbbbbbbbK..",
+    "...KKKKKKKKKK...",
+    "................",
+    "................",
+    ".eeeeeeeeeeee...",
+    "................",
+    "...eeeeeeeeeeee.",
+    "................",
+    ".eeeeeeeeee....."],
+  drizzle: [
+    "................",
+    ".......KKK......",
+    "......KcccKK....",
+    "...KKKccccccK...",
+    "..KcccccccccbK..",
+    ".KcccccccccccbK.",
+    ".KcccccccccccbK.",
+    "..KbbbbbbbbbbK..",
+    "...KKKKKKKKKK...",
+    "................",
+    "................",
+    "....u...u...u...",
+    "....t...t...t...",
+    "................",
+    "................",
+    "................"],
+  rain: [
+    ".......KKK......",
+    "......KpppKK....",
+    "...KKKpggggdK...",
+    "..KpggggggggdK..",
+    ".KgggggggggggdK.",
+    ".KgggggggggggdK.",
+    "..KddddddddddK..",
+    "...KKKKKKKKKK...",
+    "................",
+    "...u...u...u....",
+    "...t...t...t....",
+    "...t...t...t....",
+    "................",
+    ".....u...u...u..",
+    ".....t...t...t..",
+    ".....t...t...t.."],
+  snow: [
+    ".......KKK......",
+    "......KcccKK....",
+    "...KKKccccccK...",
+    "..KcccccccccbK..",
+    ".KcccccccccccbK.",
+    ".KcccccccccccbK.",
+    "..KbbbbbbbbbbK..",
+    "...KKKKKKKKKK...",
+    "................",
+    "....t......t....",
+    "...tvt....tvt...",
+    "....t......t....",
+    ".......t........",
+    "......tvt.......",
+    ".......t........",
+    "................"],
+  sleet: [
+    ".......KKK......",
+    "......KpppKK....",
+    "...KKKpggggdK...",
+    "..KpggggggggdK..",
+    ".KgggggggggggdK.",
+    ".KgggggggggggdK.",
+    "..KddddddddddK..",
+    "...KKKKKKKKKK...",
+    "................",
+    "...u......u.....",
+    "...t......t.....",
+    "...t...t..t.....",
+    "......tvt....t..",
+    ".......t....tvt.",
+    ".............t..",
+    "................"],
+  thunder: [
+    ".......KKK......",
+    "......KpppKK....",
+    "...KKKpggggdK...",
+    "..KpggggggggdK..",
+    ".KgggggggggggdK.",
+    ".KgggggggggggdK.",
+    "..KddddddddddK..",
+    "...KKKKKKKKKK...",
+    ".......KwyK.....",
+    "...u...KyK...u..",
+    "...t..KwyyK..t..",
+    "...t..KKyK...t..",
+    ".......KK.......",
+    ".......K........",
+    "................",
+    "................"],
+};
 // Each icon is painted once per device pixel ratio into a sprite of its
 // own, every art pixel's edges snapped to whole device pixels (crispEdges
 // at 1.5x), then stamped at a whole device pixel.
+const ICON = 16;
 const sprites = {};
 function sprite(kind, dpr) {
   const k = kind + "@" + dpr;
   if (sprites[k]) return sprites[k];
-  const n = Math.round(32 * dpr), c = document.createElement("canvas");
-  c.width = c.height = n;
+  const c = document.createElement("canvas");
+  c.width = c.height = Math.round(ICON * dpr);
   const g = c.getContext("2d"), snap = v => Math.round(v * dpr);
-  for (const m of (ART[kind] || ART.unknown).matchAll(/fill="([^"]+)" d="([^"]+)"/g)) {
-    g.fillStyle = m[1];
-    for (const r of m[2].matchAll(/M(\d+) (\d+)h(\d+)v(\d+)/g)) {
-      const x = +r[1], y = +r[2];
-      g.fillRect(snap(x), snap(y), snap(x + +r[3]) - snap(x), snap(y + +r[4]) - snap(y));
+  (ICONS[kind] || ICONS.cloudy).forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) {
+      if (row[x] === ".") continue;
+      g.fillStyle = PAL[row[x]];
+      g.fillRect(snap(x), snap(y), snap(x + 1) - snap(x), snap(y + 1) - snap(y));
     }
-  }
+  });
   return sprites[k] = c;
 }
 function drawIcon(kind, x, y) {
@@ -459,14 +669,16 @@ function updateStatus() {
 const box = $("#chart-box"), cv = $("#cv"), ctx = cv.getContext("2d");
 const M = { l: 32, r: 10, t: 16, b: 20 };
 
-// What each high/low marker carries outward from its dot (above a high,
-// below a low): its height, its clock (not at 7 days), then the weather —
-// the temperature, and past it the condition icon while neighbouring
-// markers stand an icon apart and the plot has the height; the temperature
-// alone when not, nothing when even that would crowd. The y scale keeps
-// that much room past the highest high and the lowest low, so every stack
-// fits, and the room is kept before the forecast lands so nothing moves.
-const ICON = 32;
+// What each high/low marker carries: its height, then a row with its clock
+// (not at 7 days) and the temperature after a middot, and outermost the
+// condition icon (over a high, under a low). The weather shows while
+// neighbouring markers' rows stay clear of each other, the icon while the
+// plot also has the height for it; neither when the rows would crowd.
+// The y scale keeps that room past the highest high and the lowest low,
+// and keeps it before the forecast lands, so nothing moves when it does.
+const ROW_FONT = "9px Geneva, Verdana, sans-serif";
+// a marker's second row; "00°" stands in for a temperature still to come
+const rowText = (t, temp) => [st.range < 7 ? fmtClock(t).replace(" ", "") : "", temp].filter(Boolean).join(" · ");
 function plan(W, H) {
   const { start, end } = rangeSpan();
   const exIn = extremes.filter(e => e.t >= start && e.t <= end);
@@ -474,19 +686,21 @@ function plan(W, H) {
   for (const p of curve) { if (p.v < lo) lo = p.v; if (p.v > hi) hi = p.v; }
   for (const e of exIn) { if (e.v < lo) lo = e.v; if (e.v > hi) hi = e.v; }
   const X = t => M.l + (t - start) / (end - start) * (W - M.l - M.r);
-  // highs stack on one side and lows on the other: the narrowest gap
-  // between two neighbouring highs, or two lows, is what the stacks share
-  let gap = Infinity;
+  // highs stack on one side and lows on the other: two neighbouring highs,
+  // or lows, must stand their rows' (or icons') half widths apart
+  ctx.font = ROW_FONT;
+  const half = e => Math.max(ctx.measureText(rowText(e.t, "00°")).width, ICON) / 2 + 2;
+  let fits = true;
   for (const type of ["H", "L"]) {
-    const xs = exIn.filter(e => e.type === type).map(e => X(e.t));
-    for (let i = 1; i < xs.length; i++) gap = Math.min(gap, xs[i] - xs[i - 1]);
+    const ms = exIn.filter(e => e.type === type);
+    for (let i = 1; i < ms.length; i++) if (X(ms[i].t) - X(ms[i - 1].t) < half(ms[i - 1]) + half(ms[i])) fits = false;
   }
-  const text = st.range < 7 ? 27 : 18; // a low's height and clock reach this far below its dot
+  // a high's height reaches 24px over its dot; a low's row 27px under it
+  // (its height alone, 18px, at 7 days without weather); an icon 18px more
   const plot = H - M.t - M.b;
-  const tier = [
-    { wx: "icon", top: 68, bot: text + 45, gap: ICON + 2, band: 90 },
-    { wx: "temp", top: 36, bot: text + 12, gap: 20, band: 40 },
-  ].find(t => gap >= t.gap && plot - t.top - t.bot >= t.band) || { wx: "", top: 26, bot: text + 2 };
+  const tier = !fits ? { wx: "", top: 26, bot: st.range < 7 ? 29 : 20 }
+    : plot - 42 - 46 >= 50 ? { wx: "icon", top: 42, bot: 46 }
+    : { wx: "temp", top: 26, bot: 29 };
   // the water between the reserves; a range under a foot sits centred
   const y0 = M.t + tier.top, y1 = Math.max(y0 + 1, H - M.b - tier.bot);
   const k = (y1 - y0) / Math.max(hi - lo, 1), mid = (hi + lo) / 2;
@@ -582,29 +796,24 @@ function draw() {
     ctx.fillStyle = "#fff"; ctx.fill();
     ctx.strokeStyle = "#333399"; ctx.lineWidth = 2; ctx.stroke(); ctx.lineWidth = 1;
     const above = e.type === "H";
-    const edge = P.wx === "icon" ? ICON / 2 : 12;
+    // centred on the dot, held in the plot by the row's full width (the
+    // stand-in's, so the forecast landing never shifts it)
+    ctx.font = ROW_FONT;
+    const edge = Math.max(12, ctx.measureText(rowText(e.t, P.wx ? "00°" : "")).width / 2 + 1);
     const lx = Math.min(Math.max(x, M.l + edge), W - M.r - edge);
     const vy = above ? Math.max(y - 16, M.t + 10) : Math.min(y + 16, H - M.b - 11);
     ctx.fillStyle = "#262626";
     ctx.font = "bold 10px Geneva, Verdana, sans-serif";
     ctx.fillText(fmtFt(e.v), lx, vy);
-    let by = vy + 2; // the foot of the tide text
-    if (st.range < 7) {
-      ctx.fillStyle = "#555";
-      ctx.font = "9px Geneva, Verdana, sans-serif";
-      ctx.fillText(fmtClock(e.t).replace(" ", ""), lx, vy + 9);
-      by = vy + 11;
-    }
-    // the weather, past the tide text; its room stays empty until it lands
     const w = P.wx && wxAt(e.t);
-    if (w) {
-      const ty = above ? vy - 11 : by + 9; // the temperature's baseline
-      ctx.fillStyle = "#262626";
-      ctx.font = "10px Geneva, Verdana, sans-serif";
-      ctx.fillText(fmtTemp(w.c), lx, ty);
-      if (P.wx === "icon")
-        drawIcon(wmoIcon(w.code, w.day), Math.round(lx - ICON / 2), Math.round(above ? ty - 9 - ICON : ty + 3));
+    const row = rowText(e.t, w ? fmtTemp(w.c) : "");
+    if (row) {
+      ctx.fillStyle = "#555";
+      ctx.font = ROW_FONT;
+      ctx.fillText(row, lx, vy + 9);
     }
+    if (w && P.wx === "icon")
+      drawIcon(wmoIcon(w.code, w.day), Math.round(lx - ICON / 2), Math.round(above ? vy - 10 - ICON : vy + 13));
   }
 
   // now-line with a dot riding the water line
