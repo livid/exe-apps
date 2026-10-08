@@ -203,7 +203,7 @@ let extremes = [];     // [{t: ms, v: ft, type: "H"|"L"}] incl. a day beyond eac
 let loadErr = "";
 let fetchedKey = "";   // station|range|startMs of the data on screen
 let stations = null;   // slim searchable list
-let wx = null;         // {key: station|startMs, at, t: [ms], c: [°C], code: [], day: []} hourly, the whole week
+let wx = null;         // {key: station|startMs, at, t: [ms], c: [°C], code: [], day: [], sun: [[rise, set] ms]} the whole week
 
 // Debounced whole-doc PUT, serialized so a slow write is never overtaken;
 // saves stay blocked until the initial GET settled so a failed load can't
@@ -345,8 +345,9 @@ async function ensureCoords(s) {
 // so the range buttons never wait on it; it is asked again every half hour
 // (the minute tick) and when the day or the station changes. Another
 // station's weather is dropped at once rather than shown on this one.
+// Whole GMT days: the daily sunrise/sunset come back empty for an hour range.
 let wxBusy = "";
-const isoHour = ms => new Date(ms - ms % 3600000).toISOString().slice(0, 16);
+const isoDay = ms => new Date(ms).toISOString().slice(0, 10);
 async function loadWeather() {
   const { start } = rangeSpan(), s = st.station, key = s.id + "|" + start;
   if (wx && wx.key.split("|")[0] !== s.id) wx = null;
@@ -355,14 +356,17 @@ async function loadWeather() {
   try {
     await ensureCoords(s);
     const q = new URLSearchParams({ latitude: s.lat, longitude: s.lon, hourly: "temperature_2m,weather_code,is_day",
-      timeformat: "unixtime", timezone: "GMT", start_hour: isoHour(start - 3600000), end_hour: isoHour(start + 7 * DAY + 7200000) });
+      daily: "sunrise,sunset", timeformat: "unixtime", timezone: "GMT",
+      start_date: isoDay(start - 3600000), end_date: isoDay(start + 7 * DAY + 7200000) });
     const r = await fetch(METEO + "?" + q);
     const d = await r.json();
     if (!r.ok || d.error) throw new Error(d.reason || "HTTP " + r.status);
     if (st.station.id + "|" + rangeSpan().start !== key) return; // superseded
-    const h = d.hourly || {};
+    const h = d.hourly || {}, dl = d.daily || {}, rise = dl.sunrise || [], set = dl.sunset || [];
+    // a polar day or night answers sunrise = sunset; only real pairs count
+    const sun = rise.map((r, i) => [r * 1000, set[i] * 1000]).filter(([r, e]) => e > r).sort((a, b) => a[0] - b[0]);
     wx = { key, at: Date.now(), t: (h.time || []).map(x => x * 1000), c: h.temperature_2m || [],
-      code: h.weather_code || [], day: h.is_day || [] };
+      code: h.weather_code || [], day: h.is_day || [], sun };
     draw();
   } catch (e) {
     console.error("tides weather failed:", e);
@@ -371,7 +375,10 @@ async function loadWeather() {
   }
 }
 // the weather at a moment: temperature between the hours, conditions of the
-// nearest hour; null outside the fetched week or for a missing reading
+// nearest hour, and sun or moon by the day's own sunrise and sunset (the
+// nearest hour's is_day put a sun on a 06:40 tide with sunrise at 06:50);
+// is_day only where no real pair brackets the moment (polar days, the
+// week's edges); null outside the fetched week or for a missing reading
 function wxAt(t) {
   if (!wx || wx.key.split("|")[0] !== st.station.id) return null;
   const T = wx.t, n = T.length;
@@ -382,7 +389,10 @@ function wxAt(t) {
   const i = f < 0.5 ? lo : hi;
   const c = a == null ? b : b == null ? a : a + (b - a) * f;
   if (c == null || wx.code[i] == null) return null;
-  return { c, code: wx.code[i], day: !!wx.day[i] };
+  const sun = wx.sun || [];
+  const day = sun.some(([r, e]) => t >= r && t < e) ? true
+    : sun.some(([, e]) => e <= t) && sun.some(([r]) => r > t) ? false : !!wx.day[i];
+  return { c, code: wx.code[i], day };
 }
 
 // ---- temperature unit: the viewer's choice, kept in this browser (not

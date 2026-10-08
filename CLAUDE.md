@@ -154,9 +154,13 @@ days.
   `WMO` is copied from Weather/index.html — keep the two in step), painted
   per DPR into a sprite with every art pixel snapped to device pixels. One
   Open-Meteo call per station and day covers the week from local midnight
-  (hourly temperature_2m, weather_code, is_day; °C, GMT unixtime), so the
-  range buttons never refetch; re-asked after 30 minutes on the minute
-  tick. `plan()` shows the weather while neighbouring highs (or lows)
+  (hourly temperature_2m, weather_code, is_day plus daily sunrise,sunset;
+  °C, GMT unixtime; whole `start_date`/`end_date` days, since an hour range
+  leaves the daily block empty), so the range buttons never refetch. Sun or
+  moon follows the tide's own time against sunrise/sunset (Codex's catch:
+  the nearest hour's is_day drew a sun before dawn), is_day only where no
+  real pair brackets it (polar sunrise = sunset). Re-asked after 30
+  minutes on the minute tick. `plan()` shows the weather while neighbouring highs (or lows)
   stand their rows' half widths apart (measured with a "00°" stand-in),
   the icons too while the plot keeps 50px of water after their 42/46px
   reserves; the y scale keeps that room past the highest high and lowest
