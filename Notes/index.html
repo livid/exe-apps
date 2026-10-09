@@ -579,7 +579,7 @@ function renderBoard() {
     f.className = "f"; fd.textContent = fmtDay(n.created); fn.textContent = String(i + 1);
     f.append(fd, fn);
     c.append(pin, t, x, f);
-    c.onclick = () => openNote(n.id);
+    c.onclick = () => openNote(n.id, true, c);
     return c;
   }));
   // the titles that wrapped leave the note two lines (all read after all built)
@@ -611,10 +611,66 @@ function setView(v) {
   if (v === "board") revealCard();
 }
 // a sheet taken down from the board opens on the pad
-function openNote(id, focus = true) {
+// a sheet taken down from the board opens on the pad, growing out of its
+// card (or out of the middle when there is no card to come from)
+function openNote(id, focus = true, card = null) {
+  const fromBoard = view === "board";
+  const rect = fromBoard ? cardRect(card || cardFor(id)) : null;
   go(id, false);
   setView("pad");
+  if (fromBoard) swapViews("pad", rect);
   if (focus && !MOBILE && !ed.disabled) ed.focus();
+}
+// put the pad down: the board comes back and the sheet shrinks into its card
+function showBoard() {
+  setView("board");
+  swapViews("board", cardRect(cardFor(sel)));
+}
+
+// ---- between the board and the pad: zoom and fade ----
+// Opening, the sheet grows out of its card's rectangle to fill the window
+// as it fades in, and the board behind fades out leaning in a little
+// toward that card, as a camera moving in; returning runs it backwards,
+// the sheet shrinking into its card. The sheet is seen travelling: it
+// fades in over the first half as it grows, and going back stays solid
+// until halfway, fading as it lands. 240ms on an ease-in-out, about the
+// desktop's 200ms motions; nothing is left transformed when it ends, so
+// every pixel is whole again, and a wish for reduced motion gets none.
+const ZOOM = { duration: 240, easing: "cubic-bezier(.4,0,.2,1)" };
+const cardFor = id => [...cards.children].find(c => c.dataset.id === id) || null;
+// a card's rectangle in the views' own coordinates: both fill #main inside
+// its top line, so measured from within the border
+function cardRect(card) {
+  if (!card) return null;
+  const main = $("#main"), m = main.getBoundingClientRect(), c = card.getBoundingClientRect();
+  if (!c.width || !c.height) return null;
+  return { x: c.left - m.left - main.clientLeft, y: c.top - m.top - main.clientTop, w: c.width, h: c.height };
+}
+let swapSeq = 0; // only the latest swap tidies up after itself
+function swapViews(to, rect) {
+  const pad = $("#pad"), board = $("#board"), mine = ++swapSeq;
+  for (const el of [pad, board]) for (const a of el.getAnimations()) a.cancel();
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const W = $("#main").clientWidth || 1, H = $("#main").clientHeight || 1;
+  // the sheet at the card: its corner on the card's, its size the card's
+  const small = rect ? `translate(${rect.x}px, ${rect.y}px) scale(${rect.w / W}, ${rect.h / H})` : "scale(.92)";
+  pad.style.transformOrigin = rect ? "0 0" : "50% 50%";
+  board.style.transformOrigin = rect ? `${rect.x + rect.w / 2}px ${rect.y + rect.h / 2}px` : "50% 50%";
+  // both are on screen while it runs, the sheet over the board
+  pad.style.visibility = board.style.visibility = "visible";
+  pad.style.zIndex = "2";
+  const sheet = to === "pad"
+    ? pad.animate([{ transform: small, opacity: 0 }, { opacity: 1, offset: 0.5 }, { transform: "none", opacity: 1 }], ZOOM)
+    : pad.animate([{ transform: "none", opacity: 1 }, { opacity: 1, offset: 0.5 }, { transform: small, opacity: 0 }], ZOOM);
+  const behind = to === "pad"
+    ? board.animate([{ transform: "none", opacity: 1 }, { transform: "scale(1.08)", opacity: 0 }], ZOOM)
+    : board.animate([{ transform: "scale(1.08)", opacity: 0 }, { transform: "none", opacity: 1 }], ZOOM);
+  const done = () => {
+    if (mine !== swapSeq || sheet.playState === "running" || behind.playState === "running") return;
+    pad.style.visibility = board.style.visibility = pad.style.zIndex = "";
+    pad.style.transformOrigin = board.style.transformOrigin = "";
+  };
+  for (const a of [sheet, behind]) { a.onfinish = done; a.oncancel = done; }
 }
 // Put the open page's text in the field. A page turn starts at the top;
 // a synced-in change to the page being read keeps the reader's place.
@@ -717,7 +773,7 @@ function setColor(name) {
 }
 boardBtn.onclick = () => {
   if (view === "board") openNote(sel);
-  else setView("board");
+  else showBoard();
 };
 
 // ---- editing ----
@@ -774,8 +830,9 @@ newBtn.onclick = () => {
   const n = cur();
   if (n && n === draft) { ed.focus(); return; }
   draft = blank();
+  const fromBoard = view === "board";
   go(draft.id, false);
-  if (view !== "pad") setView("pad");
+  if (fromBoard) { setView("pad"); swapViews("pad", null); }
   ed.focus(); // asked for paper to write on: a phone raises its keyboard too
 };
 // Delete tears the open page out: the desktop's two-click armed button,

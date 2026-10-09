@@ -182,6 +182,14 @@ days.
   live in `~/tools/playwright/exe-notes/` (README there; the harness stubs
   every write and keeps Livid's desk layout out). The views stack in
   `#main`, the hidden one `visibility: hidden` so each keeps its scroll;
+  between them a zoom and fade (Livid's ask, `swapViews`, Web Animations):
+  opening, the sheet grows from its card's rectangle (measured inside
+  `#main`'s top line) as it fades in over the first half, the board fading
+  out leaning 8% in toward that card; returning runs backwards, the sheet
+  solid until halfway, landing on its card. 240ms ease-in-out; no card
+  (New Note, a blank sheet) grows from the middle at 92%; a newer switch
+  cancels the running one and only the newest tidies (`swapSeq`); nothing
+  is left transformed; none of it under reduced motion;
   which view is up is per viewer (`exe-notes-view:<App>`), the board at
   first when there are notes. Delete (the two-click armed button) works on
   the pad; New Note opens a blank sheet on the pad from either view. Pages
