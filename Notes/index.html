@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Notes</title>
+<link rel="stylesheet" href="/platinum/popup.css">
 <style>
 /* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
 :root {
@@ -10,8 +11,8 @@
   --g200: #eee; --g300: #ddd; --g400: #ccc; --g500: #bbb; --g600: #999;
   --hl: #333399; --red: #cc3333;
   --font: "Charcoal", "Chicago", "Geneva", "Lucida Grande", "Lucida Sans", Geneva, Verdana, sans-serif;
-  /* the desktop's mono stack, with Berkeley Mono preferred when installed */
-  --mono: "Berkeley Mono", "Monaco", ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* the page is written in Geneva 12 on 16px lines, as Note Pad's was */
+  --page: "Geneva", "Lucida Grande", "Lucida Sans", Verdana, sans-serif;
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
@@ -22,6 +23,7 @@ button { font: inherit; cursor: default; }
 button.ghost { background: var(--g300); color: var(--black);
   border: 1px solid var(--black); border-radius: 3px;
   padding: 2px 13px; font-size: 12px; line-height: 14px; font-weight: bold; height: 20px;
+  flex: none; white-space: nowrap;
   box-shadow: inset 1px 1px 0 var(--g300), inset -1px -1px 0 #777,
     inset 2px 2px 0 #fff, inset -2px -2px 0 #aaa; }
 button.ghost:active { background: #666; color: #fff;
@@ -29,56 +31,73 @@ button.ghost:active { background: #666; color: #fff;
     inset 2px 2px 0 #555, inset -2px -2px 0 #777; }
 button.ghost:disabled { color: #777; border-color: #888; background: var(--g300); box-shadow: none; }
 button.ghost.danger { color: #7a1010; }
+button.ghost.danger:disabled { color: #777; }
 button.ghost.armed { background: var(--red); color: #fff;
   box-shadow: inset 1px 1px 0 #e88, inset -1px -1px 0 #911; }
-button.ghost.sm { padding: 1px 8px; font-size: 10px; border-radius: 3px; height: auto; }
 
-/* two columns like the desktop's Chat window: 190px sidebar + document */
-#wrap { flex: 1; min-height: 0; display: flex; gap: 10px; padding: 10px; }
-#side { width: 190px; flex: none; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
-#main { flex: 1; min-width: 0; display: flex; }
+/* the toolbar, like Todo's: the Go to Note pop-up takes the room, the two
+   buttons keep theirs. The shared pop-up block is 19px; beside 20px
+   buttons it takes the push button's 20, as the hub's language menu does */
+#bar { display: flex; gap: 8px; padding: 10px 10px 8px; align-items: center; }
+#go { flex: 1; min-width: 0; height: 20px; }
+#go .well b { background-position: 4px 3px; }
 
-/* sunken white list, like a Finder list view; the 15px bar spec below has
-   no trailing line of its own, so the box's border-right IS the bar's right
-   rail — no has-vbar toggling like the desktop's 16px spec needs */
-.listbox { background: #fff; border: 1px solid var(--black); overflow-y: auto; overflow-x: hidden;
-  box-shadow: -1px -1px 0 var(--g600), -1px 0 0 var(--g600), 0 -1px 0 var(--g600),
-    1px 1px 0 #fff, 1px 0 0 #fff, 0 1px 0 #fff; }
-#list { flex: 1; }
-.cs-item { display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 8px; border-bottom: 1px solid #efefef; }
-.cs-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cs-time { font-size: 10px; color: #777; }
-.cs-item.sel { background: var(--hl); }
-.cs-item.sel .cs-title, .cs-item.sel .cs-time { color: #fff; }
-.muted { color: #777; }
-
-/* the note itself: a document area, not a field — monospace like a plain-
-   text editor, no Platinum focus ring, always-on scrollbar like a real OS 9
-   document window (disabled-flat when the note fits); the box's border-right
-   is the bar's right rail */
-#ed { flex: 1; min-width: 0; resize: none; margin: 0; border: 1px solid var(--black);
-  border-radius: 0; background: #fff; color: var(--black); padding: 8px 10px;
-  font: 11px/16px var(--mono); overflow-y: scroll; user-select: text; cursor: text;
-  box-shadow: -1px -1px 0 var(--g600), -1px 0 0 var(--g600), 0 -1px 0 var(--g600),
-    1px 1px 0 #fff, 1px 0 0 #fff, 0 1px 0 #fff; }
+/* ---- the pad: Mac OS Note Pad, sampled from the real one in the Mac OS 9
+   guest (Apple Extras). A white sheet under the toolbar's line, flush with
+   the window frame on three sides; the scroll bar runs down to the grow
+   box; under the sheet's bottom line two page edges (#444 on #eee) stand
+   for the pages beneath; the dog-ear at the bottom left turns them. ---- */
+#pad { flex: 1; min-height: 0; position: relative; background: #fff;
+  border-top: 1px solid var(--black); }
+/* the writing: Geneva 12 on 16px lines, 3px under the top and 5px in, as
+   Note Pad set it. Its scroll bar's right edge is the frame's line and its
+   last arrow ends on the grow box's top row. Note Pad's text stops above
+   the dog-ear band while the bar runs on beside it: here the band (#foot)
+   is laid over the field's foot, the bottom padding lets the last line
+   scroll clear of it, and scroll-padding keeps the caret clear of it while
+   typing or arrowing down */
+#ed { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% - 15px); resize: none; margin: 0; border: 0; border-radius: 0;
+  background: #fff; color: #000; padding: 3px 5px 24px; font: 12px/16px var(--page);
+  overflow-y: scroll; scroll-padding-bottom: 24px; user-select: text; cursor: text; }
 #ed:focus { outline: none; }
 #ed:disabled { background: var(--g200); }
-
-/* 15px total (1px border + 14px face), same as the desktop's Daemon Log /
-   Chat statusbars: the 15px grow tile at bottom:0 then puts its black top
-   row exactly on this border-top line and its face merges into the host
-   chrome through the .window.grow corner punch-outs — every seam one line */
-/* overflow: clip — the 11px text's line box is taller than the 14px face and
-   hangs a pixel past the bar; clipped, that pixel is no scrollable overflow of
-   the page (docs/platinum.md, status bar) */
-#status { display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--black);
-  background: var(--g300); font-size: 11px; color: #333; padding: 0 20px 0 8px; height: 15px;
-  box-shadow: inset 1px 1px 0 rgba(255,255,255,.6), inset -1px -1px 0 #aaa; overflow: clip; }
-#st-count { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#st-save { flex: none; }
+/* the blank band at the sheet's foot: the dog-ear, the page number */
+#foot { position: absolute; left: 0; right: 15px; bottom: 6px; height: 30px; background: #fff; }
+#num { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center;
+  font: 12px/16px var(--page); color: #000; pointer-events: none; }
+#msg { position: absolute; right: 20px; bottom: 10px; max-width: 45%; font-size: 10px; line-height: 16px;
+  color: #7a1010; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+/* the page edges: the sheet's bottom line, then #eee / #444 / #eee / #444 /
+   #eee down to the frame's line, each line a border of its own */
+#edges { position: absolute; left: 0; right: 15px; bottom: 0; height: 6px; background: var(--g200);
+  border-top: 1px solid var(--black); }
+#edges::before, #edges::after { content: ""; box-sizing: border-box; position: absolute; left: 0; right: 0;
+  height: 1px; border-top: 1px solid #444; }
+#edges::before { top: 1px; }
+#edges::after { top: 3px; }
+/* the dog-ear, 23px of art under a black top line, a black right line that
+   stops one row short so the lifted corner leaves the sheet's bottom line a
+   gap, and the next page (#eee) showing below the fold. The flap's pixels
+   are the real ones; at fractional scales a vector copy keeps the fold one
+   clean line. Clicking the flap turns forward, below the fold turns back. */
+#corner { position: absolute; left: 0; bottom: 5px; width: 24px; height: 25px; z-index: 1;
+  border-top: 1px solid var(--black);
+  background: var(--g200) url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" shape-rendering="crispEdges"><path fill="%23444444" d="M1 0h1v1H1zM2 1h1v1H2zM3 2h1v1H3zM4 3h1v1H4zM5 4h1v1H5zM6 5h1v1H6zM7 6h1v1H7zM8 7h1v1H8zM9 8h1v1H9zM10 9h1v1H10zM11 10h1v1H11zM12 11h1v1H12zM13 12h1v1H13zM14 13h1v1H14zM15 14h1v1H15zM16 15h1v1H16zM17 16h1v1H17zM18 17h1v1H18zM19 18h1v1H19zM20 19h1v1H20zM21 20h1v1H21zM22 21h1v1H22z"/><path fill="%23888888" d="M2 0h1v1H2zM3 1h1v1H3zM4 2h1v1H4zM5 3h1v1H5zM6 4h1v1H6zM7 5h1v1H7zM8 6h1v1H8zM9 7h1v1H9zM10 8h1v1H10zM11 9h1v1H11zM12 10h1v1H12zM13 11h1v1H13zM14 12h1v1H14zM15 13h1v1H15zM16 14h1v1H16zM17 15h1v1H17zM18 16h1v1H18zM19 17h1v1H19zM20 18h1v1H20zM21 19h1v1H21zM22 20h1v1H22z"/><path fill="%23999999" d="M3 0h1v1H3zM4 1h1v1H4zM5 2h1v1H5zM6 3h1v1H6zM7 4h1v1H7zM8 5h1v1H8zM9 6h1v1H9zM10 7h1v1H10zM11 8h1v1H11zM12 9h2v1H12zM13 10h1v1H13zM14 11h1v1H14zM15 12h1v1H15zM16 13h1v1H16zM17 14h1v1H17zM18 15h1v1H18zM19 16h1v1H19zM20 17h1v1H20zM21 18h1v1H21zM22 19h1v1H22z"/><path fill="%23aaaaaa" d="M4 0h1v1H4zM5 1h1v1H5zM6 2h1v1H6zM7 3h1v1H7zM8 4h1v1H8zM9 5h1v1H9zM10 6h1v1H10zM11 7h1v1H11zM12 8h1v1H12zM14 10h1v1H14zM15 11h1v1H15zM16 12h1v1H16zM17 13h1v1H17zM18 14h1v1H18zM19 15h1v1H19zM20 16h1v1H20zM21 17h1v1H21zM22 18h1v1H22z"/><path fill="%23bbbbbb" d="M5 0h3v1H5zM6 1h3v1H6zM7 2h3v1H7zM8 3h3v1H8zM9 4h3v1H9zM10 5h3v1H10zM11 6h3v1H11zM12 7h3v1H12zM13 8h3v1H13zM14 9h3v1H14zM15 10h3v1H15zM16 11h3v1H16zM17 12h3v1H17zM18 13h2v1H18zM21 13h1v1H21zM19 14h3v1H19zM20 15h3v1H20zM21 16h2v1H21zM22 17h1v1H22z"/><path fill="%23cccccc" d="M8 0h3v1H8zM9 1h2v1H9zM12 1h1v1H12zM10 2h2v1H10zM13 2h1v1H13zM11 3h2v1H11zM14 3h1v1H14zM12 4h2v1H12zM13 5h4v1H13zM14 6h2v1H14zM15 7h3v1H15zM16 8h3v1H16zM17 9h3v1H17zM18 10h2v1H18zM21 10h1v1H21zM19 11h2v1H19zM22 11h1v1H22zM20 12h2v1H20zM20 13h1v1H20zM22 13h1v1H22zM22 14h1v1H22z"/><path fill="%23dddddd" d="M11 0h5v1H11zM11 1h1v1H11zM13 1h3v1H13zM17 1h1v1H17zM12 2h1v1H12zM14 2h3v1H14zM13 3h1v1H13zM15 3h4v1H15zM14 4h7v1H14zM17 5h3v1H17zM16 6h6v1H16zM18 7h5v1H18zM19 8h4v1H19zM20 9h3v1H20zM20 10h1v1H20zM22 10h1v1H22zM21 11h1v1H21zM22 12h1v1H22z"/><path fill="%23ffffff" d="M18 0h1v1H18zM20 0h3v1H20zM20 1h1v1H20zM22 1h1v1H22zM21 2h1v1H21zM22 3h1v1H22z"/></svg>') 0 0 no-repeat; }
+#corner::after { content: ""; box-sizing: border-box; position: absolute; top: 0; right: 0;
+  width: 1px; height: 23px; border-right: 1px solid var(--black); }
+@media (min-resolution: 1.01dppx) and (max-resolution: 1.99dppx) {
+  #corner { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" shape-rendering="geometricPrecision"><defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="12" y1="11" x2="23" y2="0"><stop offset=".045" stop-color="%23888"/><stop offset=".09" stop-color="%23999"/><stop offset=".136" stop-color="%23aaa"/><stop offset=".227" stop-color="%23bbb"/><stop offset=".364" stop-color="%23ccc"/><stop offset=".545" stop-color="%23ddd"/><stop offset=".727" stop-color="%23eee"/><stop offset=".864" stop-color="%23fff"/></linearGradient></defs><path d="M1 0H23V22z" fill="url(%23g)"/><path d="M1 0L23 22" stroke="%23444" stroke-width="1"/></svg>'); }
+}
+body.solo #corner { visibility: hidden; }
 
 #grow { position: fixed; right: 0; bottom: 0; width: 15px; height: 15px;
   touch-action: none; z-index: 6; }
+
+/* a phone: no grow box, and the finger scrolls the sheet, so no bar either;
+   the band and the page edges run the full width */
+body.mobile #ed { height: calc(100% - 6px); scrollbar-width: none; }
+body.mobile #ed::-webkit-scrollbar { display: none; }
+body.mobile #foot, body.mobile #edges { right: 0; }
 
 /* Mac OS 9 scrollbars — the desktop's pixel-sampled spec, adapted for a
    document window: the host frame draws the outer black line, so bars are
@@ -122,8 +141,8 @@ button.ghost.sm { padding: 1px 8px; font-size: 10px; border-radius: 3px; height:
 /* Disabled (nothing to scroll), sampled from OS 9: the strip goes flat #eee
    between the rails, arrows ghost to #888 with no button face or bevel,
    and a 1px #888 line separates the two arrows — the desktop's block,
-   minus trailing borders (the host box's border-right is the right rail).
-   The always-on editor bar sits in this state whenever the note fits. */
+   minus trailing borders (the frame's line is the right rail).
+   The always-on page bar sits in this state whenever the note fits. */
 ::-webkit-scrollbar-track:disabled { background: #eee; }
 ::-webkit-scrollbar-button:disabled { background-color: #eee; box-shadow: none; border: 0;
   border-left: 1px solid var(--black); }
@@ -139,19 +158,19 @@ button.ghost.sm { padding: 1px 8px; font-size: 10px; border-radius: 3px; height:
 </head>
 <body>
 
-<div id="wrap">
-  <div id="side">
-    <button class="ghost" id="new" disabled>New Note</button>
-    <div class="listbox" id="list"></div>
-  </div>
-  <div id="main">
-    <textarea id="ed" disabled spellcheck="false"
-      placeholder="Click &ldquo;New Note&rdquo; to start writing."></textarea>
-  </div>
+<div id="bar">
+  <span class="popup" id="go"><select id="pick" title="Go to Note" disabled></select><span class="well"><i><b></b></i></span></span>
+  <button class="ghost danger" id="del" disabled>Delete</button>
+  <button class="ghost" id="new" disabled>New Note</button>
 </div>
-<div id="status">
-  <span id="st-count">…</span>
-  <span id="st-save"></span>
+<div id="pad">
+  <!-- data-autosave: the note is saved as it is typed (and flushed on
+       unload), so the desktop does not hold an update reload for it -->
+  <textarea id="ed" disabled spellcheck="false" data-autosave></textarea>
+  <div id="foot"><span id="msg"></span></div>
+  <div id="num"></div>
+  <div id="corner" title="Turn the page: the flap goes forward, the corner under it goes back"></div>
+  <div id="edges"></div>
 </div>
 <!-- grow box sampled pixel-for-pixel from Mac OS 9 (Infinite Mac) -->
 <svg id="grow" width="15" height="15" viewBox="0 0 15 15" shape-rendering="crispEdges">
@@ -177,6 +196,8 @@ const DATA_URL = "/v1/apps/" + encodeURIComponent(APP) + "/data/notes.json";
 // identifies this window's writes so the daemon's change events can be
 // echo-suppressed here (we made the write) but delivered to other windows
 const CLIENT = Math.random().toString(36).slice(2) + Date.now().toString(36);
+const MOBILE = new URLSearchParams(location.search).has("mobile");
+if (MOBILE) document.body.classList.add("mobile");
 
 async function api(url, opts = {}) {
   opts.headers = Object.assign({}, opts.headers);
@@ -187,33 +208,39 @@ async function api(url, opts = {}) {
   return r;
 }
 
-function el(tag, attrs = {}, ...kids) {
-  const n = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
-  n.append(...kids);
-  return n;
-}
-
 // notes: [{id, text, created, updated, deleted?}] — deletions leave a
 // tombstone (text dropped) so node-to-node sync can tell "deleted here"
 // from "never seen there"; tombstones GC on save after 30 days.
 let doc = { notes: [] };
-let sel = null; // which note is open is per-viewer UI state: it lives in
+let sel = null; // which page is open is per-viewer UI state: it lives in
                 // localStorage, not in the synced document, so two machines
-                // don't fight over it (and clicking around never PUTs)
+                // don't fight over it (and turning pages never PUTs)
 const SEL_KEY = "exe-notes-sel:" + APP;
 const TOMBSTONE_TTL = 30 * 86400000;
 let loaded = false; // block saves until the load settled, so a failed GET
                     // can never be overwritten
-const ed = $("#ed"), list = $("#list");
+// A blank page not yet written on: New Note, or a pad with no notes. It is
+// page 1 while it is open and becomes a note at the first keystroke; turning
+// away from it drops it, so empty notes never reach the document.
+let draft = null;
+const ed = $("#ed"), pick = $("#pick"), num = $("#num"), msg = $("#msg");
+const delBtn = $("#del"), newBtn = $("#new");
 
 const live = () => doc.notes.filter(n => !n.deleted);
-const cur = () => doc.notes.find(n => n.id === sel && !n.deleted);
-const sortNotes = () => doc.notes.sort((a, b) => b.updated - a.updated);
+// The pad's pages: newest note on top, in the order the notes were made, so
+// a page keeps its place while it is written on.
+function pages() {
+  const p = live().sort((a, b) => b.created - a.created || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
+  if (draft) p.unshift(draft);
+  return p;
+}
+const cur = () => (draft && draft.id === sel) ? draft : doc.notes.find(n => n.id === sel && !n.deleted);
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const blank = () => ({ id: newId(), text: "", created: Date.now(), updated: Date.now() });
 
 function noteTitle(n) {
   const line = (n.text || "").split("\n").find(l => l.trim());
-  return line ? line.trim().slice(0, 60) : "New Note";
+  return line ? line.trim().slice(0, 60) : "Blank Page";
 }
 function fmtTime(t) {
   const d = new Date(t);
@@ -224,17 +251,15 @@ function fmtTime(t) {
 
 // ---- auto-save: debounced whole-doc PUT, serialized so a slow write can
 // never be overtaken by the next one; keepalive on flush survives the
-// desktop tearing the iframe down mid-debounce ----
+// desktop tearing the iframe down mid-debounce. Note Pad saved without a
+// word, and so does this: only a failure is said, at the sheet's foot ----
 let saveT = null, saving = false, again = false;
-const stSave = $("#st-save");
-function setSave(mode, msg) {
-  stSave.textContent = mode === "saving" ? "Saving…" :
-    mode === "saved" ? "Saved " + fmtTime(Date.now()) :
-    mode === "error" ? "Save failed: " + msg : "";
+function setSave(mode, m) {
+  msg.textContent = mode === "error" ? "Not saved: " + m : "";
+  msg.title = mode === "error" ? "Not saved: " + m + " (" + fmtTime(Date.now()) + ")" : "";
 }
 function scheduleSave() {
   if (!loaded) return;
-  setSave("saving");
   clearTimeout(saveT);
   saveT = setTimeout(saveNow, 400);
 }
@@ -276,74 +301,118 @@ addEventListener("visibilitychange", () => {
 addEventListener("pagehide", () => { if (saveT || saving) saveNow(true); });
 
 // ---- rendering ----
-function renderList() {
-  list.replaceChildren();
-  if (!live().length)
-    list.append(el("div", { class: "muted", style: "padding:8px" }, "No notes yet."));
-  for (const n of live()) {
-    const x = el("button", { class: "ghost sm danger", title: "Delete this note" }, "×");
-    x.onclick = e => {
-      e.stopPropagation();
-      if (!x.classList.contains("armed")) {
-        x.classList.add("armed");
-        setTimeout(() => x.classList.remove("armed"), 3000);
-        return;
-      }
-      n.deleted = n.updated = Date.now();
-      n.text = "";
-      scheduleSave();
-      sel = null; // force selectNote to re-sync even onto the same id
-      const rest = live();
-      selectNote(rest.length ? rest[0].id : null, false);
-    };
-    const item = el("div", { class: "cs-item" + (n.id === sel ? " sel" : "") },
-      el("div", { style: "flex:1; min-width:0" },
-        el("div", { class: "cs-title", title: noteTitle(n) }, noteTitle(n)),
-        el("div", { class: "cs-time" }, fmtTime(n.updated))),
-      x);
-    item.onclick = e => { if (!e.target.closest("button")) selectNote(n.id, true); };
-    list.append(item);
-  }
-  const c = live().length;
-  $("#st-count").textContent = c + (c === 1 ? " note" : " notes");
-}
-function syncEditor() {
+// The pop-up lists every page by its first line; the open one is chosen.
+function render() {
+  const p = pages();
+  const i = p.findIndex(n => n.id === sel);
+  num.textContent = i >= 0 ? String(i + 1) : "";
+  pick.replaceChildren(...p.map(n => new Option(noteTitle(n), n.id)));
+  pick.value = sel || "";
+  pick.disabled = !loaded;
   const n = cur();
+  delBtn.disabled = !loaded || !n || n === draft;
+  newBtn.disabled = !loaded || (!!n && n === draft);
+  document.body.classList.toggle("solo", p.length < 2);
+}
+// Put the open page's text in the field. A page turn starts at the top;
+// a synced-in change to the page being read keeps the reader's place.
+function syncEditor(keepPlace) {
+  const n = cur();
+  const top = ed.scrollTop, a = ed.selectionStart, b = ed.selectionEnd;
   ed.value = n ? n.text : "";
   ed.disabled = !n;
+  if (keepPlace) {
+    ed.setSelectionRange(Math.min(a, ed.value.length), Math.min(b, ed.value.length));
+    ed.scrollTop = top;
+  } else {
+    ed.setSelectionRange(0, 0);
+    ed.scrollTop = 0;
+  }
 }
-function selectNote(id, focus) {
-  if (id !== null && id === sel) { ed.focus(); return; }
+function disarm() {
+  clearTimeout(delBtn._t);
+  delBtn.classList.remove("armed");
+}
+// Open a page. Leaving a blank page drops it; the open page is remembered
+// per viewer (a blank page is not — it is gone once left).
+function go(id, focus) {
+  disarm();
+  if (id === sel && cur()) { if (focus) ed.focus(); return; }
+  if (draft && draft.id !== id) draft = null;
   sel = id;
-  try {
-    if (id) localStorage.setItem(SEL_KEY, id);
-    else localStorage.removeItem(SEL_KEY);
-  } catch (e) {}
-  syncEditor();
-  renderList();
-  if (focus && !ed.disabled) ed.focus();
+  if (!draft || draft.id !== id) {
+    try {
+      if (id) localStorage.setItem(SEL_KEY, id);
+      else localStorage.removeItem(SEL_KEY);
+    } catch (e) {}
+  }
+  syncEditor(false);
+  render();
+  // a phone keeps its keyboard down until the sheet itself is touched
+  if (focus && !MOBILE && !ed.disabled) ed.focus();
 }
-// search deep-link (the desktop's reveal message): select the named note
-// and put its row in view. The ack stops the desktop's reveal repeats even
-// when the note is gone (deleted since the search data was fetched).
+// a pad never runs out of paper: with no notes left, a blank page is open
+function ensurePage() {
+  if (cur()) return;
+  const p = pages();
+  if (p.length) { sel = p[0].id; return; }
+  draft = blank();
+  sel = draft.id;
+}
+function flip(d) {
+  const p = pages();
+  if (p.length < 2) return;
+  const i = Math.max(0, p.findIndex(n => n.id === sel));
+  go(p[(i + d + p.length) % p.length].id, true);
+}
+// search deep-link (the desktop's reveal message): open the named note.
+// The ack stops the desktop's reveal repeats even when the note is gone
+// (deleted since the search data was fetched).
 let pendingReveal = null; // a reveal that arrived before the doc loaded
 function revealNote(id) {
   if (window.parent !== window) parent.postMessage({ exe: "reveal-ack" }, location.origin);
   if (!doc.notes.some(n => n.id === id && !n.deleted)) return;
-  selectNote(id, true);
-  const row = list.querySelector(".cs-item.sel");
-  if (row) row.scrollIntoView({ block: "nearest" });
+  go(id, true);
 }
+
+// ---- turning pages ----
+// The dog-ear is Note Pad's: the flap (above the fold) turns forward, the
+// next page showing under it turns back. A press there keeps the caret.
+const corner = $("#corner");
+corner.addEventListener("mousedown", e => e.preventDefault());
+corner.addEventListener("click", e => {
+  const r = corner.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top - 1; // under the top line
+  flip(x > y + 1 ? 1 : -1);
+});
+// the blank band at the sheet's foot is margin, not text: a press there
+// leaves the caret where it was
+$("#foot").addEventListener("mousedown", e => {
+  e.preventDefault();
+  if (!ed.disabled) ed.focus();
+});
+pick.addEventListener("change", () => go(pick.value, true));
 
 // ---- editing ----
 ed.addEventListener("input", () => {
   const n = cur();
   if (!n) return;
+  const made = n === draft;
+  if (made) {
+    if (!ed.value) return;
+    // the first keystroke on a blank page makes it a note
+    n.created = Date.now();
+    doc.notes.push(n);
+    draft = null;
+    try { localStorage.setItem(SEL_KEY, n.id); } catch (e) {}
+  }
   n.text = ed.value;
   n.updated = Date.now();
-  sortNotes(); // the edited note bubbles to the top, like Chat sessions
-  renderList();
   scheduleSave();
+  if (made) { render(); return; }
+  // otherwise only the open page's line in the pop-up can have changed
+  const o = pick.options[pick.selectedIndex];
+  if (o && o.value === n.id && o.text !== noteTitle(n)) o.text = noteTitle(n);
 });
 // Tab indents, SimpleText-style; execCommand (here and below) keeps the
 // native undo stack — assigning ed.value would wipe it
@@ -376,12 +445,32 @@ ed.addEventListener("keydown", e => {
   document.execCommand("insertText", false, "\n" + m[1] + next + (m[6] ? "[ ] " : ""));
 });
 
-$("#new").onclick = () => {
-  const n = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    text: "", created: Date.now(), updated: Date.now() };
-  doc.notes.unshift(n);
-  scheduleSave(); // selection no longer saves, so the new note must
-  selectNote(n.id, true);
+// New Note lays a blank page on top of the pad
+newBtn.onclick = () => {
+  const n = cur();
+  if (n && n === draft) { ed.focus(); return; }
+  draft = blank();
+  go(draft.id, true);
+  ed.focus(); // asked for paper to write on: a phone raises its keyboard too
+};
+// Delete tears the open page out: the desktop's two-click armed button,
+// then the page under it is open (the one above, when it was the last)
+delBtn.onclick = () => {
+  const n = cur();
+  if (!n || n === draft) return;
+  if (!delBtn.classList.contains("armed")) {
+    delBtn.classList.add("armed");
+    delBtn._t = setTimeout(disarm, 3000);
+    return;
+  }
+  disarm();
+  const p = pages(), i = p.findIndex(x => x.id === n.id);
+  n.deleted = n.updated = Date.now();
+  n.text = "";
+  scheduleSave();
+  const rest = pages();
+  if (rest.length) go(rest[Math.min(i, rest.length - 1)].id, true);
+  else { draft = blank(); go(draft.id, true); }
 };
 
 // ---- desktop window plumbing (same bridge as the Todo app) ----
@@ -391,10 +480,8 @@ window.addEventListener("pointerdown", () => {
 
 // no grow box on its own page, nor on a phone (?mobile=1), where the window
 // fills the screen and the desktop hides its own grow boxes
-const MOBILE = new URLSearchParams(location.search).has("mobile");
 const grow = $("#grow");
 if (window.parent === window || MOBILE) grow.style.display = "none";
-if (MOBILE) $("#status").style.paddingRight = "8px";
 grow.addEventListener("pointerdown", e => {
   e.preventDefault();
   grow.setPointerCapture(e.pointerId);
@@ -425,14 +512,16 @@ document.addEventListener("scroll", e => {
 // local edits both survive. Save back only if the merge holds something the
 // disk doc lacks.
 function normNote(n) {
+  // a page's place comes from `created`; a note without one keeps a fixed
+  // place (its last edit) rather than jumping to the top on every load
   const m = { id: String(n.id), text: typeof n.text === "string" ? n.text : "",
-    created: +n.created || Date.now(), updated: +n.updated || 0 };
+    created: +n.created || +n.updated || 0, updated: +n.updated || 0 };
   if (+n.deleted) m.deleted = +n.deleted;
   return m;
 }
 async function reloadFromDisk() {
   try {
-    const r = await api(DATA_URL);
+    const r = await api(DATA_URL, { cache: "no-store" });
     if (r.status === 404) return;
     const d = await r.json();
     if (!d || !Array.isArray(d.notes)) return;
@@ -451,12 +540,10 @@ async function reloadFromDisk() {
     const aheadOfDisk = key(byId) !== key(diskById);
     const before = cur() && cur().text;
     doc.notes = [...byId.values()];
-    sortNotes();
-    if (!cur()) sel = live().length ? live()[0].id : null;
-    // keep the caret out of it unless the selected note's text really changed
-    if (cur() && cur().text !== before) syncEditor();
-    else if (!cur()) syncEditor();
-    renderList();
+    if (!cur()) { ensurePage(); syncEditor(false); }
+    // keep the caret out of it unless the open page's text really changed
+    else if (cur().text !== before) syncEditor(true);
+    render();
     if (aheadOfDisk) scheduleSave(); // we hold something disk lacks; push it back
   } catch (e) {}
 }
@@ -465,9 +552,12 @@ window.addEventListener("message", e => {
   if (e.data.exe === "data-changed") {
     if (e.data.client && e.data.client === CLIENT) return; // our own write
     if (loaded && e.data.path === "notes.json") reloadFromDisk();
+  } else if (e.data.exe === "data-resync") {
+    // the desktop's change stream was down: anything may have changed
+    if (loaded) reloadFromDisk();
   } else if (e.data.exe === "reveal") {
-    // before the load settles the note rows don't exist yet — remember the
-    // id and let boot apply it (and ack) instead
+    // before the load settles the pages don't exist yet — remember the id
+    // and let boot apply it (and ack) instead
     if (loaded) revealNote(String(e.data.id || ""));
     else pendingReveal = String(e.data.id || "");
   }
@@ -476,30 +566,23 @@ window.addEventListener("message", e => {
 (async () => {
   let legacySel = null; // pre-tombstone files carried the selection in-doc
   try {
-    const r = await api(DATA_URL);
+    const r = await api(DATA_URL, { cache: "no-store" });
     if (r.status !== 404) {
       const d = await r.json();
       if (d && Array.isArray(d.notes)) {
-        doc.notes = d.notes.filter(n => n && n.id).map(n => {
-          const m = { id: String(n.id), text: typeof n.text === "string" ? n.text : "",
-            created: +n.created || Date.now(), updated: +n.updated || Date.now() };
-          if (+n.deleted) m.deleted = +n.deleted;
-          return m;
-        });
+        doc.notes = d.notes.filter(n => n && n.id).map(normNote);
         legacySel = d.sel || null;
       }
     }
   } catch (e) {
-    $("#st-count").textContent = "Load failed: " + e.message + " — reopen this window";
+    msg.textContent = "Load failed: " + e.message + " — reopen this window";
     return; // leave everything disabled: saving now would clobber the stored notes
   }
-  sortNotes();
   try { sel = localStorage.getItem(SEL_KEY) || legacySel; } catch (e) { sel = legacySel; }
-  if (!cur()) sel = live().length ? live()[0].id : null;
+  ensurePage();
   loaded = true;
-  $("#new").disabled = false;
-  syncEditor();
-  renderList();
+  syncEditor(false);
+  render();
   if (pendingReveal) { revealNote(pendingReveal); pendingReveal = null; }
 })();
 </script>

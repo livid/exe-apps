@@ -1,5 +1,5 @@
 {
   "title": "Notes",
   "icon": "icon.svg",
-  "window": { "width": 620, "height": 460, "grow": true }
+  "window": { "width": 440, "height": 480, "grow": true }
 }

@@ -124,23 +124,43 @@ days.
   merge struct must carry every field the apps write
   (internal/peer/merge.go strips unknown keys).
 
-- **Notes** — two-column Note Pad (Chat-window layout: 190px list + document).
-  All notes live in one `notes.json` through the app-data API — one doc beats
-  per-note files for whole-doc auto-save (400ms debounce). Titles are
-  the first non-empty line; the edited note bubbles to the top like Chat
-  sessions; deletes use the desktop's two-click armed × pattern (tombstoned,
-  see above). The open-note selection is per-viewer UI state and lives in
-  localStorage (`exe-notes-sel:<App>`), NOT in the synced doc — clicking
-  around never PUTs and two machines can't fight over it. Enter
+- **Notes** — Mac OS's Note Pad (Apple Extras in the Mac OS 9 guest; Sherlock
+  finds it), sampled from the real one: one white sheet under a toolbar, the
+  scroll bar down to the grow box, two page edges (`#eee`/`#444`) under the
+  sheet's bottom line, the page number centred on the window's width with its
+  baseline on the grow box's top line, and the dog-ear at the bottom left —
+  the flap's pixels are the real ones (a vector copy at fractional scales),
+  its right line stops a row short of the sheet's bottom line. A click on
+  the flap (above the fold) turns forward, below the fold back, wrapping at
+  both ends; the toolbar's `.popup` (Go to Note) lists every page by its
+  first line for a direct jump, beside Delete (the two-click armed button)
+  and New Note. Pages are notes in `created` order, newest on top as page 1,
+  so a page keeps its number while it is written on. New Note lays a blank
+  sheet on top that becomes a note at the first keystroke and is dropped if
+  turned away from, so empty notes never reach the document; a pad with no
+  notes opens such a sheet. Note Pad's text stops above the dog-ear band
+  while its bar runs on: `#foot` is laid over the field's foot, the field's
+  24px bottom padding lets the last line scroll clear, and
+  `scroll-padding-bottom` keeps the caret clear of it (Chromium honours it
+  for typing and arrowing). Saves are silent; only a failure shows, at the
+  sheet's foot. All notes live in one `notes.json` through the app-data
+  API — one doc beats per-note files for whole-doc auto-save (400ms
+  debounce); deletes are tombstoned (see above); the field carries
+  `data-autosave`. The open page is per-viewer UI state and lives in
+  localStorage (`exe-notes-sel:<App>`), NOT in the synced doc — turning
+  pages never PUTs and two machines can't fight over it. Enter
   continues markdown list items (`- * +`, `1.`/`1)` incrementing, `- [ ]`
   resetting), Enter on an empty item turns its marker into a blank line and
   drops to a fresh one, Shift+Enter is the plain-newline escape — all
   through execCommand so native undo survives. Its always-on
-  editor bar carries the OS 9 disabled-flat scrollbar block (flat #eee strip,
+  page bar carries the OS 9 disabled-flat scrollbar block (flat #eee strip,
   #888 ghost arrows) that Tides doesn't need — copy from here for any
-  overflow:scroll bar. Bordered boxes keep border-right: the app's 15px bar
-  spec has no trailing line, so the box border is the bar's right rail
-  (has-vbar toggling is a desktop-16px-spec thing).
+  overflow:scroll bar. The app's 15px bar spec has no trailing line: here
+  the window frame's line is the bar's right rail, as a bordered box's
+  border-right would be (has-vbar toggling is a desktop-16px-spec thing).
+  On a phone the sheet hides its bar (a finger scrolls it) and the band and
+  page edges run the full width; New Note raises the keyboard, a page turn
+  does not.
 - **Tides** — NOAA CO-OPS tide charts (fetches NOAA directly; CORS is open).
   Gotchas encoded there: only type-R stations serve 6-minute curves (type-S
   fall back to cosine fit between hi/lo); fetch `time_zone=gmt`, render in
