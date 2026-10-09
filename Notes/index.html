@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Notes</title>
+<link rel="stylesheet" href="/platinum/popup.css">
 <style>
 /* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
 :root {
@@ -40,6 +41,20 @@ button.ghost.armed { background: var(--red); color: #fff;
    the right */
 #bar { display: flex; gap: 8px; padding: 10px 10px 8px; align-items: center; }
 #bar-gap { flex: 1; }
+/* the note's colour, Stickies' Color menu as the shared pop-up: text only,
+   as Stickies' own items were; the sheet below shows the colour. 20px
+   beside the buttons, as the hub's language menu is */
+#tint { flex: none; width: 88px; height: 20px; }
+#tint .well b { background-position: 4px 3px; }
+/* where the words will not fit (a phone, a narrow window) Corkboard
+   shrinks to its pushpin, as the Hub's buttons shrink to glyphs */
+#boardBtn .pin { display: none; position: static; margin: 0; vertical-align: top; }
+@media (max-width: 400px) {
+  #boardBtn { padding: 1px 9px 0; }
+  #boardBtn .pin { display: inline-block; }
+  #boardBtn .lbl { display: none; }
+  #tint { width: 76px; }
+}
 
 /* two views in one place under the toolbar's line: the pad (one note) and
    the corkboard (every note). The one not shown is visibility: hidden, so
@@ -53,7 +68,9 @@ body.on-board #pad, body:not(.on-board) #board { visibility: hidden; }
    the window frame on three sides; the scroll bar runs down to the grow
    box; under the sheet's bottom line two page edges (#444 on #eee) stand
    for the pages beneath; the dog-ear at the bottom left turns them. ---- */
-#pad { background: #fff; }
+/* --sheet is the open note's colour (white, or a Stickies tint), set by
+   the script on the pad; the field and the band are the same paper */
+#pad { background: var(--sheet, #fff); }
 /* the writing: Geneva 12 on 16px lines, 3px under the top and 5px in, as
    Note Pad set it. Its scroll bar's right edge is the frame's line and its
    last arrow ends on the grow box's top row. Note Pad's text stops above
@@ -62,12 +79,12 @@ body.on-board #pad, body:not(.on-board) #board { visibility: hidden; }
    scroll clear of it, and scroll-padding keeps the caret clear of it while
    typing or arrowing down */
 #ed { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% - 15px); resize: none; margin: 0; border: 0; border-radius: 0;
-  background: #fff; color: #000; padding: 3px 5px 24px; font: 12px/16px var(--page);
+  background: var(--sheet, #fff); color: #000; padding: 3px 5px 24px; font: 12px/16px var(--page);
   overflow-y: scroll; scroll-padding-bottom: 24px; user-select: text; cursor: text; }
 #ed:focus { outline: none; }
 #ed:disabled { background: var(--g200); }
 /* the blank band at the sheet's foot: the dog-ear, the page number */
-#foot { position: absolute; left: 0; right: 15px; bottom: 6px; height: 30px; background: #fff; }
+#foot { position: absolute; left: 0; right: 15px; bottom: 6px; height: 30px; background: var(--sheet, #fff); }
 #num { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center;
   font: 12px/16px var(--page); color: #000; pointer-events: none; }
 #msg { position: absolute; right: 20px; bottom: 10px; max-width: 45%; font-size: 10px; line-height: 16px;
@@ -82,16 +99,18 @@ body.on-board #pad, body:not(.on-board) #board { visibility: hidden; }
 #edges::after { top: 3px; }
 /* the dog-ear, 23px of art under a black top line, a black right line that
    stops one row short so the lifted corner leaves the sheet's bottom line a
-   gap, and the next page (#eee) showing below the fold. The flap's pixels
-   are the real ones; at fractional scales a vector copy keeps the fold one
-   clean line. Clicking the flap turns forward, below the fold turns back. */
+   gap, and the next page showing below the fold (#eee on white paper, the
+   next note's colour times #eee on a tinted one). The flap's pixels are the
+   real ones, multiplied by the sheet's colour, drawn by the script into
+   --flap-px; at fractional scales its vector copy --flap-vec keeps the fold
+   one clean line. Clicking the flap turns forward, below the fold back. */
 #corner { position: absolute; left: 0; bottom: 5px; width: 24px; height: 25px; z-index: 1;
   border-top: 1px solid var(--black);
-  background: var(--g200) url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" shape-rendering="crispEdges"><path fill="%23444444" d="M1 0h1v1H1zM2 1h1v1H2zM3 2h1v1H3zM4 3h1v1H4zM5 4h1v1H5zM6 5h1v1H6zM7 6h1v1H7zM8 7h1v1H8zM9 8h1v1H9zM10 9h1v1H10zM11 10h1v1H11zM12 11h1v1H12zM13 12h1v1H13zM14 13h1v1H14zM15 14h1v1H15zM16 15h1v1H16zM17 16h1v1H17zM18 17h1v1H18zM19 18h1v1H19zM20 19h1v1H20zM21 20h1v1H21zM22 21h1v1H22z"/><path fill="%23888888" d="M2 0h1v1H2zM3 1h1v1H3zM4 2h1v1H4zM5 3h1v1H5zM6 4h1v1H6zM7 5h1v1H7zM8 6h1v1H8zM9 7h1v1H9zM10 8h1v1H10zM11 9h1v1H11zM12 10h1v1H12zM13 11h1v1H13zM14 12h1v1H14zM15 13h1v1H15zM16 14h1v1H16zM17 15h1v1H17zM18 16h1v1H18zM19 17h1v1H19zM20 18h1v1H20zM21 19h1v1H21zM22 20h1v1H22z"/><path fill="%23999999" d="M3 0h1v1H3zM4 1h1v1H4zM5 2h1v1H5zM6 3h1v1H6zM7 4h1v1H7zM8 5h1v1H8zM9 6h1v1H9zM10 7h1v1H10zM11 8h1v1H11zM12 9h2v1H12zM13 10h1v1H13zM14 11h1v1H14zM15 12h1v1H15zM16 13h1v1H16zM17 14h1v1H17zM18 15h1v1H18zM19 16h1v1H19zM20 17h1v1H20zM21 18h1v1H21zM22 19h1v1H22z"/><path fill="%23aaaaaa" d="M4 0h1v1H4zM5 1h1v1H5zM6 2h1v1H6zM7 3h1v1H7zM8 4h1v1H8zM9 5h1v1H9zM10 6h1v1H10zM11 7h1v1H11zM12 8h1v1H12zM14 10h1v1H14zM15 11h1v1H15zM16 12h1v1H16zM17 13h1v1H17zM18 14h1v1H18zM19 15h1v1H19zM20 16h1v1H20zM21 17h1v1H21zM22 18h1v1H22z"/><path fill="%23bbbbbb" d="M5 0h3v1H5zM6 1h3v1H6zM7 2h3v1H7zM8 3h3v1H8zM9 4h3v1H9zM10 5h3v1H10zM11 6h3v1H11zM12 7h3v1H12zM13 8h3v1H13zM14 9h3v1H14zM15 10h3v1H15zM16 11h3v1H16zM17 12h3v1H17zM18 13h2v1H18zM21 13h1v1H21zM19 14h3v1H19zM20 15h3v1H20zM21 16h2v1H21zM22 17h1v1H22z"/><path fill="%23cccccc" d="M8 0h3v1H8zM9 1h2v1H9zM12 1h1v1H12zM10 2h2v1H10zM13 2h1v1H13zM11 3h2v1H11zM14 3h1v1H14zM12 4h2v1H12zM13 5h4v1H13zM14 6h2v1H14zM15 7h3v1H15zM16 8h3v1H16zM17 9h3v1H17zM18 10h2v1H18zM21 10h1v1H21zM19 11h2v1H19zM22 11h1v1H22zM20 12h2v1H20zM20 13h1v1H20zM22 13h1v1H22zM22 14h1v1H22z"/><path fill="%23dddddd" d="M11 0h5v1H11zM11 1h1v1H11zM13 1h3v1H13zM17 1h1v1H17zM12 2h1v1H12zM14 2h3v1H14zM13 3h1v1H13zM15 3h4v1H15zM14 4h7v1H14zM17 5h3v1H17zM16 6h6v1H16zM18 7h5v1H18zM19 8h4v1H19zM20 9h3v1H20zM20 10h1v1H20zM22 10h1v1H22zM21 11h1v1H21zM22 12h1v1H22z"/><path fill="%23ffffff" d="M18 0h1v1H18zM20 0h3v1H20zM20 1h1v1H20zM22 1h1v1H22zM21 2h1v1H21zM22 3h1v1H22z"/></svg>') 0 0 no-repeat; }
+  background: var(--under, #eee) var(--flap-px) 0 0 no-repeat; }
 #corner::after { content: ""; box-sizing: border-box; position: absolute; top: 0; right: 0;
   width: 1px; height: 23px; border-right: 1px solid var(--black); }
 @media (min-resolution: 1.01dppx) and (max-resolution: 1.99dppx) {
-  #corner { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" shape-rendering="geometricPrecision"><defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="12" y1="11" x2="23" y2="0"><stop offset=".045" stop-color="%23888"/><stop offset=".09" stop-color="%23999"/><stop offset=".136" stop-color="%23aaa"/><stop offset=".227" stop-color="%23bbb"/><stop offset=".364" stop-color="%23ccc"/><stop offset=".545" stop-color="%23ddd"/><stop offset=".727" stop-color="%23eee"/><stop offset=".864" stop-color="%23fff"/></linearGradient></defs><path d="M1 0H23V22z" fill="url(%23g)"/><path d="M1 0L23 22" stroke="%23444" stroke-width="1"/></svg>'); }
+  #corner { background-image: var(--flap-vec); }
 }
 body.solo #corner { visibility: hidden; }
 
@@ -218,7 +237,12 @@ body.mobile #status { padding-right: 8px; }
 <body>
 
 <div id="bar">
-  <button class="ghost" id="boardBtn" disabled>Corkboard</button>
+  <button class="ghost" id="boardBtn" title="Corkboard" disabled><i class="pin red"></i><span class="lbl">Corkboard</span></button>
+  <span class="popup" id="tint"><select id="tintSel" title="Color" disabled>
+    <option value="white">White</option><option value="yellow">Yellow</option>
+    <option value="blue">Blue</option><option value="green">Green</option>
+    <option value="pink">Pink</option><option value="purple">Purple</option>
+    <option value="gray">Gray</option></select><span class="well"><i><b></b></i></span></span>
   <span id="bar-gap"></span>
   <button class="ghost danger" id="del" disabled>Delete</button>
   <button class="ghost" id="new" disabled>New Note</button>
@@ -290,7 +314,7 @@ let loaded = false; // block saves until the load settled, so a failed GET
 // away from it drops it, so empty notes never reach the document.
 let draft = null;
 const ed = $("#ed"), num = $("#num"), msg = $("#msg"), stMsg = $("#st-msg");
-const delBtn = $("#del"), newBtn = $("#new"), boardBtn = $("#boardBtn");
+const delBtn = $("#del"), newBtn = $("#new"), boardBtn = $("#boardBtn"), tintSel = $("#tintSel");
 const cork = $("#cork"), cards = $("#cards"), stCount = $("#st-count");
 // which view is up — the pad (one note) or the corkboard (all of them) — is
 // per-viewer UI state like the open page
@@ -311,6 +335,73 @@ const blank = () => ({ id: newId(), text: "", created: Date.now(), updated: Date
 
 // a note's title is its first line with words; a sheet shows as much of it
 // as fits in its lines, so it takes the whole line
+// ---- paper colours: Stickies' Color menu (Mac OS 9, sampled in the
+// guest) and Note Pad's white. Stickies' own pastels, with its two loud
+// ones (yellow #ffff99, blue #99ffff) a step lighter so a whole sheet stays
+// subtle, every one in the Mac's 256-colour palette. A note keeps the
+// colour's name; no name, or one this app does not know, is white.
+const TINTS = { white: "#ffffff", yellow: "#ffffcc", blue: "#ccffff", green: "#ccffcc",
+  pink: "#ffcccc", purple: "#ccccff", gray: "#eeeeee" };
+const tintOf = n => (n && n.color && Object.hasOwn(TINTS, n.color) && TINTS[n.color]) || TINTS.white;
+// paper in shade takes its colour: multiply two #rrggbb colours
+function mul(a, b) {
+  let o = "#";
+  for (let i = 1; i < 7; i += 2)
+    o += Math.round(parseInt(a.substr(i, 2), 16) * parseInt(b.substr(i, 2), 16) / 255).toString(16).padStart(2, "0");
+  return o;
+}
+// the dog-ear's flap as sampled from Note Pad, one character a pixel: a grey
+// level ("4" #444 … "f" #fff), "." where the page beneath shows through
+const FLAP = [
+  ".489abbbcccdddddeefefff",
+  "..489abbbccdcdddedeefef",
+  "...489abbbccdcdddeeeefe",
+  "....489abbbccdcddddeeef",
+  ".....489abbbccdddddddee",
+  "......489abbbccccdddeee",
+  ".......489abbbccdddddde",
+  "........489abbbcccddddd",
+  ".........489abbbcccdddd",
+  "..........4899bbbcccddd",
+  "...........489abbbccdcd",
+  "............489abbbccdc",
+  ".............489abbbccd",
+  "..............489abbcbc",
+  "...............489abbbc",
+  "................489abbb",
+  ".................489abb",
+  "..................489ab",
+  "...................489a",
+  "....................489",
+  ".....................48",
+  "......................4",
+  "......................."];
+const flapCache = {};
+// the flap drawn on a sheet of colour `tint`: pixels at whole scales, a
+// vector copy (the same bands as a gradient) at fractional ones
+function flapArt(tint) {
+  if (flapCache[tint]) return flapCache[tint];
+  const runs = {};
+  FLAP.forEach((row, y) => {
+    for (let x = 0; x < row.length; ) {
+      let x2 = x;
+      while (x2 + 1 < row.length && row[x2 + 1] === row[x]) x2++;
+      if (row[x] !== ".") (runs[row[x]] = runs[row[x]] || []).push(`M${x} ${y}h${x2 - x + 1}v1H${x}z`);
+      x = x2 + 1;
+    }
+  });
+  const grey = c => mul("#" + c.repeat(6), tint);
+  const url = svg => 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
+  const px = '<svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" shape-rendering="crispEdges">' +
+    Object.entries(runs).map(([c, d]) => `<path fill="${grey(c)}" d="${d.join("")}"/>`).join("") + "</svg>";
+  const stops = [[.045, "8"], [.09, "9"], [.136, "a"], [.227, "b"], [.364, "c"], [.545, "d"], [.727, "e"], [.864, "f"]];
+  const vec = '<svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" shape-rendering="geometricPrecision">' +
+    '<defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="12" y1="11" x2="23" y2="0">' +
+    stops.map(([o, c]) => `<stop offset="${o}" stop-color="${grey(c)}"/>`).join("") + "</linearGradient></defs>" +
+    `<path d="M1 0H23V22z" fill="url(#g)"/><path d="M1 0L23 22" stroke="${grey("4")}" stroke-width="1"/></svg>`;
+  return (flapCache[tint] = { px: url(px), vec: url(vec) });
+}
+
 function noteTitle(n, max = 60) {
   const line = (n.text || "").split("\n").find(l => l.trim());
   return line ? line.trim().slice(0, max) : "Blank Page";
@@ -384,7 +475,23 @@ function render() {
   delBtn.disabled = !loaded || onBoard || !n || n === draft;
   newBtn.disabled = !loaded || (!onBoard && !!n && n === draft);
   document.body.classList.toggle("solo", p.length < 2);
+  applySheet();
   if (onBoard) renderBoard();
+}
+// The open note's paper: the sheet and band in its colour, the dog-ear's
+// flap the same paper turned over, and under the fold the next page's
+// colour in the shade of the one on top. The pop-up names the colour.
+function applySheet() {
+  const p = pages(), i = p.findIndex(n => n.id === sel), n = cur(), t = tintOf(n);
+  const next = p.length > 1 && i >= 0 ? p[(i + 1) % p.length] : null;
+  const art = flapArt(t);
+  $("#pad").style.setProperty("--sheet", t);
+  const corner = $("#corner");
+  corner.style.setProperty("--under", mul(tintOf(next), "#eeeeee"));
+  corner.style.setProperty("--flap-px", art.px);
+  corner.style.setProperty("--flap-vec", art.vec);
+  tintSel.value = tintOf(n) === TINTS.white ? "white" : n.color;
+  tintSel.disabled = !loaded || view === "board" || !n;
 }
 
 // ---- the corkboard ----
@@ -417,6 +524,7 @@ function renderBoard() {
     const c = document.createElement("div");
     const body = excerpt(n.text);
     c.className = "card" + (body ? "" : " bare");
+    c.style.backgroundColor = tintOf(n);
     c.dataset.id = n.id;
     c.style.left = (h % 7 - 3) + "px";
     c.style.top = ((h >>> 3) % 7 - 3) + "px";
@@ -545,6 +653,16 @@ $("#foot").addEventListener("mousedown", e => {
   e.preventDefault();
   if (!ed.disabled) ed.focus();
 });
+// a colour is an edit to the note (a blank page keeps it until it is one)
+tintSel.addEventListener("change", () => {
+  const n = cur();
+  if (!n) return;
+  if (tintSel.value === "white") delete n.color;
+  else n.color = tintSel.value;
+  if (n !== draft) { n.updated = Date.now(); scheduleSave(); }
+  render();
+  if (!MOBILE && !ed.disabled) ed.focus();
+});
 boardBtn.onclick = () => {
   if (view === "board") openNote(sel);
   else setView("board");
@@ -622,6 +740,7 @@ delBtn.onclick = () => {
   const p = pages(), i = p.findIndex(x => x.id === n.id);
   n.deleted = n.updated = Date.now();
   n.text = "";
+  delete n.color;
   scheduleSave();
   const rest = pages();
   if (rest.length) go(rest[Math.min(i, rest.length - 1)].id, true);
@@ -671,6 +790,9 @@ function normNote(n) {
   // place (its last edit) rather than jumping to the top on every load
   const m = { id: String(n.id), text: typeof n.text === "string" ? n.text : "",
     created: +n.created || +n.updated || 0, updated: +n.updated || 0 };
+  // a colour name is kept even when this app does not know it (a newer one
+  // may), and shown as white
+  if (typeof n.color === "string" && n.color) m.color = n.color.slice(0, 32);
   if (+n.deleted) m.deleted = +n.deleted;
   return m;
 }
@@ -717,6 +839,8 @@ window.addEventListener("message", e => {
     else pendingReveal = String(e.data.id || "");
   }
 });
+
+applySheet(); // the dog-ear has its art from the first paint
 
 (async () => {
   let legacySel = null; // pre-tombstone files carried the selection in-doc

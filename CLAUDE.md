@@ -158,7 +158,24 @@ days.
   its number while it is written on. New Note lays a blank sheet on top
   that becomes a note at the first keystroke and is dropped if turned away
   from or the board is put up, so empty notes never reach the document; a
-  pad with no notes opens such a sheet. Note Pad's text stops above the dog-ear band
+  pad with no notes opens such a sheet. Each note may carry a `color`, the
+  name of a Stickies colour (`yellow blue green pink purple gray`, sampled
+  from Mac OS 9's Stickies in the guest; none is Note Pad's white): the
+  toolbar's `.popup` names it, text only as Stickies' Color menu was, and
+  the sheet, its band and its board card take the tint. Stickies' pastels
+  are kept but for its two loud ones (`#ffff99`, `#99ffff`), a step
+  lighter (`#ffffcc`, `#ccffff`) so a whole sheet stays subtle — all in
+  the Mac's 256-colour cube. The dog-ear's flap is the same paper turned
+  over: `FLAP`, the sampled pixels as grey levels, is multiplied by the
+  tint into `--flap-px` / `--flap-vec`, and under the fold the next page's
+  tint shows times `#eee`. A colour is an edit (`updated` bumps); a blank
+  sheet keeps one until it is written on; a tombstone drops it; a name the
+  app does not know is kept and shown white. The daemon's merge struct
+  carries `color` (internal/peer/merge.go). Under 400px the toolbar's
+  Corkboard shrinks to its red pushpin. The icon is three Stickies sheets
+  fanned (blue, pink, yellow — Stickies' purple is the desk's own
+  lavender), the front one with the dog-ear over the pink page beneath and
+  the corkboard's pin. Note Pad's text stops above the dog-ear band
   while its bar runs on: `#foot` is laid over the field's foot, the field's
   24px bottom padding lets the last line scroll clear, and
   `scroll-padding-bottom` keeps the caret clear of it (Chromium honours it
