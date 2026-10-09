@@ -38,13 +38,8 @@ button.ghost.armed { background: var(--red); color: #fff;
 
 /* the toolbar, like Todo's: Corkboard at the left, Delete and New Note at
    the right */
-#bar { position: relative; display: flex; gap: 8px; padding: 10px 10px 8px; align-items: center; }
+#bar { display: flex; gap: 8px; padding: 10px 10px 8px; align-items: center; }
 #bar-gap { flex: 1; }
-/* the open note's date, secondary grey text at the toolbar's middle — the
-   window's middle, not the gap's; it takes a shorter form, or none, rather
-   than touch a button. Blank on the corkboard and on a blank sheet. */
-#when { position: absolute; left: 0; right: 0; top: 10px; height: 20px; line-height: 20px;
-  text-align: center; font-size: 11px; color: #777; white-space: nowrap; pointer-events: none; }
 
 
 /* two views in one place under the toolbar's line: the pad (one note) and
@@ -79,18 +74,26 @@ body.on-board #pad, body:not(.on-board) #board { visibility: hidden; }
 #foot { position: absolute; left: 0; right: 15px; bottom: 6px; height: 30px; background: var(--sheet, #fff); }
 #num { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center;
   font: 12px/16px var(--page); color: #000; pointer-events: none; }
-/* the note's colour, at the sheet's foot beside the dog-ear: a row of small
-   squares, Note Pad's white and Stickies' six, each in its sheet's tint
-   inside Stickies' own edge colour for it; the chosen one ringed 2px in
-   the highlight blue. Every line a border on a box of its own. */
-#tints { position: absolute; left: 30px; bottom: 11px; display: flex; gap: 2px; z-index: 1; }
+/* the note's colour, at the sheet's foot on the right, 5px short of the
+   scroll bar: a row of small squares, Note Pad's white and Stickies' six,
+   each in its sheet's tint inside Stickies' own edge colour for it; the
+   chosen one ringed 2px in the highlight blue. Every line a border on a
+   box of its own. */
+#tints { position: absolute; right: 20px; bottom: 11px; display: flex; gap: 2px; z-index: 1; }
 #tints button { display: block; width: 14px; height: 14px; padding: 0; margin: 0;
   border: 2px solid transparent; border-radius: 0; background: none; }
 #tints button i { display: block; width: 10px; height: 10px; border: 1px solid; }
 #tints button.on { border-color: var(--hl); }
 #tints button:disabled { visibility: hidden; }
-#msg { position: absolute; right: 20px; bottom: 10px; max-width: 45%; font-size: 10px; line-height: 16px;
-  color: #7a1010; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+/* the note's date at the sheet's foot on the left, beside the dog-ear, in
+   secondary grey: the longest form that keeps 16px from the page number,
+   else none; blank on a blank sheet. A save that failed says so there in
+   its place. */
+#when, #msg { position: absolute; left: 30px; bottom: 10px; font: 11px/16px var(--page);
+  white-space: nowrap; pointer-events: none; z-index: 1; }
+#when { color: #777; }
+#msg { max-width: 45%; overflow: hidden; text-overflow: ellipsis; color: #7a1010; }
+#msg:not(:empty) ~ #when { visibility: hidden; }
 /* the page edges: the sheet's bottom line, then #eee / #444 / #eee / #444 /
    #eee down to the frame's line, each line a border of its own */
 #edges { position: absolute; left: 0; right: 15px; bottom: 0; height: 6px; background: var(--g200);
@@ -175,14 +178,15 @@ body.solo #corner { visibility: hidden; }
 body.mobile #ed { height: calc(100% - 6px); scrollbar-width: none; }
 body.mobile #ed::-webkit-scrollbar { display: none; }
 body.mobile #foot, body.mobile #edges { right: 0; }
-/* a finger's squares, 18px; the row then ends at 174px */
-body.mobile #tints { bottom: 9px; gap: 3px; }
+/* a finger's squares, 18px, 8px from the edge (a phone has no bar); the
+   row then starts 152px from the right */
+body.mobile #tints { right: 8px; bottom: 9px; gap: 3px; }
 body.mobile #tints button { width: 18px; height: 18px; }
 body.mobile #tints button i { width: 14px; height: 14px; }
-/* where the window's middle falls within the row (it ends at 140px, a
-   phone's at 174px), the page number centres in the room right of it */
-@media (max-width: 311px) { #num { left: 140px; } }
-@media (max-width: 371px) { body.mobile #num { left: 174px; } }
+/* where the window's middle would meet the row (it starts 130px from the
+   right, a phone's 152px), the page number centres in the room left of it */
+@media (max-width: 279px) { #num { right: 130px; } }
+@media (max-width: 323px) { body.mobile #num { right: 152px; } }
 body.mobile #cork { scrollbar-width: none; }
 body.mobile #cork::-webkit-scrollbar { display: none; }
 body.mobile #status { padding-right: 8px; }
@@ -249,7 +253,6 @@ body.mobile #status { padding-right: 8px; }
 <div id="bar">
   <button class="ghost" id="boardBtn" disabled>Corkboard</button>
   <span id="bar-gap"></span>
-  <div id="when"><span></span></div>
   <button class="ghost danger" id="del" disabled>Delete</button>
   <button class="ghost" id="new" disabled>New Note</button>
 </div>
@@ -258,9 +261,11 @@ body.mobile #status { padding-right: 8px; }
   <!-- data-autosave: the note is saved as it is typed (and flushed on
        unload), so the desktop does not hold an update reload for it -->
   <textarea id="ed" disabled spellcheck="false" data-autosave></textarea>
-  <div id="foot"><span id="msg"></span></div>
+  <div id="foot"></div>
   <div id="num"></div>
   <div id="tints"></div>
+  <span id="msg"></span>
+  <span id="when"></span>
   <div id="corner" title="Turn the page: the flap goes forward, the corner under it goes back"></div>
   <div id="edges"></div>
 </div>
@@ -489,25 +494,27 @@ function render() {
   showDate();
   if (onBoard) renderBoard();
 }
-// The open note's date in the toolbar: the longest form that keeps 16px
-// (the HIG's room between groups) from the buttons either side, else none
-const whenText = $("#when span");
+// The open note's date at the sheet's foot beside the dog-ear: the longest
+// form that keeps 16px (the HIG's room between groups) from the page
+// number, else none
+const whenText = $("#when");
 function showDate() {
   const n = cur();
   const t = view === "pad" && n && n !== draft ? n.created : 0;
   whenText.textContent = "";
   if (!t) return;
-  const left = boardBtn.getBoundingClientRect().right + 16, right = delBtn.getBoundingClientRect().left - 16;
+  const r = document.createRange();
+  r.selectNodeContents(num);
+  const right = (num.textContent ? r.getBoundingClientRect().left : tintsBox.getBoundingClientRect().left) - 16;
   for (const dateStyle of ["full", "long", "medium"]) {
     whenText.textContent = new Date(t).toLocaleDateString([], { dateStyle });
-    const r = whenText.getBoundingClientRect();
-    if (r.left >= left && r.right <= right) return;
+    if (whenText.getBoundingClientRect().right <= right) return;
   }
   whenText.textContent = "";
 }
-// re-fitted whenever the toolbar's width changes, the desk's own sizing of
+// re-fitted whenever the sheet's width changes, the desk's own sizing of
 // the window included (a window resize event can come before it settles)
-new ResizeObserver(() => showDate()).observe($("#bar"));
+new ResizeObserver(() => showDate()).observe($("#pad"));
 // The open note's paper: the sheet and band in its colour, the dog-ear's
 // flap the same paper turned over, and under the fold the next page's
 // colour in the shade of the one on top. Its square at the foot is ringed.

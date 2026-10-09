@@ -148,12 +148,14 @@ days.
   finds it), sampled from the real one: one white sheet under a toolbar
   (its writing in Geneva 12 on 16px lines, set in by the toolbar's own 10px
   at the top and sides — Livid's ask; Note Pad's was 3px and 5px), the
-  open note's date (`created`) in 11px `#777` at the toolbar's middle —
-  the window's middle, not the gap's — in the longest form (full, long,
-  medium) that keeps 16px from the buttons, else none, refitted by a
-  ResizeObserver on the toolbar (the desk can size the window after a
-  resize event has passed); blank on the corkboard and a blank sheet, the
-  scroll bar down to the grow box, two page edges (`#eee`/`#444`) under the
+  sheet's foot left to right: the dog-ear, the note's date (`created`) in
+  11px Geneva `#777` 6px past it, the page number, the colour squares 5px
+  short of the scroll bar (Livid moved the date out of the toolbar's
+  middle and the squares to the right). The date takes the longest form
+  (full, long, medium) that keeps 16px from the page number, else none,
+  refitted by a ResizeObserver on the sheet (the desk can size the window
+  after a resize event has passed); blank on a blank sheet; a failed save
+  says so in its place (`#msg`). The scroll bar runs down to the grow box, two page edges (`#eee`/`#444`) under the
   sheet's bottom line, the page number centred on the window's width with its
   baseline on the grow box's top line, and the dog-ear at the bottom left —
   the flap's pixels are the real ones (a vector copy at fractional scales),
@@ -191,13 +193,15 @@ days.
   name of a Stickies colour (`yellow blue green pink purple gray`, sampled
   from Mac OS 9's Stickies in the guest; none is Note Pad's white),
   chosen not in the toolbar (Livid: not there) but from a row of small
-  squares at the sheet's foot right of the dog-ear (`#tints`: 14px boxes,
-  2px apart from 30px in; 18px on a phone): each its sheet's tint inside
-  Stickies' own edge colour for it, the chosen one ringed 2px in `--hl`,
-  every line a border on its own box. A press there keeps the caret.
-  Where the window's middle falls within the row (narrower than 312px,
-  a phone narrower than 372px) the page number centres in the room right
-  of it. The sheet, its band and its board card take the tint. Stickies' pastels
+  squares at the sheet's foot on the right (`#tints`: 14px boxes 2px
+  apart, 20px from the window's right, 5px short of the bar; 18px boxes
+  8px in on a phone): each its sheet's tint inside Stickies' own edge
+  colour for it, the chosen one ringed 2px in `--hl`, every line a border
+  on its own box. A press there keeps the caret. Where the window's
+  middle would meet the row (narrower than 280px, a phone narrower than
+  324px) the page number centres in the room left of it
+  (`~/tools/playwright/exe-notes/footcheck.js` checks the foot at seven
+  widths). The sheet, its band and its board card take the tint. Stickies' pastels
   are kept but for its two loud ones (`#ffff99`, `#99ffff`), a step
   lighter (`#ffffcc`, `#ccffff`) so a whole sheet stays subtle — all in
   the Mac's 256-colour cube. The dog-ear's flap is the same paper turned
