@@ -8,7 +8,13 @@ deliberately separate from exe: apps here are mounted via `apps_dirs` in
 ## Dev loop
 
 - Apps are served **live from this checkout** at `http://127.0.0.1:7777/apps/<Name>/`
-  — edit, reload the desktop window, done. No build step, no daemon restart.
+  — edit, and every open window of the app reloads by itself once nobody
+  is using it (the desk compares the `version` /v1/apps lists — a
+  fingerprint of the bundle's files — with the one the window loaded; see
+  docs/platinum.md, Apps). So an edit here reaches Livid's desks, phones
+  and tablets too: an iPad left on an old Notes once wrote every note back
+  without its colour. Flush on pagehide and mark as-you-type fields
+  `data-autosave`, or the reload waits. No build step, no daemon restart.
 - Only changes to the exe daemon itself need `make build` + POST
   /v1/daemon/restart (in ~/Developer/exe; restarting kills running VMs).
 - API token: `api_token` in `~/.exe/config.json`. The desktop passes it to
