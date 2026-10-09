@@ -146,8 +146,9 @@ days.
   never rotated. A sheet shows its first line in bold (two lines, four when
   the note has nothing else), the lines under it (four, two under a
   two-line title, whole lines only via line-clamp, measured after the
-  board is built), the date and the page number; the open note's title is
-  highlighted like a selected icon's name. The board has the 15px status
+  board is built), the date and the page number. No sheet is marked as
+  the open one (Livid: not needed); the board only scrolls it into view
+  when put up. The board has the 15px status
   line (the count) with the grow box on its end. The views stack in
   `#main`, the hidden one `visibility: hidden` so each keeps its scroll;
   which view is up is per viewer (`exe-notes-view:<App>`), the board at

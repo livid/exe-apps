@@ -116,9 +116,6 @@ body.solo #corner { visibility: hidden; }
 /* a note that is one long line has nothing under its title: the title may
    take the sheet, four lines */
 .card.bare .t { -webkit-line-clamp: 4; }
-/* the note open on the pad: its title highlighted, as a selected icon's name */
-.card .t span { padding: 0 2px; margin: 0 -2px; }
-.card.sel .t span { background: var(--hl); color: #fff; }
 /* under a one-line title four lines of the note show, under a title that
    wraps to two (a note that is one long sentence) two: whole lines only */
 .card .x { max-height: 52px; flex: none; margin-top: 2px; font: 10px/13px var(--page); color: #333;
@@ -419,15 +416,15 @@ function renderBoard() {
     const h = idHash(n.id);
     const c = document.createElement("div");
     const body = excerpt(n.text);
-    c.className = "card" + (n.id === sel ? " sel" : "") + (body ? "" : " bare");
+    c.className = "card" + (body ? "" : " bare");
     c.dataset.id = n.id;
     c.style.left = (h % 7 - 3) + "px";
     c.style.top = ((h >>> 3) % 7 - 3) + "px";
     const pin = document.createElement("i");
     pin.className = "pin " + PINS[(h >>> 6) % PINS.length];
     pin.style.marginLeft = (-7 + (h >>> 9) % 11 - 5) + "px";
-    const t = document.createElement("div"), ts = document.createElement("span");
-    t.className = "t"; ts.textContent = noteTitle(n, 300); t.append(ts);
+    const t = document.createElement("div");
+    t.className = "t"; t.textContent = noteTitle(n, 300);
     const x = document.createElement("div");
     x.className = "x"; x.textContent = body;
     const f = document.createElement("div"), fd = document.createElement("span"), fn = document.createElement("span");
@@ -442,9 +439,10 @@ function renderBoard() {
   for (const c of two) c.classList.add("t2");
 }
 // put the open note's sheet in view, the least scroll that does it (by
-// hand: scrollIntoView would also move the frame's own page)
+// hand: scrollIntoView would also move the frame's own page); the sheet
+// itself is not marked
 function revealCard() {
-  const c = cards.querySelector(".card.sel");
+  const c = [...cards.children].find(c => c.dataset.id === sel);
   if (!c) return;
   const top = c.offsetTop - 18, bottom = c.offsetTop + c.offsetHeight + 18;
   if (top < cork.scrollTop) cork.scrollTop = top;
