@@ -218,7 +218,11 @@ days.
   middle would meet the row (narrower than 280px, a phone narrower than
   324px) the page number centres in the room left of it
   (`~/tools/playwright/exe-notes/footcheck.js` checks the foot at seven
-  widths). The sheet, its band and its board card take the tint. Stickies' pastels
+  widths). The sheet, its band and its board card take the tint, under a paper
+  grain (`--grain`, Livid's ask: SVG `feTurbulence` fractal noise as a dark
+  speckle at most 6% deep, drawn at the screen's own resolution — about
+  2.5 levels of variation, white paper under 2 levels darker on average,
+  the same in Chromium and WebKit; the dog-ear's flap stays clean). Stickies' pastels
   are kept but for its two loud ones (`#ffff99`, `#99ffff`), a step
   lighter (`#ffffcc`, `#ccffff`) so a whole sheet stays subtle — all in
   the Mac's 256-colour cube. The dog-ear's flap is the same paper turned
