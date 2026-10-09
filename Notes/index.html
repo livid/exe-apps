@@ -784,8 +784,9 @@ delBtn.onclick = () => {
   disarm();
   const p = pages(), i = p.findIndex(x => x.id === n.id);
   n.deleted = n.updated = Date.now();
+  // a tombstone keeps its id and stamps and nothing it said
+  for (const k of Object.keys(n)) if (!["id", "created", "updated", "deleted"].includes(k)) delete n[k];
   n.text = "";
-  delete n.color;
   scheduleSave();
   const rest = pages();
   if (rest.length) go(rest[Math.min(i, rest.length - 1)].id, true);
@@ -831,14 +832,20 @@ document.addEventListener("scroll", e => {
 // local edits both survive. Save back only if the merge holds something the
 // disk doc lacks.
 function normNote(n) {
-  // a page's place comes from `created`; a note without one keeps a fixed
-  // place (its last edit) rather than jumping to the top on every load
-  const m = { id: String(n.id), text: typeof n.text === "string" ? n.text : "",
-    created: +n.created || +n.updated || 0, updated: +n.updated || 0 };
+  // Every field the note carries is kept, known or not: a later Notes may
+  // add one, and an edit made here must not drop it (the iPad still on the
+  // Notes from before colours wrote every note back without its colour,
+  // 2026-10-09). Only the fields this app reads are made sound. A page's
+  // place comes from `created`; a note without one keeps a fixed place (its
+  // last edit) rather than jumping to the top on every load.
+  const m = Object.assign({}, n, { id: String(n.id), text: typeof n.text === "string" ? n.text : "",
+    created: +n.created || +n.updated || 0, updated: +n.updated || 0 });
   // a colour name is kept even when this app does not know it (a newer one
   // may), and shown as white
   if (typeof n.color === "string" && n.color) m.color = n.color.slice(0, 32);
+  else delete m.color;
   if (+n.deleted) m.deleted = +n.deleted;
+  else delete m.deleted;
   return m;
 }
 async function reloadFromDisk() {
@@ -855,6 +862,9 @@ async function reloadFromDisk() {
     const diskById = new Map(d.notes.filter(n => n && n.id).map(n => [String(n.id), normNote(n)]));
     const byId = new Map(diskById);
     for (const local of doc.notes) {
+      // a tombstone past its 30 days is gone from disk by design, not news
+      // to push back (an old copy of one set the iPad's write going)
+      if (local.deleted && Date.now() - local.deleted >= TOMBSTONE_TTL) continue;
       const dv = byId.get(local.id);
       if (!dv || local.updated > dv.updated) byId.set(local.id, local);
     }

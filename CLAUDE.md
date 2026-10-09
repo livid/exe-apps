@@ -94,6 +94,20 @@ on every change — an edit, never a background write — and deletions
 leave a `{id, deleted: <ms>, updated}` tombstone (text dropped) GC'd on save
 after 30 days — that's what lets two nodes' edits merge item-by-item.
 
+The daemon also judges each save of a record-bearing document against the
+copy on disk, record by record (`peer.GuardLocalWrite`, since 2026-10-09),
+so a window running older code cannot take back what newer ones wrote: a
+record older than disk's keeps disk's; a record the save leaves out is
+kept (tombstones are how things go; one past the 30-day TTL is GC); at an
+equal stamp the save's fields win, but a field it does not carry at all
+comes from disk. When it kept anything, the change event goes out with no
+client tag, so the writer rereads too. What that asks of an app: bump
+`updated` on every change (removing a field included), tombstone
+deletions, and keep fields you do not know (`Object.assign({}, n, …)` in
+the normalizer) so an edit made by your code never drops a newer one's.
+It was an iPad still running the Notes from before colours, woken by a
+turn-end push, that wrote every note back without its colour.
+
 Reads never come out of the browser's cache: the daemon answers app data
 `Cache-Control: no-store` (since 2026-09-23), and an app can say
 `fetch(url, { cache: "no-store" })` as well. With only a Last-Modified,
