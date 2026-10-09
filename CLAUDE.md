@@ -125,7 +125,9 @@ days.
   (internal/peer/merge.go strips unknown keys).
 
 - **Notes** — Mac OS's Note Pad (Apple Extras in the Mac OS 9 guest; Sherlock
-  finds it), sampled from the real one: one white sheet under a toolbar, the
+  finds it), sampled from the real one: one white sheet under a toolbar
+  (its writing in Geneva 12 on 16px lines, set in by the toolbar's own 10px
+  at the top and sides — Livid's ask; Note Pad's was 3px and 5px), the
   scroll bar down to the grow box, two page edges (`#eee`/`#444`) under the
   sheet's bottom line, the page number centred on the window's width with its
   baseline on the grow box's top line, and the dog-ear at the bottom left —
@@ -160,9 +162,15 @@ days.
   from or the board is put up, so empty notes never reach the document; a
   pad with no notes opens such a sheet. Each note may carry a `color`, the
   name of a Stickies colour (`yellow blue green pink purple gray`, sampled
-  from Mac OS 9's Stickies in the guest; none is Note Pad's white): the
-  toolbar's `.popup` names it, text only as Stickies' Color menu was, and
-  the sheet, its band and its board card take the tint. Stickies' pastels
+  from Mac OS 9's Stickies in the guest; none is Note Pad's white),
+  chosen not in the toolbar (Livid: not there) but from a row of small
+  squares at the sheet's foot right of the dog-ear (`#tints`: 14px boxes,
+  2px apart from 30px in; 18px on a phone): each its sheet's tint inside
+  Stickies' own edge colour for it, the chosen one ringed 2px in `--hl`,
+  every line a border on its own box. A press there keeps the caret.
+  Where the window's middle falls within the row (narrower than 312px,
+  a phone narrower than 372px) the page number centres in the room right
+  of it. The sheet, its band and its board card take the tint. Stickies' pastels
   are kept but for its two loud ones (`#ffff99`, `#99ffff`), a step
   lighter (`#ffffcc`, `#ccffff`) so a whole sheet stays subtle — all in
   the Mac's 256-colour cube. The dog-ear's flap is the same paper turned
@@ -171,13 +179,12 @@ days.
   tint shows times `#eee`. A colour is an edit (`updated` bumps); a blank
   sheet keeps one until it is written on; a tombstone drops it; a name the
   app does not know is kept and shown white. The daemon's merge struct
-  carries `color` (internal/peer/merge.go). Under 400px the toolbar's
-  Corkboard shrinks to its red pushpin. The icon is three Stickies sheets
+  carries `color` (internal/peer/merge.go). The icon is three Stickies sheets
   fanned (blue, pink, yellow — Stickies' purple is the desk's own
   lavender), the front one with the dog-ear over the pink page beneath and
   the corkboard's pin. Note Pad's text stops above the dog-ear band
   while its bar runs on: `#foot` is laid over the field's foot, the field's
-  24px bottom padding lets the last line scroll clear, and
+  30px bottom padding lets the last line scroll clear, and
   `scroll-padding-bottom` keeps the caret clear of it (Chromium honours it
   for typing and arrowing). Saves are silent; only a failure shows, at the
   sheet's foot and on the board's status line. All notes live in one `notes.json` through the app-data

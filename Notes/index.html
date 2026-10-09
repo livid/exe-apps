@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <title>Notes</title>
-<link rel="stylesheet" href="/platinum/popup.css">
 <style>
 /* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
 :root {
@@ -41,20 +40,7 @@ button.ghost.armed { background: var(--red); color: #fff;
    the right */
 #bar { display: flex; gap: 8px; padding: 10px 10px 8px; align-items: center; }
 #bar-gap { flex: 1; }
-/* the note's colour, Stickies' Color menu as the shared pop-up: text only,
-   as Stickies' own items were; the sheet below shows the colour. 20px
-   beside the buttons, as the hub's language menu is */
-#tint { flex: none; width: 88px; height: 20px; }
-#tint .well b { background-position: 4px 3px; }
-/* where the words will not fit (a phone, a narrow window) Corkboard
-   shrinks to its pushpin, as the Hub's buttons shrink to glyphs */
-#boardBtn .pin { display: none; position: static; margin: 0; vertical-align: top; }
-@media (max-width: 400px) {
-  #boardBtn { padding: 1px 9px 0; }
-  #boardBtn .pin { display: inline-block; }
-  #boardBtn .lbl { display: none; }
-  #tint { width: 76px; }
-}
+
 
 /* two views in one place under the toolbar's line: the pad (one note) and
    the corkboard (every note). The one not shown is visibility: hidden, so
@@ -71,22 +57,33 @@ body.on-board #pad, body:not(.on-board) #board { visibility: hidden; }
 /* --sheet is the open note's colour (white, or a Stickies tint), set by
    the script on the pad; the field and the band are the same paper */
 #pad { background: var(--sheet, #fff); }
-/* the writing: Geneva 12 on 16px lines, 3px under the top and 5px in, as
-   Note Pad set it. Its scroll bar's right edge is the frame's line and its
+/* the writing: Geneva 12 on 16px lines, Note Pad's, with the toolbar's
+   own 10px of room above and at the sides (Livid's ask; Note Pad set it
+   3px under the top and 5px in). Its scroll bar's right edge is the frame's line and its
    last arrow ends on the grow box's top row. Note Pad's text stops above
    the dog-ear band while the bar runs on beside it: here the band (#foot)
    is laid over the field's foot, the bottom padding lets the last line
    scroll clear of it, and scroll-padding keeps the caret clear of it while
    typing or arrowing down */
 #ed { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% - 15px); resize: none; margin: 0; border: 0; border-radius: 0;
-  background: var(--sheet, #fff); color: #000; padding: 3px 5px 24px; font: 12px/16px var(--page);
-  overflow-y: scroll; scroll-padding-bottom: 24px; user-select: text; cursor: text; }
+  background: var(--sheet, #fff); color: #000; padding: 10px 10px 30px; font: 12px/16px var(--page);
+  overflow-y: scroll; scroll-padding-bottom: 30px; user-select: text; cursor: text; }
 #ed:focus { outline: none; }
 #ed:disabled { background: var(--g200); }
 /* the blank band at the sheet's foot: the dog-ear, the page number */
 #foot { position: absolute; left: 0; right: 15px; bottom: 6px; height: 30px; background: var(--sheet, #fff); }
 #num { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center;
   font: 12px/16px var(--page); color: #000; pointer-events: none; }
+/* the note's colour, at the sheet's foot beside the dog-ear: a row of small
+   squares, Note Pad's white and Stickies' six, each in its sheet's tint
+   inside Stickies' own edge colour for it; the chosen one ringed 2px in
+   the highlight blue. Every line a border on a box of its own. */
+#tints { position: absolute; left: 30px; bottom: 11px; display: flex; gap: 2px; z-index: 1; }
+#tints button { display: block; width: 14px; height: 14px; padding: 0; margin: 0;
+  border: 2px solid transparent; border-radius: 0; background: none; }
+#tints button i { display: block; width: 10px; height: 10px; border: 1px solid; }
+#tints button.on { border-color: var(--hl); }
+#tints button:disabled { visibility: hidden; }
 #msg { position: absolute; right: 20px; bottom: 10px; max-width: 45%; font-size: 10px; line-height: 16px;
   color: #7a1010; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 /* the page edges: the sheet's bottom line, then #eee / #444 / #eee / #444 /
@@ -173,6 +170,14 @@ body.solo #corner { visibility: hidden; }
 body.mobile #ed { height: calc(100% - 6px); scrollbar-width: none; }
 body.mobile #ed::-webkit-scrollbar { display: none; }
 body.mobile #foot, body.mobile #edges { right: 0; }
+/* a finger's squares, 18px; the row then ends at 174px */
+body.mobile #tints { bottom: 9px; gap: 3px; }
+body.mobile #tints button { width: 18px; height: 18px; }
+body.mobile #tints button i { width: 14px; height: 14px; }
+/* where the window's middle falls within the row (it ends at 140px, a
+   phone's at 174px), the page number centres in the room right of it */
+@media (max-width: 311px) { #num { left: 140px; } }
+@media (max-width: 371px) { body.mobile #num { left: 174px; } }
 body.mobile #cork { scrollbar-width: none; }
 body.mobile #cork::-webkit-scrollbar { display: none; }
 body.mobile #status { padding-right: 8px; }
@@ -237,12 +242,7 @@ body.mobile #status { padding-right: 8px; }
 <body>
 
 <div id="bar">
-  <button class="ghost" id="boardBtn" title="Corkboard" disabled><i class="pin red"></i><span class="lbl">Corkboard</span></button>
-  <span class="popup" id="tint"><select id="tintSel" title="Color" disabled>
-    <option value="white">White</option><option value="yellow">Yellow</option>
-    <option value="blue">Blue</option><option value="green">Green</option>
-    <option value="pink">Pink</option><option value="purple">Purple</option>
-    <option value="gray">Gray</option></select><span class="well"><i><b></b></i></span></span>
+  <button class="ghost" id="boardBtn" disabled>Corkboard</button>
   <span id="bar-gap"></span>
   <button class="ghost danger" id="del" disabled>Delete</button>
   <button class="ghost" id="new" disabled>New Note</button>
@@ -254,6 +254,7 @@ body.mobile #status { padding-right: 8px; }
   <textarea id="ed" disabled spellcheck="false" data-autosave></textarea>
   <div id="foot"><span id="msg"></span></div>
   <div id="num"></div>
+  <div id="tints"></div>
   <div id="corner" title="Turn the page: the flap goes forward, the corner under it goes back"></div>
   <div id="edges"></div>
 </div>
@@ -314,7 +315,7 @@ let loaded = false; // block saves until the load settled, so a failed GET
 // away from it drops it, so empty notes never reach the document.
 let draft = null;
 const ed = $("#ed"), num = $("#num"), msg = $("#msg"), stMsg = $("#st-msg");
-const delBtn = $("#del"), newBtn = $("#new"), boardBtn = $("#boardBtn"), tintSel = $("#tintSel");
+const delBtn = $("#del"), newBtn = $("#new"), boardBtn = $("#boardBtn"), tintsBox = $("#tints");
 const cork = $("#cork"), cards = $("#cards"), stCount = $("#st-count");
 // which view is up — the pad (one note) or the corkboard (all of them) — is
 // per-viewer UI state like the open page
@@ -342,6 +343,9 @@ const blank = () => ({ id: newId(), text: "", created: Date.now(), updated: Date
 // colour's name; no name, or one this app does not know, is white.
 const TINTS = { white: "#ffffff", yellow: "#ffffcc", blue: "#ccffff", green: "#ccffcc",
   pink: "#ffcccc", purple: "#ccccff", gray: "#eeeeee" };
+// each colour's edge, as Stickies drew a note's frame (white: Note Pad's grey)
+const EDGES = { white: "#999999", yellow: "#ffcc00", blue: "#00ccff", green: "#66ff66",
+  pink: "#ff9999", purple: "#9999ff", gray: "#bbbbbb" };
 const tintOf = n => (n && n.color && Object.hasOwn(TINTS, n.color) && TINTS[n.color]) || TINTS.white;
 // paper in shade takes its colour: multiply two #rrggbb colours
 function mul(a, b) {
@@ -480,7 +484,7 @@ function render() {
 }
 // The open note's paper: the sheet and band in its colour, the dog-ear's
 // flap the same paper turned over, and under the fold the next page's
-// colour in the shade of the one on top. The pop-up names the colour.
+// colour in the shade of the one on top. Its square at the foot is ringed.
 function applySheet() {
   const p = pages(), i = p.findIndex(n => n.id === sel), n = cur(), t = tintOf(n);
   const next = p.length > 1 && i >= 0 ? p[(i + 1) % p.length] : null;
@@ -490,8 +494,11 @@ function applySheet() {
   corner.style.setProperty("--under", mul(tintOf(next), "#eeeeee"));
   corner.style.setProperty("--flap-px", art.px);
   corner.style.setProperty("--flap-vec", art.vec);
-  tintSel.value = tintOf(n) === TINTS.white ? "white" : n.color;
-  tintSel.disabled = !loaded || view === "board" || !n;
+  const name = tintOf(n) === TINTS.white ? "white" : n.color;
+  for (const b of tintsBox.children) {
+    b.classList.toggle("on", b.dataset.c === name);
+    b.disabled = !loaded || !n;
+  }
 }
 
 // ---- the corkboard ----
@@ -653,16 +660,28 @@ $("#foot").addEventListener("mousedown", e => {
   e.preventDefault();
   if (!ed.disabled) ed.focus();
 });
-// a colour is an edit to the note (a blank page keeps it until it is one)
-tintSel.addEventListener("change", () => {
+// the colour squares; a press keeps the caret where it was. A colour is an
+// edit to the note (a blank page keeps it until it is one).
+for (const [name, hex] of Object.entries(TINTS)) {
+  const b = document.createElement("button"), sw = document.createElement("i");
+  b.dataset.c = name;
+  b.title = name[0].toUpperCase() + name.slice(1);
+  b.disabled = true;
+  sw.style.background = hex;
+  sw.style.borderColor = EDGES[name];
+  b.append(sw);
+  b.addEventListener("mousedown", e => e.preventDefault());
+  b.onclick = () => setColor(name);
+  tintsBox.append(b);
+}
+function setColor(name) {
   const n = cur();
   if (!n) return;
-  if (tintSel.value === "white") delete n.color;
-  else n.color = tintSel.value;
+  if (name === "white") delete n.color;
+  else n.color = name;
   if (n !== draft) { n.updated = Date.now(); scheduleSave(); }
   render();
-  if (!MOBILE && !ed.disabled) ed.focus();
-});
+}
 boardBtn.onclick = () => {
   if (view === "board") openNote(sel);
   else setView("board");
