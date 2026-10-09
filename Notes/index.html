@@ -48,7 +48,8 @@ button.ghost.armed { background: var(--red); color: #fff;
 #bar-gap { flex: 1; }
 /* reading a note: − + for the text's size and Sans Serif | Serif for its
    face, joined push buttons as Tides' range is (one seam, one line), the
-   chosen face pressed in (.on). On the board they are put away. */
+   chosen face pressed in (.on). On the board they are put away, and so
+   is Delete, which only a note open has anything to do with. */
 .seg { display: flex; gap: 0; flex: none; }
 .seg button { border-radius: 0; border-right-width: 0; }
 .seg button:first-child { border-radius: 3px 0 0 3px; }
@@ -56,7 +57,7 @@ button.ghost.armed { background: var(--red); color: #fff;
 #size button { padding: 2px 8px; min-width: 24px; }
 button.ghost.on { background: #888; color: #fff;
   box-shadow: inset 1px 1px 0 #666, inset -1px -1px 0 #aaa, inset 2px 2px 0 #777, inset -2px -2px 0 #999; }
-body.on-board #size, body.on-board #face { display: none; }
+body.on-board #size, body.on-board #face, body.on-board #del { display: none; }
 /* where the words will not fit, the toolbar gives way a step at a time
    (fitBar): the faces show as a sample "Aa" each in itself; then Corkboard
    shrinks to its pushpin; then every button's sides and the gaps come in */

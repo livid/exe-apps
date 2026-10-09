@@ -199,8 +199,9 @@ days.
   cancels the running one and only the newest tidies (`swapSeq`); nothing
   is left transformed; none of it under reduced motion;
   which view is up is per viewer (`exe-notes-view:<App>`), the board at
-  first when there are notes. Delete (the two-click armed button) works on
-  the pad; New Note opens a blank sheet on the pad from either view. Pages
+  first when there are notes. Delete (the two-click armed button) is on
+  the toolbar only with a note open (Livid: no disabled Delete on the
+  board); New Note opens a blank sheet on the pad from either view. Pages
   are notes in `created` order, newest on top as page 1, so a page keeps
   its number while it is written on. New Note lays a blank sheet on top
   that becomes a note at the first keystroke and is dropped if turned away
