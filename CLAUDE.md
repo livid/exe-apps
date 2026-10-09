@@ -176,7 +176,16 @@ days.
   board is built), the date and the page number. No sheet is marked as
   the open one (Livid: not needed); the board only scrolls it into view
   when put up. The board has the 15px status
-  line (the count) with the grow box on its end. The views stack in
+  line (the count) with the grow box on its end. Scrolled past its top or
+  bottom the board gives, Mac OS X's rubber band (Livid's ask, not OS 9's):
+  the sheets (a transform) and the cork (its background-position) follow
+  the wheel on iOS's curve, tending to 35% of the board's height, and spring
+  back 320ms ease-out 120ms after the wheel stops; native overscroll is off
+  there (`#cork.rubber`). Safari and phones bounce every scroll box
+  themselves, so the script stays out (`NATIVE_BAND`, `MOBILE`), as it does
+  for reduced motion and ctrl-wheel. Checks for the whole app live in
+  `~/tools/playwright/exe-notes/` (README there; the harness stubs every
+  write and keeps Livid's desk layout out). The views stack in
   `#main`, the hidden one `visibility: hidden` so each keeps its scroll;
   which view is up is per viewer (`exe-notes-view:<App>`), the board at
   first when there are notes. Delete (the two-click armed button) works on
