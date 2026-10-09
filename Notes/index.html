@@ -38,8 +38,13 @@ button.ghost.armed { background: var(--red); color: #fff;
 
 /* the toolbar, like Todo's: Corkboard at the left, Delete and New Note at
    the right */
-#bar { display: flex; gap: 8px; padding: 10px 10px 8px; align-items: center; }
+#bar { position: relative; display: flex; gap: 8px; padding: 10px 10px 8px; align-items: center; }
 #bar-gap { flex: 1; }
+/* the open note's date, secondary grey text at the toolbar's middle — the
+   window's middle, not the gap's; it takes a shorter form, or none, rather
+   than touch a button. Blank on the corkboard and on a blank sheet. */
+#when { position: absolute; left: 0; right: 0; top: 10px; height: 20px; line-height: 20px;
+  text-align: center; font-size: 11px; color: #777; white-space: nowrap; pointer-events: none; }
 
 
 /* two views in one place under the toolbar's line: the pad (one note) and
@@ -244,6 +249,7 @@ body.mobile #status { padding-right: 8px; }
 <div id="bar">
   <button class="ghost" id="boardBtn" disabled>Corkboard</button>
   <span id="bar-gap"></span>
+  <div id="when"><span></span></div>
   <button class="ghost danger" id="del" disabled>Delete</button>
   <button class="ghost" id="new" disabled>New Note</button>
 </div>
@@ -480,8 +486,28 @@ function render() {
   newBtn.disabled = !loaded || (!onBoard && !!n && n === draft);
   document.body.classList.toggle("solo", p.length < 2);
   applySheet();
+  showDate();
   if (onBoard) renderBoard();
 }
+// The open note's date in the toolbar: the longest form that keeps 16px
+// (the HIG's room between groups) from the buttons either side, else none
+const whenText = $("#when span");
+function showDate() {
+  const n = cur();
+  const t = view === "pad" && n && n !== draft ? n.created : 0;
+  whenText.textContent = "";
+  if (!t) return;
+  const left = boardBtn.getBoundingClientRect().right + 16, right = delBtn.getBoundingClientRect().left - 16;
+  for (const dateStyle of ["full", "long", "medium"]) {
+    whenText.textContent = new Date(t).toLocaleDateString([], { dateStyle });
+    const r = whenText.getBoundingClientRect();
+    if (r.left >= left && r.right <= right) return;
+  }
+  whenText.textContent = "";
+}
+// re-fitted whenever the toolbar's width changes, the desk's own sizing of
+// the window included (a window resize event can come before it settles)
+new ResizeObserver(() => showDate()).observe($("#bar"));
 // The open note's paper: the sheet and band in its colour, the dog-ear's
 // flap the same paper turned over, and under the fold the next page's
 // colour in the shade of the one on top. Its square at the foot is ringed.

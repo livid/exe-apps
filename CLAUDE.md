@@ -128,6 +128,11 @@ days.
   finds it), sampled from the real one: one white sheet under a toolbar
   (its writing in Geneva 12 on 16px lines, set in by the toolbar's own 10px
   at the top and sides — Livid's ask; Note Pad's was 3px and 5px), the
+  open note's date (`created`) in 11px `#777` at the toolbar's middle —
+  the window's middle, not the gap's — in the longest form (full, long,
+  medium) that keeps 16px from the buttons, else none, refitted by a
+  ResizeObserver on the toolbar (the desk can size the window after a
+  resize event has passed); blank on the corkboard and a blank sheet, the
   scroll bar down to the grow box, two page edges (`#eee`/`#444`) under the
   sheet's bottom line, the page number centred on the window's width with its
   baseline on the grow box's top line, and the dog-ear at the bottom left —
