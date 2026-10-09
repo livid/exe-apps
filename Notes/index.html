@@ -12,6 +12,12 @@
   --font: "Charcoal", "Chicago", "Geneva", "Lucida Grande", "Lucida Sans", Geneva, Verdana, sans-serif;
   /* the page is written in Geneva 12 on 16px lines, as Note Pad's was */
   --page: "Geneva", "Lucida Grande", "Lucida Sans", Verdana, sans-serif;
+  /* the serif a viewer may choose instead: Charter, Matthew Carter's book
+     face (large x-height, sturdy serifs, built into macOS and iOS), then
+     Georgia, his screen serif (Windows), then what the system has */
+  --serif: Charter, "Bitstream Charter", "Charis SIL", Georgia, "Iowan Old Style", Cambria, "Times New Roman", serif;
+  /* the face notes are read in, set by the script */
+  --read: var(--page);
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
@@ -40,6 +46,31 @@ button.ghost.armed { background: var(--red); color: #fff;
    the right */
 #bar { display: flex; gap: 8px; padding: 10px 10px 8px; align-items: center; }
 #bar-gap { flex: 1; }
+/* reading a note: − + for the text's size and Sans Serif | Serif for its
+   face, joined push buttons as Tides' range is (one seam, one line), the
+   chosen face pressed in (.on). On the board they are put away. */
+.seg { display: flex; gap: 0; flex: none; }
+.seg button { border-radius: 0; border-right-width: 0; }
+.seg button:first-child { border-radius: 3px 0 0 3px; }
+.seg button:last-child { border-radius: 0 3px 3px 0; border-right-width: 1px; }
+#size button { padding: 2px 8px; min-width: 24px; }
+button.ghost.on { background: #888; color: #fff;
+  box-shadow: inset 1px 1px 0 #666, inset -1px -1px 0 #aaa, inset 2px 2px 0 #777, inset -2px -2px 0 #999; }
+body.on-board #size, body.on-board #face { display: none; }
+/* where the words will not fit, the toolbar gives way a step at a time
+   (fitBar): the faces show as a sample "Aa" each in itself; then Corkboard
+   shrinks to its pushpin; then every button's sides and the gaps come in */
+#face .s, #boardBtn .pin { display: none; }
+#face .s { font-weight: normal; font-size: 14px; line-height: 14px; }
+#face [data-face="sans"] .s { font-family: var(--page); }
+#face [data-face="serif"] .s { font-family: var(--serif); }
+#bar.t1 #face .w { display: none; }
+#bar.t1 #face .s { display: inline; }
+#bar.t2 #boardBtn .lbl { display: none; }
+#bar.t2 #boardBtn { padding: 1px 9px 0; }
+#bar.t2 #boardBtn .pin { display: inline-block; position: static; margin: 0; vertical-align: top; }
+#bar.t3 { gap: 6px; padding-left: 8px; padding-right: 8px; }
+#bar.t3 button.ghost { padding-left: 7px; padding-right: 7px; }
 
 
 /* two views in one place under the toolbar's line: the pad (one note) and
@@ -66,7 +97,7 @@ body.on-board #pad, body:not(.on-board) #board { visibility: hidden; }
    scroll clear of it, and scroll-padding keeps the caret clear of it while
    typing or arrowing down */
 #ed { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% - 15px); resize: none; margin: 0; border: 0; border-radius: 0;
-  background: var(--sheet, #fff); color: #000; padding: 10px 10px 30px; font: 12px/16px var(--page);
+  background: var(--sheet, #fff); color: #000; padding: 10px 10px 30px; font: var(--size, 12px)/var(--lead, 16px) var(--read);
   overflow-y: scroll; scroll-padding-bottom: 30px; user-select: text; cursor: text; }
 #ed:focus { outline: none; }
 #ed:disabled { background: var(--g200); }
@@ -135,14 +166,14 @@ body.solo #corner { visibility: hidden; }
   display: flex; flex-direction: column; image-rendering: auto; }
 /* pressed, a sheet darkens as a Finder icon does under the pointer */
 .card:active { filter: brightness(.82); }
-.card .t { flex: none; font: bold 12px/16px var(--page); overflow-wrap: anywhere;
+.card .t { flex: none; font: bold 12px/16px var(--read); overflow-wrap: anywhere;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 /* a note that is one long line has nothing under its title: the title may
    take the sheet, four lines */
 .card.bare .t { -webkit-line-clamp: 4; }
 /* under a one-line title four lines of the note show, under a title that
    wraps to two (a note that is one long sentence) two: whole lines only */
-.card .x { max-height: 52px; flex: none; margin-top: 2px; font: 10px/13px var(--page); color: #333;
+.card .x { max-height: 52px; flex: none; margin-top: 2px; font: 10px/13px var(--read); color: #333;
   white-space: pre-wrap; overflow-wrap: anywhere;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
 .card.t2 .x { max-height: 26px; -webkit-line-clamp: 2; }
@@ -257,7 +288,9 @@ body.mobile #status { padding-right: 8px; }
 <body>
 
 <div id="bar">
-  <button class="ghost" id="boardBtn" disabled>Corkboard</button>
+  <button class="ghost" id="boardBtn" title="Corkboard" disabled><i class="pin red"></i><span class="lbl">Corkboard</span></button>
+  <span class="seg" id="size"><button class="ghost" id="smaller" title="Smaller text">&minus;</button><button class="ghost" id="bigger" title="Larger text">+</button></span>
+  <span class="seg" id="face"><button class="ghost" data-face="sans" title="Sans Serif"><span class="w">Sans Serif</span><span class="s">Aa</span></button><button class="ghost" data-face="serif" title="Serif"><span class="w">Serif</span><span class="s">Aa</span></button></span>
   <span id="bar-gap"></span>
   <button class="ghost danger" id="del" disabled>Delete</button>
   <button class="ghost" id="new" disabled>New Note</button>
@@ -500,6 +533,63 @@ function render() {
   showDate();
   if (onBoard) renderBoard();
 }
+// ---- how a note is read: its text's size and face ----
+// A viewer's own choice, like the open page, so it lives in localStorage
+// and never in the notes: − and + step the size (12 by default, never 13,
+// the house's rule for type), Sans Serif | Serif picks the face. The size
+// is the writing's on the pad; the face is the board's sheets' too.
+const TYPE_KEY = "exe-notes-type:" + APP;
+const SIZES = [[10, 14], [11, 15], [12, 16], [14, 19], [16, 21], [18, 24], [20, 27], [24, 32]];
+let type = { size: 12, face: "sans" };
+try { Object.assign(type, JSON.parse(localStorage.getItem(TYPE_KEY) || "{}")); } catch (e) {}
+if (!SIZES.some(([s]) => s === type.size)) type.size = 12;
+if (type.face !== "serif") type.face = "sans";
+function applyType(save) {
+  const lead = SIZES.find(([s]) => s === type.size)[1];
+  const root = document.documentElement.style;
+  root.setProperty("--size", type.size + "px");
+  root.setProperty("--lead", lead + "px");
+  root.setProperty("--read", type.face === "serif" ? "var(--serif)" : "var(--page)");
+  const i = SIZES.findIndex(([s]) => s === type.size);
+  $("#smaller").disabled = i === 0;
+  $("#bigger").disabled = i === SIZES.length - 1;
+  for (const b of document.querySelectorAll("#face button")) {
+    const on = b.dataset.face === type.face;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", on);
+  }
+  if (save) try { localStorage.setItem(TYPE_KEY, JSON.stringify(type)); } catch (e) {}
+}
+function stepSize(d) {
+  const i = SIZES.findIndex(([s]) => s === type.size) + d;
+  if (i < 0 || i >= SIZES.length) return;
+  type.size = SIZES[i][0];
+  applyType(true);
+}
+// a press on these keeps the caret in the note
+for (const b of document.querySelectorAll("#size button, #face button")) b.addEventListener("mousedown", e => e.preventDefault());
+$("#smaller").onclick = () => stepSize(-1);
+$("#bigger").onclick = () => stepSize(1);
+for (const b of document.querySelectorAll("#face button")) b.onclick = () => {
+  type.face = b.dataset.face;
+  applyType(true);
+};
+applyType(false);
+
+// The toolbar gives way a step at a time where its words will not fit:
+// the faces as "Aa" samples (t1), then Corkboard as its pushpin (t2),
+// then the buttons' sides and the gaps between them in (t3, a 320px
+// phone) — the fewest steps that fit.
+const bar = $("#bar");
+function fitBar() {
+  bar.classList.remove("t1", "t2", "t3");
+  for (const step of ["t1", "t2", "t3"]) {
+    if (bar.scrollWidth <= bar.clientWidth) return;
+    bar.classList.add(step);
+  }
+}
+new ResizeObserver(() => fitBar()).observe(bar);
+
 // The open note's date at the sheet's foot beside the dog-ear: the longest
 // form that keeps 16px (the HIG's room between groups) from the page
 // number, else none
@@ -607,6 +697,7 @@ function setView(v) {
   try { localStorage.setItem(VIEW_KEY, v); } catch (e) {}
   document.body.classList.toggle("on-board", v === "board");
   boardBtn.classList.toggle("open", v === "board");
+  fitBar();
   disarm();
   if (v === "board") {
     // putting the pad down drops a blank page: it was never a note

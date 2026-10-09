@@ -148,7 +148,15 @@ days.
   finds it), sampled from the real one: one white sheet under a toolbar
   (its writing in Geneva 12 on 16px lines, set in by the toolbar's own 10px
   at the top and sides — Livid's ask; Note Pad's was 3px and 5px), the
-  sheet's foot left to right: the dog-ear, the note's date (`created`) in
+  reader's choice of size and face — the toolbar, a note open, carries −
+  + (10 11 12 14 16 18 20 24 on 14…32px lines, never 13; 12 by default)
+  and a Sans Serif | Serif segment (Tides' joined buttons, `.on`
+  pressed): the serif is Charter (built into macOS and iOS), then Georgia,
+  per viewer in localStorage (`exe-notes-type:<App>`), the size the pad's,
+  the face the board's sheets' too; where the words will not fit the
+  toolbar gives way a step at a time (`fitBar`: the faces as "Aa"
+  samples, then Corkboard as its pushpin, then tighter sides and gaps) —
+  the sheet's foot left to right: the dog-ear, the note's date (`created`) in
   11px Geneva `#777` 6px past it, the page number, the colour squares 5px
   short of the scroll bar (Livid moved the date out of the toolbar's
   middle and the squares to the right). The date takes the longest form
