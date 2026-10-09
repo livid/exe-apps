@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <title>Notes</title>
-<link rel="stylesheet" href="/platinum/popup.css">
 <style>
 /* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
 :root {
@@ -26,7 +25,9 @@ button.ghost { background: var(--g300); color: var(--black);
   flex: none; white-space: nowrap;
   box-shadow: inset 1px 1px 0 var(--g300), inset -1px -1px 0 #777,
     inset 2px 2px 0 #fff, inset -2px -2px 0 #aaa; }
-button.ghost:active { background: #666; color: #fff;
+/* .open: the Corkboard button wears the pressed look while the board is
+   up, as the Hub app's buttons do while their layer is */
+button.ghost:active, button.ghost.open { background: #666; color: #fff;
   box-shadow: inset 1px 1px 0 #444, inset -1px -1px 0 #888,
     inset 2px 2px 0 #555, inset -2px -2px 0 #777; }
 button.ghost:disabled { color: #777; border-color: #888; background: var(--g300); box-shadow: none; }
@@ -35,20 +36,24 @@ button.ghost.danger:disabled { color: #777; }
 button.ghost.armed { background: var(--red); color: #fff;
   box-shadow: inset 1px 1px 0 #e88, inset -1px -1px 0 #911; }
 
-/* the toolbar, like Todo's: the Go to Note pop-up takes the room, the two
-   buttons keep theirs. The shared pop-up block is 19px; beside 20px
-   buttons it takes the push button's 20, as the hub's language menu does */
+/* the toolbar, like Todo's: Corkboard at the left, Delete and New Note at
+   the right */
 #bar { display: flex; gap: 8px; padding: 10px 10px 8px; align-items: center; }
-#go { flex: 1; min-width: 0; height: 20px; }
-#go .well b { background-position: 4px 3px; }
+#bar-gap { flex: 1; }
+
+/* two views in one place under the toolbar's line: the pad (one note) and
+   the corkboard (every note). The one not shown is visibility: hidden, so
+   each keeps its scroll place (Chrome drops a display: none box's) */
+#main { flex: 1; min-height: 0; position: relative; border-top: 1px solid var(--black); }
+#pad, #board { position: absolute; inset: 0; }
+body.on-board #pad, body:not(.on-board) #board { visibility: hidden; }
 
 /* ---- the pad: Mac OS Note Pad, sampled from the real one in the Mac OS 9
    guest (Apple Extras). A white sheet under the toolbar's line, flush with
    the window frame on three sides; the scroll bar runs down to the grow
    box; under the sheet's bottom line two page edges (#444 on #eee) stand
    for the pages beneath; the dog-ear at the bottom left turns them. ---- */
-#pad { flex: 1; min-height: 0; position: relative; background: #fff;
-  border-top: 1px solid var(--black); }
+#pad { background: #fff; }
 /* the writing: Geneva 12 on 16px lines, 3px under the top and 5px in, as
    Note Pad set it. Its scroll bar's right edge is the frame's line and its
    last arrow ends on the grow box's top row. Note Pad's text stops above
@@ -90,6 +95,60 @@ button.ghost.armed { background: var(--red); color: #fff;
 }
 body.solo #corner { visibility: hidden; }
 
+/* ---- the corkboard: every note pinned up, a sheet torn off the pad.
+   Mac OS 9 shipped no cork among its desktop patterns, so this one is made
+   the way those were: a 64px tile in the system palette's cube colours,
+   its pixels kept whole. The board scrolls under the OS 9 bar down to the
+   status bar; the sheets keep the pad's order, newest first, each a little
+   off the grid as pinned by hand — whole pixels only, never rotated. ---- */
+#cork { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% - 15px);
+  overflow-y: scroll; image-rendering: pixelated;
+  background: #cc9966 url('data:image/png;base64,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') 0 0 / 64px 64px repeat local; }
+#cards { display: grid; grid-template-columns: repeat(auto-fill, 120px); gap: 24px 14px;
+  justify-content: center; padding: 20px 12px 26px; }
+.card { position: relative; height: 100px; padding: 8px 7px 5px; background: #fff; color: #000;
+  border: 1px solid var(--black); box-shadow: 2px 2px 0 rgba(0,0,0,.35);
+  display: flex; flex-direction: column; image-rendering: auto; }
+/* pressed, a sheet darkens as a Finder icon does under the pointer */
+.card:active { filter: brightness(.82); }
+.card .t { flex: none; font: bold 12px/16px var(--page); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+/* a note that is one long line has nothing under its title: the title may
+   take the sheet, four lines */
+.card.bare .t { -webkit-line-clamp: 4; }
+/* the note open on the pad: its title highlighted, as a selected icon's name */
+.card .t span { padding: 0 2px; margin: 0 -2px; }
+.card.sel .t span { background: var(--hl); color: #fff; }
+/* under a one-line title four lines of the note show, under a title that
+   wraps to two (a note that is one long sentence) two: whole lines only */
+.card .x { max-height: 52px; flex: none; margin-top: 2px; font: 10px/13px var(--page); color: #333;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+.card.t2 .x { max-height: 26px; -webkit-line-clamp: 2; }
+.card .f { margin-top: auto; display: flex; justify-content: space-between; gap: 6px;
+  font: 10px/13px var(--page); color: #777; white-space: nowrap; }
+/* the pushpin: 13px of pixel art with its shadow, a vector copy between
+   1x and 2x so the head stays round */
+.pin { position: absolute; top: -4px; left: 50%; width: 15px; height: 15px; margin-left: -7px;
+  background: no-repeat 0 0; pointer-events: none; }
+.pin.red { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" shape-rendering="crispEdges"><path fill="%23000000" fill-opacity=".35" d="M6 2h1v1h-1zM7 2h1v1h-1zM8 2h1v1h-1zM9 2h1v1h-1zM10 2h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM10 3h1v1h-1zM11 3h1v1h-1zM12 3h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM7 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM10 4h1v1h-1zM11 4h1v1h-1zM12 4h1v1h-1zM13 4h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM7 5h1v1h-1zM8 5h1v1h-1zM9 5h1v1h-1zM10 5h1v1h-1zM11 5h1v1h-1zM12 5h1v1h-1zM13 5h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1zM8 6h1v1h-1zM9 6h1v1h-1zM10 6h1v1h-1zM11 6h1v1h-1zM12 6h1v1h-1zM13 6h1v1h-1zM14 6h1v1h-1zM2 7h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1zM7 7h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1zM11 7h1v1h-1zM12 7h1v1h-1zM13 7h1v1h-1zM14 7h1v1h-1zM2 8h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM11 8h1v1h-1zM12 8h1v1h-1zM13 8h1v1h-1zM14 8h1v1h-1zM2 9h1v1h-1zM3 9h1v1h-1zM4 9h1v1h-1zM5 9h1v1h-1zM6 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM10 9h1v1h-1zM11 9h1v1h-1zM12 9h1v1h-1zM13 9h1v1h-1zM14 9h1v1h-1zM2 10h1v1h-1zM3 10h1v1h-1zM4 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM8 10h1v1h-1zM9 10h1v1h-1zM10 10h1v1h-1zM11 10h1v1h-1zM12 10h1v1h-1zM13 10h1v1h-1zM14 10h1v1h-1zM3 11h1v1h-1zM4 11h1v1h-1zM5 11h1v1h-1zM6 11h1v1h-1zM7 11h1v1h-1zM8 11h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM11 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM3 12h1v1h-1zM4 12h1v1h-1zM5 12h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM8 12h1v1h-1zM9 12h1v1h-1zM10 12h1v1h-1zM11 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM4 13h1v1h-1zM5 13h1v1h-1zM6 13h1v1h-1zM7 13h1v1h-1zM8 13h1v1h-1zM9 13h1v1h-1zM10 13h1v1h-1zM11 13h1v1h-1zM12 13h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1z"/><path fill="%23000000" d="M4 0h5v1H4zM2 1h2v1H2zM9 1h2v1H9zM1 2h1v1H1zM11 2h1v1H11zM1 3h1v1H1zM11 3h1v1H11zM0 4h1v1H0zM12 4h1v1H12zM0 5h1v1H0zM12 5h1v1H12zM0 6h1v1H0zM12 6h1v1H12zM0 7h1v1H0zM12 7h1v1H12zM0 8h1v1H0zM12 8h1v1H12zM1 9h1v1H1zM11 9h1v1H11zM1 10h1v1H1zM11 10h1v1H11zM2 11h2v1H2zM9 11h2v1H9zM4 12h5v1H4z"/><path fill="%23ff6666" d="M4 1h3v1H4zM2 2h1v1H2zM5 2h2v1H5zM2 3h1v1H2zM4 3h1v1H4zM1 4h3v1H1zM1 5h2v1H1zM1 6h1v1H1z"/><path fill="%23cc3333" d="M7 1h2v1H7zM7 2h3v1H7zM5 3h4v1H5zM4 4h6v1H4zM3 5h7v1H3zM2 6h7v1H2zM1 7h8v1H1zM1 8h6v1H1zM2 9h3v1H2z"/><path fill="%23ffffff" d="M3 2h2v1H3zM3 3h1v1H3z"/><path fill="%23993333" d="M10 2h1v1H10zM9 3h2v1H9zM10 4h2v1H10zM10 5h2v1H10zM9 6h3v1H9zM9 7h3v1H9zM7 8h5v1H7zM5 9h6v1H5zM2 10h9v1H2zM4 11h5v1H4z"/></svg>'); }
+.pin.blue { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" shape-rendering="crispEdges"><path fill="%23000000" fill-opacity=".35" d="M6 2h1v1h-1zM7 2h1v1h-1zM8 2h1v1h-1zM9 2h1v1h-1zM10 2h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM10 3h1v1h-1zM11 3h1v1h-1zM12 3h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM7 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM10 4h1v1h-1zM11 4h1v1h-1zM12 4h1v1h-1zM13 4h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM7 5h1v1h-1zM8 5h1v1h-1zM9 5h1v1h-1zM10 5h1v1h-1zM11 5h1v1h-1zM12 5h1v1h-1zM13 5h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1zM8 6h1v1h-1zM9 6h1v1h-1zM10 6h1v1h-1zM11 6h1v1h-1zM12 6h1v1h-1zM13 6h1v1h-1zM14 6h1v1h-1zM2 7h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1zM7 7h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1zM11 7h1v1h-1zM12 7h1v1h-1zM13 7h1v1h-1zM14 7h1v1h-1zM2 8h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM11 8h1v1h-1zM12 8h1v1h-1zM13 8h1v1h-1zM14 8h1v1h-1zM2 9h1v1h-1zM3 9h1v1h-1zM4 9h1v1h-1zM5 9h1v1h-1zM6 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM10 9h1v1h-1zM11 9h1v1h-1zM12 9h1v1h-1zM13 9h1v1h-1zM14 9h1v1h-1zM2 10h1v1h-1zM3 10h1v1h-1zM4 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM8 10h1v1h-1zM9 10h1v1h-1zM10 10h1v1h-1zM11 10h1v1h-1zM12 10h1v1h-1zM13 10h1v1h-1zM14 10h1v1h-1zM3 11h1v1h-1zM4 11h1v1h-1zM5 11h1v1h-1zM6 11h1v1h-1zM7 11h1v1h-1zM8 11h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM11 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM3 12h1v1h-1zM4 12h1v1h-1zM5 12h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM8 12h1v1h-1zM9 12h1v1h-1zM10 12h1v1h-1zM11 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM4 13h1v1h-1zM5 13h1v1h-1zM6 13h1v1h-1zM7 13h1v1h-1zM8 13h1v1h-1zM9 13h1v1h-1zM10 13h1v1h-1zM11 13h1v1h-1zM12 13h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1z"/><path fill="%23000000" d="M4 0h5v1H4zM2 1h2v1H2zM9 1h2v1H9zM1 2h1v1H1zM11 2h1v1H11zM1 3h1v1H1zM11 3h1v1H11zM0 4h1v1H0zM12 4h1v1H12zM0 5h1v1H0zM12 5h1v1H12zM0 6h1v1H0zM12 6h1v1H12zM0 7h1v1H0zM12 7h1v1H12zM0 8h1v1H0zM12 8h1v1H12zM1 9h1v1H1zM11 9h1v1H11zM1 10h1v1H1zM11 10h1v1H11zM2 11h2v1H2zM9 11h2v1H9zM4 12h5v1H4z"/><path fill="%236699ff" d="M4 1h3v1H4zM2 2h1v1H2zM5 2h2v1H5zM2 3h1v1H2zM4 3h1v1H4zM1 4h3v1H1zM1 5h2v1H1zM1 6h1v1H1z"/><path fill="%233366cc" d="M7 1h2v1H7zM7 2h3v1H7zM5 3h4v1H5zM4 4h6v1H4zM3 5h7v1H3zM2 6h7v1H2zM1 7h8v1H1zM1 8h6v1H1zM2 9h3v1H2z"/><path fill="%23ffffff" d="M3 2h2v1H3zM3 3h1v1H3z"/><path fill="%23333399" d="M10 2h1v1H10zM9 3h2v1H9zM10 4h2v1H10zM10 5h2v1H10zM9 6h3v1H9zM9 7h3v1H9zM7 8h5v1H7zM5 9h6v1H5zM2 10h9v1H2zM4 11h5v1H4z"/></svg>'); }
+.pin.green { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" shape-rendering="crispEdges"><path fill="%23000000" fill-opacity=".35" d="M6 2h1v1h-1zM7 2h1v1h-1zM8 2h1v1h-1zM9 2h1v1h-1zM10 2h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM10 3h1v1h-1zM11 3h1v1h-1zM12 3h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM7 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM10 4h1v1h-1zM11 4h1v1h-1zM12 4h1v1h-1zM13 4h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM7 5h1v1h-1zM8 5h1v1h-1zM9 5h1v1h-1zM10 5h1v1h-1zM11 5h1v1h-1zM12 5h1v1h-1zM13 5h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1zM8 6h1v1h-1zM9 6h1v1h-1zM10 6h1v1h-1zM11 6h1v1h-1zM12 6h1v1h-1zM13 6h1v1h-1zM14 6h1v1h-1zM2 7h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1zM7 7h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1zM11 7h1v1h-1zM12 7h1v1h-1zM13 7h1v1h-1zM14 7h1v1h-1zM2 8h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM11 8h1v1h-1zM12 8h1v1h-1zM13 8h1v1h-1zM14 8h1v1h-1zM2 9h1v1h-1zM3 9h1v1h-1zM4 9h1v1h-1zM5 9h1v1h-1zM6 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM10 9h1v1h-1zM11 9h1v1h-1zM12 9h1v1h-1zM13 9h1v1h-1zM14 9h1v1h-1zM2 10h1v1h-1zM3 10h1v1h-1zM4 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM8 10h1v1h-1zM9 10h1v1h-1zM10 10h1v1h-1zM11 10h1v1h-1zM12 10h1v1h-1zM13 10h1v1h-1zM14 10h1v1h-1zM3 11h1v1h-1zM4 11h1v1h-1zM5 11h1v1h-1zM6 11h1v1h-1zM7 11h1v1h-1zM8 11h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM11 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM3 12h1v1h-1zM4 12h1v1h-1zM5 12h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM8 12h1v1h-1zM9 12h1v1h-1zM10 12h1v1h-1zM11 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM4 13h1v1h-1zM5 13h1v1h-1zM6 13h1v1h-1zM7 13h1v1h-1zM8 13h1v1h-1zM9 13h1v1h-1zM10 13h1v1h-1zM11 13h1v1h-1zM12 13h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1z"/><path fill="%23000000" d="M4 0h5v1H4zM2 1h2v1H2zM9 1h2v1H9zM1 2h1v1H1zM11 2h1v1H11zM1 3h1v1H1zM11 3h1v1H11zM0 4h1v1H0zM12 4h1v1H12zM0 5h1v1H0zM12 5h1v1H12zM0 6h1v1H0zM12 6h1v1H12zM0 7h1v1H0zM12 7h1v1H12zM0 8h1v1H0zM12 8h1v1H12zM1 9h1v1H1zM11 9h1v1H11zM1 10h1v1H1zM11 10h1v1H11zM2 11h2v1H2zM9 11h2v1H9zM4 12h5v1H4z"/><path fill="%2366cc66" d="M4 1h3v1H4zM2 2h1v1H2zM5 2h2v1H5zM2 3h1v1H2zM4 3h1v1H4zM1 4h3v1H1zM1 5h2v1H1zM1 6h1v1H1z"/><path fill="%23339933" d="M7 1h2v1H7zM7 2h3v1H7zM5 3h4v1H5zM4 4h6v1H4zM3 5h7v1H3zM2 6h7v1H2zM1 7h8v1H1zM1 8h6v1H1zM2 9h3v1H2z"/><path fill="%23ffffff" d="M3 2h2v1H3zM3 3h1v1H3z"/><path fill="%23336633" d="M10 2h1v1H10zM9 3h2v1H9zM10 4h2v1H10zM10 5h2v1H10zM9 6h3v1H9zM9 7h3v1H9zM7 8h5v1H7zM5 9h6v1H5zM2 10h9v1H2zM4 11h5v1H4z"/></svg>'); }
+.pin.yellow { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" shape-rendering="crispEdges"><path fill="%23000000" fill-opacity=".35" d="M6 2h1v1h-1zM7 2h1v1h-1zM8 2h1v1h-1zM9 2h1v1h-1zM10 2h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM10 3h1v1h-1zM11 3h1v1h-1zM12 3h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM7 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM10 4h1v1h-1zM11 4h1v1h-1zM12 4h1v1h-1zM13 4h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM7 5h1v1h-1zM8 5h1v1h-1zM9 5h1v1h-1zM10 5h1v1h-1zM11 5h1v1h-1zM12 5h1v1h-1zM13 5h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1zM8 6h1v1h-1zM9 6h1v1h-1zM10 6h1v1h-1zM11 6h1v1h-1zM12 6h1v1h-1zM13 6h1v1h-1zM14 6h1v1h-1zM2 7h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1zM7 7h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1zM11 7h1v1h-1zM12 7h1v1h-1zM13 7h1v1h-1zM14 7h1v1h-1zM2 8h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM11 8h1v1h-1zM12 8h1v1h-1zM13 8h1v1h-1zM14 8h1v1h-1zM2 9h1v1h-1zM3 9h1v1h-1zM4 9h1v1h-1zM5 9h1v1h-1zM6 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM10 9h1v1h-1zM11 9h1v1h-1zM12 9h1v1h-1zM13 9h1v1h-1zM14 9h1v1h-1zM2 10h1v1h-1zM3 10h1v1h-1zM4 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM8 10h1v1h-1zM9 10h1v1h-1zM10 10h1v1h-1zM11 10h1v1h-1zM12 10h1v1h-1zM13 10h1v1h-1zM14 10h1v1h-1zM3 11h1v1h-1zM4 11h1v1h-1zM5 11h1v1h-1zM6 11h1v1h-1zM7 11h1v1h-1zM8 11h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM11 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM3 12h1v1h-1zM4 12h1v1h-1zM5 12h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM8 12h1v1h-1zM9 12h1v1h-1zM10 12h1v1h-1zM11 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM4 13h1v1h-1zM5 13h1v1h-1zM6 13h1v1h-1zM7 13h1v1h-1zM8 13h1v1h-1zM9 13h1v1h-1zM10 13h1v1h-1zM11 13h1v1h-1zM12 13h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1z"/><path fill="%23000000" d="M4 0h5v1H4zM2 1h2v1H2zM9 1h2v1H9zM1 2h1v1H1zM11 2h1v1H11zM1 3h1v1H1zM11 3h1v1H11zM0 4h1v1H0zM12 4h1v1H12zM0 5h1v1H0zM12 5h1v1H12zM0 6h1v1H0zM12 6h1v1H12zM0 7h1v1H0zM12 7h1v1H12zM0 8h1v1H0zM12 8h1v1H12zM1 9h1v1H1zM11 9h1v1H11zM1 10h1v1H1zM11 10h1v1H11zM2 11h2v1H2zM9 11h2v1H9zM4 12h5v1H4z"/><path fill="%23ffff99" d="M4 1h3v1H4zM2 2h1v1H2zM5 2h2v1H5zM2 3h1v1H2zM4 3h1v1H4zM1 4h3v1H1zM1 5h2v1H1zM1 6h1v1H1z"/><path fill="%23ffcc00" d="M7 1h2v1H7zM7 2h3v1H7zM5 3h4v1H5zM4 4h6v1H4zM3 5h7v1H3zM2 6h7v1H2zM1 7h8v1H1zM1 8h6v1H1zM2 9h3v1H2z"/><path fill="%23ffffff" d="M3 2h2v1H3zM3 3h1v1H3z"/><path fill="%23cc9900" d="M10 2h1v1H10zM9 3h2v1H9zM10 4h2v1H10zM10 5h2v1H10zM9 6h3v1H9zM9 7h3v1H9zM7 8h5v1H7zM5 9h6v1H5zM2 10h9v1H2zM4 11h5v1H4z"/></svg>'); }
+@media (min-resolution: 1.01dppx) and (max-resolution: 1.99dppx) {
+  .pin.red { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" shape-rendering="geometricPrecision"><circle cx="8.5" cy="8.5" r="6.5" fill="%23000000" fill-opacity=".35"/><circle cx="6.5" cy="6.5" r="6" fill="%23993333" stroke="%23000000" stroke-width="1"/><circle cx="5.6" cy="5.6" r="4.6" fill="%23cc3333"/><circle cx="4.6" cy="4.6" r="2.4" fill="%23ff6666"/><circle cx="3.8" cy="3.6" r="1" fill="%23ffffff"/></svg>'); }
+  .pin.blue { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" shape-rendering="geometricPrecision"><circle cx="8.5" cy="8.5" r="6.5" fill="%23000000" fill-opacity=".35"/><circle cx="6.5" cy="6.5" r="6" fill="%23333399" stroke="%23000000" stroke-width="1"/><circle cx="5.6" cy="5.6" r="4.6" fill="%233366cc"/><circle cx="4.6" cy="4.6" r="2.4" fill="%236699ff"/><circle cx="3.8" cy="3.6" r="1" fill="%23ffffff"/></svg>'); }
+  .pin.green { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" shape-rendering="geometricPrecision"><circle cx="8.5" cy="8.5" r="6.5" fill="%23000000" fill-opacity=".35"/><circle cx="6.5" cy="6.5" r="6" fill="%23336633" stroke="%23000000" stroke-width="1"/><circle cx="5.6" cy="5.6" r="4.6" fill="%23339933"/><circle cx="4.6" cy="4.6" r="2.4" fill="%2366cc66"/><circle cx="3.8" cy="3.6" r="1" fill="%23ffffff"/></svg>'); }
+  .pin.yellow { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" shape-rendering="geometricPrecision"><circle cx="8.5" cy="8.5" r="6.5" fill="%23000000" fill-opacity=".35"/><circle cx="6.5" cy="6.5" r="6" fill="%23cc9900" stroke="%23000000" stroke-width="1"/><circle cx="5.6" cy="5.6" r="4.6" fill="%23ffcc00"/><circle cx="4.6" cy="4.6" r="2.4" fill="%23ffff99"/><circle cx="3.8" cy="3.6" r="1" fill="%23ffffff"/></svg>'); }
+}
+/* the board's status line: the count; the grow box sits on its right end */
+#status { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 12px;
+  border-top: 1px solid var(--black); background: var(--g300); font-size: 11px; color: #333;
+  padding: 0 20px 0 8px; height: 15px; overflow: clip;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.6), inset -1px -1px 0 #aaa; }
+#st-count { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#st-msg { flex: none; color: #7a1010; }
+
 #grow { position: fixed; right: 0; bottom: 0; width: 15px; height: 15px;
   touch-action: none; z-index: 6; }
 
@@ -98,6 +157,9 @@ body.solo #corner { visibility: hidden; }
 body.mobile #ed { height: calc(100% - 6px); scrollbar-width: none; }
 body.mobile #ed::-webkit-scrollbar { display: none; }
 body.mobile #foot, body.mobile #edges { right: 0; }
+body.mobile #cork { scrollbar-width: none; }
+body.mobile #cork::-webkit-scrollbar { display: none; }
+body.mobile #status { padding-right: 8px; }
 
 /* Mac OS 9 scrollbars — the desktop's pixel-sampled spec, adapted for a
    document window: the host frame draws the outer black line, so bars are
@@ -159,10 +221,12 @@ body.mobile #foot, body.mobile #edges { right: 0; }
 <body>
 
 <div id="bar">
-  <span class="popup" id="go"><select id="pick" title="Go to Note" disabled></select><span class="well"><i><b></b></i></span></span>
+  <button class="ghost" id="boardBtn" disabled>Corkboard</button>
+  <span id="bar-gap"></span>
   <button class="ghost danger" id="del" disabled>Delete</button>
   <button class="ghost" id="new" disabled>New Note</button>
 </div>
+<div id="main">
 <div id="pad">
   <!-- data-autosave: the note is saved as it is typed (and flushed on
        unload), so the desktop does not hold an update reload for it -->
@@ -171,6 +235,11 @@ body.mobile #foot, body.mobile #edges { right: 0; }
   <div id="num"></div>
   <div id="corner" title="Turn the page: the flap goes forward, the corner under it goes back"></div>
   <div id="edges"></div>
+</div>
+<div id="board">
+  <div id="cork"><div id="cards"></div></div>
+  <div id="status"><span id="st-count"></span><span id="st-msg"></span></div>
+</div>
 </div>
 <!-- grow box sampled pixel-for-pixel from Mac OS 9 (Infinite Mac) -->
 <svg id="grow" width="15" height="15" viewBox="0 0 15 15" shape-rendering="crispEdges">
@@ -223,8 +292,13 @@ let loaded = false; // block saves until the load settled, so a failed GET
 // page 1 while it is open and becomes a note at the first keystroke; turning
 // away from it drops it, so empty notes never reach the document.
 let draft = null;
-const ed = $("#ed"), pick = $("#pick"), num = $("#num"), msg = $("#msg");
-const delBtn = $("#del"), newBtn = $("#new");
+const ed = $("#ed"), num = $("#num"), msg = $("#msg"), stMsg = $("#st-msg");
+const delBtn = $("#del"), newBtn = $("#new"), boardBtn = $("#boardBtn");
+const cork = $("#cork"), cards = $("#cards"), stCount = $("#st-count");
+// which view is up — the pad (one note) or the corkboard (all of them) — is
+// per-viewer UI state like the open page
+const VIEW_KEY = "exe-notes-view:" + APP;
+let view = "pad";
 
 const live = () => doc.notes.filter(n => !n.deleted);
 // The pad's pages: newest note on top, in the order the notes were made, so
@@ -238,9 +312,11 @@ const cur = () => (draft && draft.id === sel) ? draft : doc.notes.find(n => n.id
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const blank = () => ({ id: newId(), text: "", created: Date.now(), updated: Date.now() });
 
-function noteTitle(n) {
+// a note's title is its first line with words; a sheet shows as much of it
+// as fits in its lines, so it takes the whole line
+function noteTitle(n, max = 60) {
   const line = (n.text || "").split("\n").find(l => l.trim());
-  return line ? line.trim().slice(0, 60) : "Blank Page";
+  return line ? line.trim().slice(0, max) : "Blank Page";
 }
 function fmtTime(t) {
   const d = new Date(t);
@@ -255,8 +331,9 @@ function fmtTime(t) {
 // word, and so does this: only a failure is said, at the sheet's foot ----
 let saveT = null, saving = false, again = false;
 function setSave(mode, m) {
-  msg.textContent = mode === "error" ? "Not saved: " + m : "";
-  msg.title = mode === "error" ? "Not saved: " + m + " (" + fmtTime(Date.now()) + ")" : "";
+  const t = mode === "error" ? "Not saved: " + m : "";
+  msg.textContent = stMsg.textContent = t;
+  msg.title = t && t + " (" + fmtTime(Date.now()) + ")";
 }
 function scheduleSave() {
   if (!loaded) return;
@@ -301,18 +378,97 @@ addEventListener("visibilitychange", () => {
 addEventListener("pagehide", () => { if (saveT || saving) saveNow(true); });
 
 // ---- rendering ----
-// The pop-up lists every page by its first line; the open one is chosen.
 function render() {
   const p = pages();
   const i = p.findIndex(n => n.id === sel);
   num.textContent = i >= 0 ? String(i + 1) : "";
-  pick.replaceChildren(...p.map(n => new Option(noteTitle(n), n.id)));
-  pick.value = sel || "";
-  pick.disabled = !loaded;
-  const n = cur();
-  delBtn.disabled = !loaded || !n || n === draft;
-  newBtn.disabled = !loaded || (!!n && n === draft);
+  const n = cur(), onBoard = view === "board";
+  boardBtn.disabled = !loaded;
+  delBtn.disabled = !loaded || onBoard || !n || n === draft;
+  newBtn.disabled = !loaded || (!onBoard && !!n && n === draft);
   document.body.classList.toggle("solo", p.length < 2);
+  if (onBoard) renderBoard();
+}
+
+// ---- the corkboard ----
+// Every note is a sheet pinned to the cork in the pad's order. Its pin's
+// colour and how far off the grid it hangs come from its id, so a sheet
+// stays where it was pinned from one look to the next and on every desk.
+const PINS = ["red", "blue", "green", "yellow"];
+function idHash(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+// the lines under the title, as many as the sheet shows
+function excerpt(text) {
+  const lines = (text || "").split("\n");
+  const i = lines.findIndex(l => l.trim());
+  return i < 0 ? "" : lines.slice(i + 1).join("\n").replace(/^\s*\n/, "").slice(0, 400);
+}
+function fmtDay(t) {
+  const d = new Date(t), now = new Date();
+  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return d.toLocaleDateString([], d.getFullYear() === now.getFullYear()
+    ? { month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
+}
+function renderBoard() {
+  const p = pages().filter(n => n !== draft);
+  stCount.textContent = p.length ? p.length + (p.length === 1 ? " note" : " notes") : "No notes";
+  cards.replaceChildren(...p.map((n, i) => {
+    const h = idHash(n.id);
+    const c = document.createElement("div");
+    const body = excerpt(n.text);
+    c.className = "card" + (n.id === sel ? " sel" : "") + (body ? "" : " bare");
+    c.dataset.id = n.id;
+    c.style.left = (h % 7 - 3) + "px";
+    c.style.top = ((h >>> 3) % 7 - 3) + "px";
+    const pin = document.createElement("i");
+    pin.className = "pin " + PINS[(h >>> 6) % PINS.length];
+    pin.style.marginLeft = (-7 + (h >>> 9) % 11 - 5) + "px";
+    const t = document.createElement("div"), ts = document.createElement("span");
+    t.className = "t"; ts.textContent = noteTitle(n, 300); t.append(ts);
+    const x = document.createElement("div");
+    x.className = "x"; x.textContent = body;
+    const f = document.createElement("div"), fd = document.createElement("span"), fn = document.createElement("span");
+    f.className = "f"; fd.textContent = fmtDay(n.created); fn.textContent = String(i + 1);
+    f.append(fd, fn);
+    c.append(pin, t, x, f);
+    c.onclick = () => openNote(n.id);
+    return c;
+  }));
+  // the titles that wrapped leave the note two lines (all read after all built)
+  const two = [...cards.children].filter(c => c.children[1].offsetHeight > 20);
+  for (const c of two) c.classList.add("t2");
+}
+// put the open note's sheet in view, the least scroll that does it (by
+// hand: scrollIntoView would also move the frame's own page)
+function revealCard() {
+  const c = cards.querySelector(".card.sel");
+  if (!c) return;
+  const top = c.offsetTop - 18, bottom = c.offsetTop + c.offsetHeight + 18;
+  if (top < cork.scrollTop) cork.scrollTop = top;
+  else if (bottom > cork.scrollTop + cork.clientHeight) cork.scrollTop = bottom - cork.clientHeight;
+}
+function setView(v) {
+  view = v;
+  try { localStorage.setItem(VIEW_KEY, v); } catch (e) {}
+  document.body.classList.toggle("on-board", v === "board");
+  boardBtn.classList.toggle("open", v === "board");
+  disarm();
+  if (v === "board") {
+    // putting the pad down drops a blank page: it was never a note
+    if (draft && sel === draft.id && live().length) { draft = null; sel = null; ensurePage(); syncEditor(false); }
+    ed.blur();
+  }
+  render();
+  if (v === "board") revealCard();
+}
+// a sheet taken down from the board opens on the pad
+function openNote(id, focus = true) {
+  go(id, false);
+  setView("pad");
+  if (focus && !MOBILE && !ed.disabled) ed.focus();
 }
 // Put the open page's text in the field. A page turn starts at the top;
 // a synced-in change to the page being read keeps the reader's place.
@@ -372,7 +528,7 @@ let pendingReveal = null; // a reveal that arrived before the doc loaded
 function revealNote(id) {
   if (window.parent !== window) parent.postMessage({ exe: "reveal-ack" }, location.origin);
   if (!doc.notes.some(n => n.id === id && !n.deleted)) return;
-  go(id, true);
+  openNote(id);
 }
 
 // ---- turning pages ----
@@ -391,7 +547,10 @@ $("#foot").addEventListener("mousedown", e => {
   e.preventDefault();
   if (!ed.disabled) ed.focus();
 });
-pick.addEventListener("change", () => go(pick.value, true));
+boardBtn.onclick = () => {
+  if (view === "board") openNote(sel);
+  else setView("board");
+};
 
 // ---- editing ----
 ed.addEventListener("input", () => {
@@ -409,10 +568,7 @@ ed.addEventListener("input", () => {
   n.text = ed.value;
   n.updated = Date.now();
   scheduleSave();
-  if (made) { render(); return; }
-  // otherwise only the open page's line in the pop-up can have changed
-  const o = pick.options[pick.selectedIndex];
-  if (o && o.value === n.id && o.text !== noteTitle(n)) o.text = noteTitle(n);
+  if (made) render();
 });
 // Tab indents, SimpleText-style; execCommand (here and below) keeps the
 // native undo stack — assigning ed.value would wipe it
@@ -450,7 +606,8 @@ newBtn.onclick = () => {
   const n = cur();
   if (n && n === draft) { ed.focus(); return; }
   draft = blank();
-  go(draft.id, true);
+  go(draft.id, false);
+  if (view !== "pad") setView("pad");
   ed.focus(); // asked for paper to write on: a phone raises its keyboard too
 };
 // Delete tears the open page out: the desktop's two-click armed button,
@@ -582,7 +739,10 @@ window.addEventListener("message", e => {
   ensurePage();
   loaded = true;
   syncEditor(false);
-  render();
+  // the view this viewer left up; at first the board, when it has notes
+  let v = null;
+  try { v = localStorage.getItem(VIEW_KEY); } catch (e) {}
+  setView(v === "pad" || v === "board" ? v : live().length ? "board" : "pad");
   if (pendingReveal) { revealNote(pendingReveal); pendingReveal = null; }
 })();
 </script>

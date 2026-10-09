@@ -132,18 +132,37 @@ days.
   the flap's pixels are the real ones (a vector copy at fractional scales),
   its right line stops a row short of the sheet's bottom line. A click on
   the flap (above the fold) turns forward, below the fold back, wrapping at
-  both ends; the toolbar's `.popup` (Go to Note) lists every page by its
-  first line for a direct jump, beside Delete (the two-click armed button)
-  and New Note. Pages are notes in `created` order, newest on top as page 1,
-  so a page keeps its number while it is written on. New Note lays a blank
-  sheet on top that becomes a note at the first keystroke and is dropped if
-  turned away from, so empty notes never reach the document; a pad with no
-  notes opens such a sheet. Note Pad's text stops above the dog-ear band
+  both ends. No list of notes anywhere (Livid asked for none): every note
+  is a sheet pinned to a **corkboard**, the toolbar's Corkboard button
+  (`.open`, the pressed look, while the board is up) switches between the
+  board and the pad, and a click on a sheet opens it on the pad. Mac OS 9
+  shipped no cork among its desktop patterns (checked in the guest's
+  Appearance panel), so the cork is a 64px tile drawn the way those were,
+  in the system palette's cube colours, `image-rendering: pixelated`,
+  scrolling with the board (`local`). Sheets are 120×100 on a grid
+  (`auto-fill`, centred), each nudged up to 3px off it and given one of
+  four 13px pixel-art pushpins (a vector copy between 1x and 2x) by a hash
+  of its id, so a sheet hangs the same way on every desk — whole pixels,
+  never rotated. A sheet shows its first line in bold (two lines, four when
+  the note has nothing else), the lines under it (four, two under a
+  two-line title, whole lines only via line-clamp, measured after the
+  board is built), the date and the page number; the open note's title is
+  highlighted like a selected icon's name. The board has the 15px status
+  line (the count) with the grow box on its end. The views stack in
+  `#main`, the hidden one `visibility: hidden` so each keeps its scroll;
+  which view is up is per viewer (`exe-notes-view:<App>`), the board at
+  first when there are notes. Delete (the two-click armed button) works on
+  the pad; New Note opens a blank sheet on the pad from either view. Pages
+  are notes in `created` order, newest on top as page 1, so a page keeps
+  its number while it is written on. New Note lays a blank sheet on top
+  that becomes a note at the first keystroke and is dropped if turned away
+  from or the board is put up, so empty notes never reach the document; a
+  pad with no notes opens such a sheet. Note Pad's text stops above the dog-ear band
   while its bar runs on: `#foot` is laid over the field's foot, the field's
   24px bottom padding lets the last line scroll clear, and
   `scroll-padding-bottom` keeps the caret clear of it (Chromium honours it
   for typing and arrowing). Saves are silent; only a failure shows, at the
-  sheet's foot. All notes live in one `notes.json` through the app-data
+  sheet's foot and on the board's status line. All notes live in one `notes.json` through the app-data
   API — one doc beats per-note files for whole-doc auto-save (400ms
   debounce); deletes are tombstoned (see above); the field carries
   `data-autosave`. The open page is per-viewer UI state and lives in
