@@ -59,6 +59,8 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   to the app's iframe on close and `{exe:"show"}` when it is reopened. An
   app with loops, timers or a simulation pauses on hide (and flushes any
   pending save) and resumes on show; a plain document app can ignore both.
+  `{exe:"close"}` puts the app's own window away, for an app with an OK
+  or Done button of its own.
   The frame allows fullscreen, so an app may call
   `document.documentElement.requestFullscreen()` from a user gesture (City
   binds it to F) and `document.exitFullscreen()` to come back.
