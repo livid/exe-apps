@@ -151,9 +151,18 @@ days.
   reader's choice of size and face — the toolbar, a note open, carries −
   + (10 11 12 14 16 18 20 24 on 14…32px lines, never 13; 12 by default)
   and a Sans Serif | Serif segment (Tides' joined buttons, `.on`
-  pressed): the serif is Charter (built into macOS and iOS), then Georgia,
-  per viewer in localStorage (`exe-notes-type:<App>`), the size the pad's,
-  the face the board's sheets' too; where the words will not fit the
+  pressed): the serif is Charter (built into macOS and iOS), then Georgia.
+  The choice is the same on every desk (Livid expected it saved and
+  synced, 2026-10-09): `settings.json` `{size, face}`, a file of its own
+  under the storage contract with its own save gate, last writer wins
+  between windows and nodes, so a press never rewrites the notes; fields
+  this Notes does not know go back as they came; opening never writes it
+  (a browser's old choice is not pushed, the next press anywhere is);
+  `data-changed`/`data-resync` read it again, and a board that is up is
+  laid out again in the new face. localStorage (`exe-notes-type:<App>`)
+  is only the first paint's copy, and the notes are held until the file
+  is read, so the writing never changes size as a window opens. The size
+  is the pad's, the face the board's sheets' too; where the words will not fit the
   toolbar gives way a step at a time (`fitBar`: the faces as "Aa"
   samples, then Corkboard as its pushpin, then tighter sides and gaps) —
   the sheet's foot left to right: the dog-ear, the note's date (`created`) in

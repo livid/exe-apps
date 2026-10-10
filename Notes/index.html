@@ -541,17 +541,26 @@ function render() {
   if (onBoard) renderBoard();
 }
 // ---- how a note is read: its text's size and face ----
-// A viewer's own choice, like the open page, so it lives in localStorage
-// and never in the notes: − and + step the size (12 by default, never 13,
-// the house's rule for type), Sans Serif | Serif picks the face. The size
-// is the writing's on the pad; the face is the board's sheets' too.
+// The reader's choice, the same on every desk: it is kept in settings.json
+// beside the notes — a file of its own, last writer wins, so a press on +
+// never rewrites the notes — and copied to localStorage only so a window
+// opens in it from its first paint, before the file is read. − and + step
+// the size (12 by default, never 13, the house's rule for type), Sans
+// Serif | Serif picks the face. The size is the writing's on the pad; the
+// face is the board's sheets' too.
+const TYPE_URL = "/v1/apps/" + encodeURIComponent(APP) + "/data/settings.json";
 const TYPE_KEY = "exe-notes-type:" + APP;
 const SIZES = [[10, 14], [11, 15], [12, 16], [14, 19], [16, 21], [18, 24], [20, 27], [24, 32]];
 let type = { size: 12, face: "sans" };
-try { Object.assign(type, JSON.parse(localStorage.getItem(TYPE_KEY) || "{}")); } catch (e) {}
-if (!SIZES.some(([s]) => s === type.size)) type.size = 12;
-if (type.face !== "serif") type.face = "sans";
-function applyType(save) {
+let settings = {};      // the file as read: what this Notes does not know goes back as it came
+let typeLoaded = false; // no save before the file was read, so a failed GET is never overwritten
+let typeAhead = false;  // chosen here before the file was read: saved, not replaced, once it is
+function setType(t) {
+  if (t && SIZES.some(([s]) => s === t.size)) type.size = t.size;
+  if (t && (t.face === "serif" || t.face === "sans")) type.face = t.face;
+}
+try { setType(JSON.parse(localStorage.getItem(TYPE_KEY) || "{}")); } catch (e) {}
+function applyType(keep) {
   const lead = SIZES.find(([s]) => s === type.size)[1];
   const root = document.documentElement.style;
   root.setProperty("--size", type.size + "px");
@@ -565,13 +574,69 @@ function applyType(save) {
     b.classList.toggle("on", on);
     b.setAttribute("aria-pressed", on);
   }
-  if (save) try { localStorage.setItem(TYPE_KEY, JSON.stringify(type)); } catch (e) {}
+  if (keep) try { localStorage.setItem(TYPE_KEY, JSON.stringify(type)); } catch (e) {}
+}
+// The file's own save, apart from the notes': debounced, serialized, flushed
+// with keepalive when the window goes. A failed one is not said at the
+// sheet's foot (that line is the note's); the choice stays in this window
+// and the next press sends it again.
+let typeT = null, typeSaving = false, typeAgain = false;
+function saveType() {
+  if (!typeLoaded) { typeAhead = true; return; }
+  clearTimeout(typeT);
+  typeT = setTimeout(saveTypeNow, 250);
+}
+async function saveTypeNow(flush) {
+  clearTimeout(typeT); typeT = null;
+  const body = JSON.stringify(Object.assign({}, settings, type), null, 2);
+  const seq = { "X-Exe-Seq": String(nextSeq()) };
+  if (flush) {
+    try { api(TYPE_URL, { method: "PUT", keepalive: true, headers: seq, body }); } catch (e) {}
+    return;
+  }
+  if (typeSaving) { typeAgain = true; return; }
+  typeSaving = true;
+  try {
+    await api(TYPE_URL, { method: "PUT", headers: seq, body });
+  } catch (e) { console.error("notes settings save failed:", e); }
+  typeSaving = false;
+  if (typeAgain) { typeAgain = false; saveTypeNow(); }
+}
+addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && (typeT || typeSaving)) saveTypeNow(true);
+});
+addEventListener("pagehide", () => { if (typeT || typeSaving) saveTypeNow(true); });
+// Read at boot, again when another window or a peer node wrote the file and
+// when the desk's change stream comes back — never over a choice made here
+// that is still on its way out. A first read that fails is tried again, so
+// a daemon restart does not leave the choice unsaved for the whole session.
+let typeTries = 0;
+async function loadType() {
+  if (typeT || typeSaving) return;
+  try {
+    const r = await api(TYPE_URL, { cache: "no-store" });
+    let d = r.status === 404 ? null : await r.json();
+    if (!d || typeof d !== "object" || Array.isArray(d)) d = null;
+    if (typeT || typeSaving) return; // chosen here while it was read
+    if (d) settings = d;
+    const first = !typeLoaded;
+    typeLoaded = true;
+    if (first && typeAhead) { typeAhead = false; saveType(); return; }
+    const was = type.size + type.face;
+    setType(d);
+    if (type.size + type.face === was) return;
+    applyType(true);
+    if (view === "board") renderBoard(); // a title may wrap otherwise in the other face
+  } catch (e) {
+    if (!typeLoaded && typeTries++ < 12) setTimeout(loadType, 5000);
+  }
 }
 function stepSize(d) {
   const i = SIZES.findIndex(([s]) => s === type.size) + d;
   if (i < 0 || i >= SIZES.length) return;
   type.size = SIZES[i][0];
   applyType(true);
+  saveType();
 }
 // a press on these keeps the caret in the note
 for (const b of document.querySelectorAll("#size button, #face button")) b.addEventListener("mousedown", e => e.preventDefault());
@@ -580,8 +645,12 @@ $("#bigger").onclick = () => stepSize(1);
 for (const b of document.querySelectorAll("#face button")) b.onclick = () => {
   type.face = b.dataset.face;
   applyType(true);
+  saveType();
 };
 applyType(false);
+// the notes wait for this before they are shown, so the writing never
+// changes size under the reader as the window opens
+const typeReady = loadType();
 
 // The toolbar gives way a step at a time where its words will not fit:
 // the faces as "Aa" samples (t1), then Corkboard as its pushpin (t2),
@@ -1052,9 +1121,11 @@ window.addEventListener("message", e => {
   if (e.data.exe === "data-changed") {
     if (e.data.client && e.data.client === CLIENT) return; // our own write
     if (loaded && e.data.path === "notes.json") reloadFromDisk();
+    else if (typeLoaded && e.data.path === "settings.json") loadType();
   } else if (e.data.exe === "data-resync") {
     // the desktop's change stream was down: anything may have changed
     if (loaded) reloadFromDisk();
+    if (typeLoaded) loadType();
   } else if (e.data.exe === "reveal") {
     // before the load settles the pages don't exist yet — remember the id
     // and let boot apply it (and ack) instead
@@ -1081,6 +1152,7 @@ applySheet(); // the dog-ear has its art from the first paint
     return; // leave everything disabled: saving now would clobber the stored notes
   }
   try { sel = localStorage.getItem(SEL_KEY) || legacySel; } catch (e) { sel = legacySel; }
+  await typeReady;
   ensurePage();
   loaded = true;
   syncEditor(false);
