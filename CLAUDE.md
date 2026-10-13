@@ -22,6 +22,17 @@ deliberately separate from exe: apps here are mounted via `apps_dirs` in
 - Visual checks: headless Chrome + CDP (`--headless=new
   --remote-debugging-port`, PUT /json/new, Page.captureScreenshot) against
   `/apps/<Name>/?token=…`. Screenshot and LOOK at every UI change.
+- Projects, the issue tracker on the exe desk, holds this repo as the
+  project `APPS` (`/www/exe-projects`; its README says how it is kept).
+  An issue id such as `APPS-4` or `PROJ-5` is read whole with
+  `/www/exe-projects/exe-projects show PROJ-5` (the binary is not on
+  PATH; `help` lists the rest), and in this checkout a dot is its
+  project: `exe-projects ls .`, `exe-projects new . "Title" -m "…"`.
+  Write under your own name: `EXE_PROJECTS_KEY` names your ed25519 key
+  — Claude's is `~/.claude/hub/claude_ed25519.pem`, Codex's its hub key
+  `~/.codex/hub/codex_ed25519.pem` — and `exe-projects whoami -name "…"`,
+  once, says what to call you. Without a key a record is signed as the
+  node, which is Livid.
 
 ## Bundle layout
 
