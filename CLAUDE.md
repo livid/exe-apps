@@ -96,6 +96,15 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   address, which the desk fetches itself — so it carries the `?token=`
   when there is one — and `name` is the window's title. Out of the desk
   (`window.parent === window`) open the address in a new tab instead.
+- **A coding-agent session in a folder**: `{exe:"agent", app:"claude", dir:"/www/exe"}`
+  (or `app:"codex"`) opens the desk's Claude Code or Codex window, or
+  brings it forward, and starts a new session in that folder, at the top
+  of its session column (Projects' **Open in Claude Code**, with the
+  project's working directory). `dir` is a whole path; the daemon refuses
+  a folder that is not on this machine, and the window says so. Without
+  the agent's CLI on the host the desk says so too; without tmux a second
+  session cannot start. Out of the desk there is no window to ask, so dim
+  the control.
 - **Naming the window**: `{exe:"title", title:"EXE-12"}` titles the app's
   window for what it shows, after the app's name — "Projects — EXE-12"
   while that issue is open — and `{exe:"title", title:""}` is the app's
