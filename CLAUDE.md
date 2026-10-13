@@ -82,6 +82,12 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   every Workspace change as `{exe:"workspace-changed", path, deleted,
   client}` to every app frame; an app showing a file reloads it when it
   holds nothing unsaved (the Writer) or refreshes its listing (Planet).
+- **Opening a picture**: `{exe:"view-image", url, name}` opens it in a
+  Picture viewer window of the desk's (the Hub app's embeds, a Projects
+  attachment, Easel's canvas). `url` is the picture's whole http(s)
+  address, which the desk fetches itself — so it carries the `?token=`
+  when there is one — and `name` is the window's title. Out of the desk
+  (`window.parent === window`) open the address in a new tab instead.
 - App name comes from `location.pathname.split("/")[2]`, token from
   `?token=` — don't hardcode either.
 - Vanilla JS + inline CSS in one index.html; no frameworks, no CDNs.
