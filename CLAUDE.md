@@ -88,6 +88,11 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   address, which the desk fetches itself — so it carries the `?token=`
   when there is one — and `name` is the window's title. Out of the desk
   (`window.parent === window`) open the address in a new tab instead.
+- **Naming the window**: `{exe:"title", title:"EXE-12"}` titles the app's
+  window for what it shows, after the app's name — "Projects — EXE-12"
+  while that issue is open — and `{exe:"title", title:""}` is the app's
+  name alone again. Send it when what the window shows changes, not on a
+  timer; out of the desk set `document.title` instead.
 - App name comes from `location.pathname.split("/")[2]`, token from
   `?token=` — don't hardcode either.
 - Vanilla JS + inline CSS in one index.html; no frameworks, no CDNs.
