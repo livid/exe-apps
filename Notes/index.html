@@ -132,6 +132,9 @@ body.on-board #pad, body:not(.on-board) #board { visibility: hidden; }
 #when { color: #777; }
 #msg { max-width: 45%; overflow: hidden; text-overflow: ellipsis; color: #7a1010; }
 #msg:not(:empty) ~ #when { visibility: hidden; }
+/* while the window reads from the copy kept on this device it says so in
+   the date's place, in the date's grey: it is a fact, not a fault */
+#msg.off, #st-msg.off { color: #777; }
 /* the page edges: the sheet's bottom line, then #eee / #444 / #eee / #444 /
    #eee down to the frame's line, each line a border of its own */
 #edges { position: absolute; left: 0; right: 15px; bottom: 0; height: 6px; background: var(--g200);
@@ -207,6 +210,10 @@ body.solo #corner { visibility: hidden; }
   box-shadow: inset 1px 1px 0 rgba(255,255,255,.6), inset -1px -1px 0 #aaa; }
 #st-count { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #st-msg { flex: none; color: #7a1010; }
+/* opened from exe's alert as its own page on a phone, with no desk round
+   it: Back leads to exe, under Welcome's chevron, as Projects has it */
+button.ghost.back { display: inline-flex; align-items: center; gap: 5px; padding: 2px 13px 2px 9px; }
+button.ghost.back svg { display: block; flex: none; fill: currentColor; }
 
 #grow { position: fixed; right: 0; bottom: 0; width: 15px; height: 15px;
   touch-action: none; z-index: 6; }
@@ -346,15 +353,115 @@ const DATA_URL = "/v1/apps/" + encodeURIComponent(APP) + "/data/notes.json";
 const CLIENT = Math.random().toString(36).slice(2) + Date.now().toString(36);
 const MOBILE = new URLSearchParams(location.search).has("mobile");
 if (MOBILE) document.body.classList.add("mobile");
+const FROM_ALERT = new URLSearchParams(location.search).get("from") === "offline";
 
+// A read that has had no answer at all in ANSWER_BY is given up, which
+// tells a line that carries nothing from one that is slow; a write is
+// waited for.
+const ANSWER_BY = 5000;
 async function api(url, opts = {}) {
   opts.headers = Object.assign({}, opts.headers);
   if (TOKEN) opts.headers["Authorization"] = "Bearer " + TOKEN;
   opts.headers["X-Exe-Client"] = CLIENT;
-  const r = await fetch(url, opts);
+  const read = !opts.method || opts.method === "GET";
+  const stop = read ? new AbortController() : null;
+  if (stop) opts.signal = stop.signal;
+  const t = stop ? setTimeout(() => stop.abort(), ANSWER_BY) : 0;
+  let r;
+  try { r = await fetch(url, opts); }
+  catch (e) { throw e.name === "AbortError" ? new Error("no answer in " + ANSWER_BY / 1000 + " seconds") : e; }
+  finally { clearTimeout(t); }
   if (!r.ok && r.status !== 404) throw new Error("HTTP " + r.status);
   return r;
 }
+
+// ---- read without the daemon ----
+// exe's worker keeps the last answer to the notes and the settings on any
+// device that has had the desk open (app.json "offline"; exe's ui/sw.js,
+// "what an app keeps"), and answers with the copy when exe does not — a
+// line that carries nothing, a gateway's 502 — saying when it was kept in
+// X-Exe-Kept. A read answered so puts the window offline: it shows the
+// copy, says how old it is where the date goes (and on the board's status
+// line), and nothing can be written: the page is read-only and New Note,
+// Delete, the colours and the type's buttons are dimmed where they stand,
+// since a save would be lost. Every few seconds the daemon is asked
+// whether it is back; when it answers, the notes are read again and the
+// window writes as before. A window the worker does not answer for (one
+// open before the worker first took the desk over) reads the copy out of
+// the worker's cache itself. Over plain HTTP nothing is kept and a read
+// that fails fails as it always did.
+const KEPT = "exe-keep";
+const PROBE_EVERY = 5000;
+let offline = null;      // { at } while the window reads from the copy
+async function read(url) {
+  let r = null, fault = null;
+  try { r = await api(url, { cache: "no-store" }); } catch (e) { fault = e; }
+  if (!r && window.caches) r = await (await caches.open(KEPT)).match(url);
+  if (!r) throw fault;
+  heard(r);
+  return r;
+}
+// what an answer says of the daemon: a copy puts the window offline, the
+// daemon's own answer brings it back
+function heard(r) {
+  const at = +r.headers.get("X-Exe-Kept");
+  if (at) goOffline(at);
+  else if (offline) back();
+}
+function goOffline(at) {
+  const was = !!offline;
+  offline = { at };
+  say();
+  if (loaded && !was) setControls();
+  probeSoon();
+}
+function back() {
+  offline = null;
+  clearTimeout(probeTimer);
+  say();
+  if (loaded) { setControls(); reloadFromDisk(); }
+  loadType();
+}
+// how old the copy is, where the date goes on the pad and on the board's line
+function ago(t) {
+  const m = Math.floor((Date.now() - t) / 60e3);
+  if (m < 1) return "just now";
+  if (m < 60) return m + " min ago";
+  if (m < 240) return Math.floor(m / 60) + " h" + (m % 60 ? " " + m % 60 + " min" : "") + " ago";
+  return fmtTime(t);
+}
+function say() {
+  const t = offline ? "Offline: the copy of " + ago(offline.at) : "";
+  msg.textContent = stMsg.textContent = t;
+  msg.title = offline ? "Kept " + new Date(offline.at).toLocaleString() : "";
+  msg.classList.toggle("off", !!offline);
+  stMsg.classList.toggle("off", !!offline);
+}
+setInterval(() => { if (offline) say(); }, 60e3);
+// what writes is dimmed where it stands; render and applyType read `offline` too
+function setControls() {
+  ed.readOnly = !!offline;
+  applyType(false);
+  render();
+}
+let probeTimer = null, probing = false;
+function probeSoon() {
+  clearTimeout(probeTimer);
+  if (offline && !document.hidden) probeTimer = setTimeout(probe, PROBE_EVERY);
+}
+async function probe() {
+  clearTimeout(probeTimer);
+  if (!offline || probing) return;
+  probing = true;
+  try {
+    const r = await api(DATA_URL, { cache: "no-store" });
+    if (!+r.headers.get("X-Exe-Kept")) { probing = false; back(); return; }
+  } catch (e) {}
+  probing = false;
+  probeSoon();
+}
+addEventListener("online", () => { if (offline) probe(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && offline) probe(); });
 
 // notes: [{id, text, created, updated, deleted?}] — deletions leave a
 // tombstone (text dropped) so node-to-node sync can tell "deleted here"
@@ -371,6 +478,11 @@ let loaded = false; // block saves until the load settled, so a failed GET
 // page 1 while it is open and becomes a note at the first keystroke; turning
 // away from it drops it, so empty notes never reach the document.
 let draft = null;
+// what the daemon last told this window of each note (id -> updated), from
+// its last answer: a local note that is not newer than that was not edited
+// here, and is the daemon's to keep or let go
+let told = new Map();
+const toldBy = notes => new Map([...notes].map(n => [String(n.id), +n.updated || 0]));
 const ed = $("#ed"), num = $("#num"), msg = $("#msg"), stMsg = $("#st-msg");
 const delBtn = $("#del"), newBtn = $("#new"), boardBtn = $("#boardBtn"), tintsBox = $("#tints");
 const cork = $("#cork"), cards = $("#cards"), stCount = $("#st-count");
@@ -480,6 +592,7 @@ function fmtTime(t) {
 // word, and so does this: only a failure is said, at the sheet's foot ----
 let saveT = null, saving = false, again = false;
 function setSave(mode, m) {
+  if (offline) { say(); return; }
   const t = mode === "error" ? "Not saved: " + m : "";
   msg.textContent = stMsg.textContent = t;
   msg.title = t && t + " (" + fmtTime(Date.now()) + ")";
@@ -501,6 +614,7 @@ let lastSeq = 0;
 const nextSeq = () => (lastSeq = Math.max(Date.now(), lastSeq + 1));
 async function saveNow(flush) {
   clearTimeout(saveT); saveT = null;
+  if (offline) return;
   const body = serialize();
   // X-Exe-Seq is a content timestamp: the daemon drops a PUT older than one
   // it already stored, so an in-flight save can't land stale over the flush.
@@ -533,8 +647,8 @@ function render() {
   num.textContent = i >= 0 ? String(i + 1) : "";
   const n = cur(), onBoard = view === "board";
   boardBtn.disabled = !loaded;
-  delBtn.disabled = !loaded || onBoard || !n || n === draft;
-  newBtn.disabled = !loaded || (!onBoard && !!n && n === draft);
+  delBtn.disabled = !loaded || onBoard || !n || n === draft || !!offline;
+  newBtn.disabled = !loaded || (!onBoard && !!n && n === draft) || !!offline;
   document.body.classList.toggle("solo", p.length < 2);
   applySheet();
   showDate();
@@ -567,12 +681,13 @@ function applyType(keep) {
   root.setProperty("--lead", lead + "px");
   root.setProperty("--read", type.face === "serif" ? "var(--serif)" : "var(--page)");
   const i = SIZES.findIndex(([s]) => s === type.size);
-  $("#smaller").disabled = i === 0;
-  $("#bigger").disabled = i === SIZES.length - 1;
+  $("#smaller").disabled = i === 0 || !!offline;
+  $("#bigger").disabled = i === SIZES.length - 1 || !!offline;
   for (const b of document.querySelectorAll("#face button")) {
     const on = b.dataset.face === type.face;
     b.classList.toggle("on", on);
     b.setAttribute("aria-pressed", on);
+    b.disabled = !!offline;
   }
   if (keep) try { localStorage.setItem(TYPE_KEY, JSON.stringify(type)); } catch (e) {}
 }
@@ -588,6 +703,7 @@ function saveType() {
 }
 async function saveTypeNow(flush) {
   clearTimeout(typeT); typeT = null;
+  if (offline) return;
   const body = JSON.stringify(Object.assign({}, settings, type), null, 2);
   const seq = { "X-Exe-Seq": String(nextSeq()) };
   if (flush) {
@@ -614,7 +730,7 @@ let typeTries = 0;
 async function loadType() {
   if (typeT || typeSaving) return;
   try {
-    const r = await api(TYPE_URL, { cache: "no-store" });
+    const r = await read(TYPE_URL);
     let d = r.status === 404 ? null : await r.json();
     if (!d || typeof d !== "object" || Array.isArray(d)) d = null;
     if (typeT || typeSaving) return; // chosen here while it was read
@@ -657,6 +773,17 @@ const typeReady = loadType();
 // then the buttons' sides and the gaps between them in (t3, a 320px
 // phone) — the fewest steps that fit.
 const bar = $("#bar");
+// Opened as its own page from exe's alert on a phone, with no desk round
+// it and, in an installed app, no browser either: Back leads to exe,
+// which is the desk when the daemon answers and the alert again when it
+// does not. Welcome's chevron, 5 by 8 in stepped pixels.
+if (FROM_ALERT && MOBILE && window.parent === window) {
+  const b = document.createElement("button");
+  b.className = "ghost back"; b.id = "exeBtn"; b.type = "button";
+  b.innerHTML = '<svg width="5" height="8" viewBox="0 0 5 8" shape-rendering="crispEdges" aria-hidden="true"><path d="M3 0h2v1H3zM2 1h2v1H2zM1 2h2v1H1zM0 3h2v1H0zM1 4h2v1H1zM2 5h2v1H2zM3 6h2v1H3z"/></svg><span>exe</span>';
+  b.onclick = () => { location.href = "/"; };
+  bar.prepend(b);
+}
 function fitBar() {
   bar.classList.remove("t1", "t2", "t3");
   for (const step of ["t1", "t2", "t3"]) {
@@ -702,7 +829,7 @@ function applySheet() {
   const name = tintOf(n) === TINTS.white ? "white" : n.color;
   for (const b of tintsBox.children) {
     b.classList.toggle("on", b.dataset.c === name);
-    b.disabled = !loaded || !n;
+    b.disabled = !loaded || !n || !!offline;
   }
 }
 
@@ -938,7 +1065,7 @@ for (const [name, hex] of Object.entries(TINTS)) {
 }
 function setColor(name) {
   const n = cur();
-  if (!n) return;
+  if (!n || offline) return;
   if (name === "white") delete n.color;
   else n.color = name;
   if (n !== draft) { n.updated = Date.now(); scheduleSave(); }
@@ -970,7 +1097,7 @@ ed.addEventListener("input", () => {
 // Tab indents, SimpleText-style; execCommand (here and below) keeps the
 // native undo stack — assigning ed.value would wipe it
 ed.addEventListener("keydown", e => {
-  if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.isComposing) return;
+  if (offline || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.isComposing) return;
   if (e.key === "Tab") {
     e.preventDefault();
     document.execCommand("insertText", false, "\t");
@@ -1001,6 +1128,7 @@ ed.addEventListener("keydown", e => {
 // New Note lays a blank page on top of the pad
 newBtn.onclick = () => {
   const n = cur();
+  if (offline) return;
   if (n && n === draft) { ed.focus(); return; }
   draft = blank();
   const fromBoard = view === "board";
@@ -1012,7 +1140,7 @@ newBtn.onclick = () => {
 // then the page under it is open (the one above, when it was the last)
 delBtn.onclick = () => {
   const n = cur();
-  if (!n || n === draft) return;
+  if (!n || n === draft || offline) return;
   if (!delBtn.classList.contains("armed")) {
     delBtn.classList.add("armed");
     delBtn._t = setTimeout(disarm, 3000);
@@ -1087,24 +1215,30 @@ function normNote(n) {
 }
 async function reloadFromDisk() {
   try {
-    const r = await api(DATA_URL, { cache: "no-store" });
-    if (r.status === 404) return;
+    const r = await read(DATA_URL);
+    if (r.status === 404 || offline) return;   // the copy has nothing the window lacks
     const d = await r.json();
     if (!d || !Array.isArray(d.notes)) return;
     // Disk is the daemon's already-merged result. Adopt it as the base and
-    // keep a local note only when it is strictly newer (a genuine unsaved
+    // keep a local note only when it was edited here since the daemon last
+    // spoke (told) and is strictly newer than disk's (a genuine unsaved
     // edit); on an `updated` tie we defer to disk, matching the daemon's
     // tiebreak, so the app and daemon never disagree into an endless
-    // save→merge→push loop.
+    // save→merge→push loop. A note the daemon gave this window and has
+    // since let go — deleted elsewhere, its tombstone purged while this
+    // window was away for a month, or read from an old kept copy — is not
+    // news to push back: it stays gone.
     const diskById = new Map(d.notes.filter(n => n && n.id).map(n => [String(n.id), normNote(n)]));
     const byId = new Map(diskById);
     for (const local of doc.notes) {
       // a tombstone past its 30 days is gone from disk by design, not news
       // to push back (an old copy of one set the iPad's write going)
       if (local.deleted && Date.now() - local.deleted >= TOMBSTONE_TTL) continue;
-      const dv = byId.get(local.id);
-      if (!dv || local.updated > dv.updated) byId.set(local.id, local);
+      const dv = byId.get(local.id), was = told.get(local.id);
+      const edited = was === undefined || local.updated > was;
+      if (edited && (!dv || local.updated > dv.updated)) byId.set(local.id, local);
     }
+    told = toldBy(diskById.values());
     const key = m => JSON.stringify([...m.values()].sort((a, b) => a.id < b.id ? -1 : 1));
     const aheadOfDisk = key(byId) !== key(diskById);
     const before = cur() && cur().text;
@@ -1120,10 +1254,12 @@ window.addEventListener("message", e => {
   if (e.origin !== location.origin || !e.data) return;
   if (e.data.exe === "data-changed") {
     if (e.data.client && e.data.client === CLIENT) return; // our own write
+    if (offline) { probe(); return; }
     if (loaded && e.data.path === "notes.json") reloadFromDisk();
     else if (typeLoaded && e.data.path === "settings.json") loadType();
   } else if (e.data.exe === "data-resync") {
     // the desktop's change stream was down: anything may have changed
+    if (offline) { probe(); return; }
     if (loaded) reloadFromDisk();
     if (typeLoaded) loadType();
   } else if (e.data.exe === "reveal") {
@@ -1139,11 +1275,12 @@ applySheet(); // the dog-ear has its art from the first paint
 (async () => {
   let legacySel = null; // pre-tombstone files carried the selection in-doc
   try {
-    const r = await api(DATA_URL, { cache: "no-store" });
+    const r = await read(DATA_URL);
     if (r.status !== 404) {
       const d = await r.json();
       if (d && Array.isArray(d.notes)) {
         doc.notes = d.notes.filter(n => n && n.id).map(normNote);
+        told = toldBy(doc.notes);
         legacySel = d.sel || null;
       }
     }
@@ -1160,6 +1297,7 @@ applySheet(); // the dog-ear has its art from the first paint
   let v = null;
   try { v = localStorage.getItem(VIEW_KEY); } catch (e) {}
   setView(v === "pad" || v === "board" ? v : live().length ? "board" : "pad");
+  if (offline) setControls();
   if (pendingReveal) { revealNote(pendingReveal); pendingReveal = null; }
 })();
 </script>

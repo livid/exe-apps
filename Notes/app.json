@@ -1,5 +1,6 @@
 {
   "title": "Notes",
   "icon": "icon.svg",
-  "window": { "width": 440, "height": 480, "grow": true }
+  "window": { "width": 440, "height": 480, "grow": true },
+  "offline": { "keep": ["/v1/apps/Notes/data/notes.json", "/v1/apps/Notes/data/settings.json"] }
 }
