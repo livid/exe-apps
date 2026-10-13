@@ -45,6 +45,14 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
 
 - Per-app persistent state: `GET/PUT/DELETE /v1/apps/<Name>/data/<file>`
   (lives in `~/.exe/appdata/<Name>/`, outside the served tree; 10 MB/file cap).
+- An app that can be read while exe does not answer adds `"offline"` to
+  app.json: `true` keeps its own files on a device that has had the desk
+  open over HTTPS, and `{ "keep": [addresses], "fixed": [prefixes],
+  "wanted": address }` keeps data too. exe's service worker does the
+  keeping and its alert offers the app; `/www/exe/internal/server/ui/sw.js`
+  ("what an app keeps") is the contract, and a kept answer carries
+  `X-Exe-Kept`. The app says it shows a copy and dims what writes
+  (`/www/exe/docs/platinum.md`, Apps).
 - `~/.exe/apps` wins name collisions with this repo.
 
 ## Conventions (see Tides/index.html for a worked example)
