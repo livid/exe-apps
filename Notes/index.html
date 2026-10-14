@@ -118,6 +118,15 @@ body.on-board #pad, body:not(.on-board) #board { visibility: hidden; }
    chosen one ringed 2px in the highlight blue. Every line a border on a
    box of its own. */
 #tints { position: absolute; right: 20px; bottom: 11px; display: flex; gap: 2px; z-index: 1; }
+/* Stick to Desk: the corkboard's pushpin, left of the colours. Pressed
+   (.on) while the note stands on the desk as a Sticky; lying flat, faded,
+   while it does not. Only a desk has a desk to stick to: a phone and the
+   page on its own have none. */
+#stick { position: absolute; right: 142px; bottom: 10px; width: 16px; height: 16px; padding: 0; margin: 0;
+  border: 0; background: none; z-index: 1; }
+#stick .pin { position: static; display: block; margin: 0; }
+#stick:not(.on) .pin { opacity: .4; }
+#stick:disabled, body.mobile #stick, body.alone #stick { display: none; }
 #tints button { display: block; width: 14px; height: 14px; padding: 0; margin: 0;
   border: 2px solid transparent; border-radius: 0; background: none; }
 #tints button i { display: block; width: 10px; height: 10px; border: 1px solid; }
@@ -220,6 +229,15 @@ button.ghost.back svg { display: block; flex: none; fill: currentColor; }
 
 /* a phone: no grow box, and the finger scrolls the sheet, so no bar either;
    the band and the page edges run the full width */
+/* ---- a Sticky: the desk opens this page a second time on one note
+   (?sticky=<id>), frameless, under a title bar of its own in the note's
+   colour. Nothing but the sheet shows — the bar, the foot, the dog-ear
+   and the board are put away — and the field fills the window, the desk's
+   edges sizing it. ---- */
+body.sticky #bar, body.sticky #board, body.sticky #foot, body.sticky #num, body.sticky #tints, body.sticky #stick,
+body.sticky #when, body.sticky #msg, body.sticky #corner, body.sticky #edges, body.sticky #grow { display: none; }
+body.sticky #main { border-top: 0; }
+body.sticky #ed { height: 100%; padding: 6px 8px 8px; scroll-padding-bottom: 8px; }
 body.mobile #ed { height: calc(100% - 6px); scrollbar-width: none; }
 body.mobile #ed::-webkit-scrollbar { display: none; }
 body.mobile #foot, body.mobile #edges { right: 0; }
@@ -317,6 +335,7 @@ body.mobile #status { padding-right: 8px; }
   <div id="foot"></div>
   <div id="num"></div>
   <div id="tints"></div>
+  <button id="stick" title="Stick to Desk" disabled><i class="pin red"></i></button>
   <span id="msg"></span>
   <span id="when"></span>
   <div id="corner" title="Turn the page: the flap goes forward, the corner under it goes back"></div>
@@ -354,6 +373,13 @@ const CLIENT = Math.random().toString(36).slice(2) + Date.now().toString(36);
 const MOBILE = new URLSearchParams(location.search).has("mobile");
 if (MOBILE) document.body.classList.add("mobile");
 const FROM_ALERT = new URLSearchParams(location.search).get("from") === "offline";
+// A Sticky: the desk opens this page a second time on one note, in a
+// window that is the sheet (exe's index.html, "Stickies"). The note is
+// fixed, the page remembers nothing, and the desk tells the page where
+// the window was put ({exe:"placed"}), which the note keeps as its place.
+const STICKY = new URLSearchParams(location.search).get("sticky") || "";
+if (STICKY) document.body.classList.add("sticky");
+if (window.parent === window) document.body.classList.add("alone");
 
 // A read that has had no answer at all in ANSWER_BY is given up, which
 // tells a line that carries nothing from one that is slow; a write is
@@ -478,13 +504,14 @@ let loaded = false; // block saves until the load settled, so a failed GET
 // page 1 while it is open and becomes a note at the first keystroke; turning
 // away from it drops it, so empty notes never reach the document.
 let draft = null;
-// what the daemon last told this window of each note (id -> updated), from
-// its last answer: a local note that is not newer than that was not edited
-// here, and is the daemon's to keep or let go
+// what the daemon last told this window of each note (id -> its stamps:
+// u for updated, p for placed), from its last answer: a local note that
+// is not newer than that was not edited (or moved) here, and is the
+// daemon's to keep or let go
 let told = new Map();
-const toldBy = notes => new Map([...notes].map(n => [String(n.id), +n.updated || 0]));
+const toldBy = notes => new Map([...notes].map(n => [String(n.id), { u: +n.updated || 0, p: +n.placed || 0 }]));
 const ed = $("#ed"), num = $("#num"), msg = $("#msg"), stMsg = $("#st-msg");
-const delBtn = $("#del"), newBtn = $("#new"), boardBtn = $("#boardBtn"), tintsBox = $("#tints");
+const delBtn = $("#del"), newBtn = $("#new"), boardBtn = $("#boardBtn"), tintsBox = $("#tints"), stickBtn = $("#stick");
 const cork = $("#cork"), cards = $("#cards"), stCount = $("#st-count");
 // which view is up — the pad (one note) or the corkboard (all of them) — is
 // per-viewer UI state like the open page
@@ -649,6 +676,9 @@ function render() {
   boardBtn.disabled = !loaded;
   delBtn.disabled = !loaded || onBoard || !n || n === draft || !!offline;
   newBtn.disabled = !loaded || (!onBoard && !!n && n === draft) || !!offline;
+  stickBtn.disabled = !loaded || onBoard || !n || n === draft || !!offline;
+  stickBtn.classList.toggle("on", !!(n && n.place));
+  stickBtn.title = n && n.place ? "Take off Desk" : "Stick to Desk";
   document.body.classList.toggle("solo", p.length < 2);
   applySheet();
   showDate();
@@ -804,7 +834,8 @@ function showDate() {
   if (!t) return;
   const r = document.createRange();
   r.selectNodeContents(num);
-  const right = (num.textContent ? r.getBoundingClientRect().left : tintsBox.getBoundingClientRect().left) - 16;
+  const pinned = stickBtn.offsetParent ? stickBtn : tintsBox; // the pin, where it shows
+  const right = (num.textContent ? r.getBoundingClientRect().left : pinned.getBoundingClientRect().left) - 16;
   for (const dateStyle of ["full", "long", "medium"]) {
     whenText.textContent = new Date(t).toLocaleDateString([], { dateStyle });
     if (whenText.getBoundingClientRect().right <= right) return;
@@ -896,8 +927,9 @@ function revealCard() {
   else if (bottom > cork.scrollTop + cork.clientHeight) cork.scrollTop = bottom - cork.clientHeight;
 }
 function setView(v) {
+  if (STICKY) v = "pad";
   view = v;
-  try { localStorage.setItem(VIEW_KEY, v); } catch (e) {}
+  if (!STICKY) try { localStorage.setItem(VIEW_KEY, v); } catch (e) {}
   document.body.classList.toggle("on-board", v === "board");
   boardBtn.classList.toggle("open", v === "board");
   fitBar();
@@ -998,7 +1030,7 @@ function go(id, focus) {
   if (id === sel && cur()) { if (focus) ed.focus(); return; }
   if (draft && draft.id !== id) draft = null;
   sel = id;
-  if (!draft || draft.id !== id) {
+  if (!STICKY && (!draft || draft.id !== id)) {
     try {
       if (id) localStorage.setItem(SEL_KEY, id);
       else localStorage.removeItem(SEL_KEY);
@@ -1011,7 +1043,7 @@ function go(id, focus) {
 }
 // a pad never runs out of paper: with no notes left, a blank page is open
 function ensurePage() {
-  if (cur()) return;
+  if (cur() || STICKY) return; // a sticky shows its note, or nothing
   const p = pages();
   if (p.length) { sel = p[0].id; return; }
   draft = blank();
@@ -1074,6 +1106,27 @@ function setColor(name) {
 boardBtn.onclick = () => {
   if (view === "board") openNote(sel);
   else showBoard();
+};
+// Stick to Desk: the note gets a place, and the desk, hearing the file
+// change, opens it there as a Sticky; pressed again, the place goes and
+// so does the window. The place has a stamp of its own (`placed`): a
+// drag never touches `updated`, so the text and the place merge apart
+// (the daemon's merge and guard, and reloadFromDisk, each keep the newer
+// of either). A fresh sticky cascades from the desk's top left by how
+// many are up; the desk fits it to its own screen without writing that
+// back.
+stickBtn.addEventListener("mousedown", e => e.preventDefault());
+stickBtn.onclick = () => {
+  const n = cur();
+  if (!n || n === draft || offline) return;
+  if (n.place) delete n.place;
+  else {
+    const k = live().filter(x => x.place && x !== n).length % 8;
+    n.place = { x: 32 + k * 24, y: 48 + k * 24, w: 220, h: 150 };
+  }
+  n.placed = Date.now();
+  scheduleSave();
+  render();
 };
 
 // ---- editing ----
@@ -1211,6 +1264,14 @@ function normNote(n) {
   else delete m.color;
   if (+n.deleted) m.deleted = +n.deleted;
   else delete m.deleted;
+  // its place on the desk, when it has one: four numbers, and whether it
+  // is windowshaded; the stamp of the last change to it
+  const p = n.place;
+  if (p && typeof p === "object" && [p.x, p.y, p.w, p.h].every(v => Number.isFinite(+v)))
+    m.place = Object.assign({}, p, { x: +p.x, y: +p.y, w: +p.w, h: +p.h });
+  else delete m.place;
+  if (+n.placed) m.placed = +n.placed;
+  else delete m.placed;
   return m;
 }
 async function reloadFromDisk() {
@@ -1235,8 +1296,21 @@ async function reloadFromDisk() {
       // to push back (an old copy of one set the iPad's write going)
       if (local.deleted && Date.now() - local.deleted >= TOMBSTONE_TTL) continue;
       const dv = byId.get(local.id), was = told.get(local.id);
-      const edited = was === undefined || local.updated > was;
-      if (edited && (!dv || local.updated > dv.updated)) byId.set(local.id, local);
+      const edited = was === undefined || local.updated > was.u;
+      if (!dv) { if (edited) byId.set(local.id, local); continue; }
+      let pick = edited && local.updated > dv.updated ? local : dv;
+      // the place on the desk goes by its own stamp, whichever side the
+      // text came from: a drag made here and not yet told is kept over
+      // disk's older one, and disk's newer one is taken either way
+      const moved = was === undefined || (local.placed || 0) > was.p;
+      const lp = local.placed || 0, dp = dv.placed || 0;
+      const from = pick === dv ? (moved && lp > dp ? local : null) : (dp > lp ? dv : null);
+      if (from) {
+        pick = Object.assign({}, pick);
+        if (from.place && !pick.deleted) pick.place = from.place; else delete pick.place;
+        if (from.placed) pick.placed = from.placed; else delete pick.placed;
+      }
+      byId.set(local.id, pick);
     }
     told = toldBy(diskById.values());
     const key = m => JSON.stringify([...m.values()].sort((a, b) => a.id < b.id ? -1 : 1));
@@ -1267,6 +1341,21 @@ window.addEventListener("message", e => {
     // and let boot apply it (and ack) instead
     if (loaded) revealNote(String(e.data.id || ""));
     else pendingReveal = String(e.data.id || "");
+  } else if (e.data.exe === "placed" && STICKY) {
+    // the desk moved, sized or windowshaded this sticky: the note keeps it
+    const n = cur();
+    if (!n || !loaded || offline || ![e.data.x, e.data.y, e.data.w, e.data.h].every(v => Number.isFinite(+v))) return;
+    n.place = { x: Math.round(+e.data.x), y: Math.round(+e.data.y), w: Math.round(+e.data.w), h: Math.round(+e.data.h) };
+    if (e.data.shaded) n.place.shaded = true;
+    n.placed = Date.now();
+    scheduleSave();
+  } else if (e.data.exe === "unstick" && STICKY) {
+    // its close box: off the desk, the note itself untouched
+    const n = cur();
+    if (!n || !loaded || offline) return;
+    delete n.place;
+    n.placed = Date.now();
+    scheduleSave();
   }
 });
 
@@ -1288,7 +1377,8 @@ applySheet(); // the dog-ear has its art from the first paint
     msg.textContent = "Load failed: " + e.message + " — reopen this window";
     return; // leave everything disabled: saving now would clobber the stored notes
   }
-  try { sel = localStorage.getItem(SEL_KEY) || legacySel; } catch (e) { sel = legacySel; }
+  if (STICKY) sel = STICKY;
+  else try { sel = localStorage.getItem(SEL_KEY) || legacySel; } catch (e) { sel = legacySel; }
   await typeReady;
   ensurePage();
   loaded = true;
@@ -1296,7 +1386,7 @@ applySheet(); // the dog-ear has its art from the first paint
   // the view this viewer left up; at first the board, when it has notes
   let v = null;
   try { v = localStorage.getItem(VIEW_KEY); } catch (e) {}
-  setView(v === "pad" || v === "board" ? v : live().length ? "board" : "pad");
+  setView(STICKY ? "pad" : v === "pad" || v === "board" ? v : live().length ? "board" : "pad");
   if (offline) setControls();
   if (pendingReveal) { revealNote(pendingReveal); pendingReveal = null; }
 })();

@@ -306,7 +306,23 @@ days.
   border-right would be (has-vbar toggling is a desktop-16px-spec thing).
   On a phone the sheet hides its bar (a finger scrolls it) and the band and
   page edges run the full width; New Note raises the keyboard, a page turn
-  does not.
+  does not. **Stickies** (2026-10-14): the pushpin at the sheet's foot, left
+  of the colours, sticks the open note to the desk — the note gets
+  `place: {x, y, w, h, shaded?}` (desk pixels: the window's corner and
+  width, the sheet's height) and `placed`, a stamp of its own — and the
+  desk (exe's index.html, "Stickies") opens this page a second time on
+  that note, `?sticky=<id>`: `body.sticky` shows the field alone, fixed to
+  the one note, remembering no page or view. The desk tells that page
+  `{exe:"placed", x, y, w, h, shaded}` after a drag, a resize or a
+  windowshade and `{exe:"unstick"}` from its close box, and the page
+  writes the note; a drag never bumps `updated`, so the text and the place
+  merge apart, each by its own stamp — in `reloadFromDisk` (told keeps
+  both stamps), in the daemon's `mergeNotes` and in `GuardLocalWrite`
+  (Codex's two-desk test, guard_test.go). A fresh sticky cascades from
+  the desk's top left; the desk fits it to its own screen and writes that
+  back only when something is moved there. A tombstone drops the place.
+  The pin is hidden on a phone and on the page by itself (`body.alone`),
+  which have no desk.
 - **Tides** — NOAA CO-OPS tide charts (fetches NOAA directly; CORS is open).
   Gotchas encoded there: only type-R stations serve 6-minute curves (type-S
   fall back to cosine fit between hi/lo); fetch `time_zone=gmt`, render in
