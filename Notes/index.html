@@ -237,7 +237,11 @@ button.ghost.back svg { display: block; flex: none; fill: currentColor; }
 body.sticky #bar, body.sticky #board, body.sticky #foot, body.sticky #num, body.sticky #tints, body.sticky #stick,
 body.sticky #when, body.sticky #msg, body.sticky #corner, body.sticky #edges, body.sticky #grow { display: none; }
 body.sticky #main { border-top: 0; }
-body.sticky #ed { height: 100%; padding: 6px 8px 8px; scroll-padding-bottom: 8px; }
+/* Stickies' own inset — the text 4px in from the frame and right under
+   the title bar — and, as its notes have, no scroll bar: the wheel and
+   the keys still scroll */
+body.sticky #ed { height: 100%; padding: 2px 4px 4px; scroll-padding-bottom: 4px; scrollbar-width: none; }
+body.sticky #ed::-webkit-scrollbar { display: none; }
 body.mobile #ed { height: calc(100% - 6px); scrollbar-width: none; }
 body.mobile #ed::-webkit-scrollbar { display: none; }
 body.mobile #foot, body.mobile #edges { right: 0; }

@@ -322,7 +322,10 @@ days.
   the desk's top left; the desk fits it to its own screen and writes that
   back only when something is moved there. A tombstone drops the place.
   The pin is hidden on a phone and on the page by itself (`body.alone`),
-  which have no desk.
+  which have no desk. The sticky page keeps Stickies' own inset (2px
+  under the bar, 4px at the sides) and shows no scroll bar, as its notes
+  had none; the window's chrome is the desk's, sampled from the guest
+  (exe docs/platinum.md, Stickies).
 - **Tides** — NOAA CO-OPS tide charts (fetches NOAA directly; CORS is open).
   Gotchas encoded there: only type-R stations serve 6-minute curves (type-S
   fall back to cosine fit between hi/lo); fetch `time_zone=gmt`, render in
