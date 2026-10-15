@@ -16,6 +16,8 @@
      face (large x-height, sturdy serifs, built into macOS and iOS), then
      Georgia, his screen serif (Windows), then what the system has */
   --serif: Charter, "Bitstream Charter", "Charis SIL", Georgia, "Iowan Old Style", Cambria, "Times New Roman", serif;
+  /* the desktop's monospace stack */
+  --mono: "Monaco", ui-monospace, SFMono-Regular, Menlo, monospace;
   /* the face notes are read in, set by the script */
   --read: var(--page);
   /* paper grain, laid over a sheet's colour: SVG fractal noise, so it is
@@ -52,7 +54,7 @@ button.ghost.armed { background: var(--red); color: #fff;
    the right */
 #bar { display: flex; gap: 8px; padding: 10px 10px 8px; align-items: center; }
 #bar-gap { flex: 1; }
-/* reading a note: − + for the text's size and Sans Serif | Serif for its
+/* reading a note: − + for the text's size and Sans Serif | Serif | Mono for its
    face, joined push buttons as Tides' range is (one seam, one line), the
    chosen face pressed in (.on). On the board they are put away, and so
    is Delete, which only a note open has anything to do with. */
@@ -71,13 +73,14 @@ body.on-board #size, body.on-board #face, body.on-board #del { display: none; }
 #face .s { font-weight: normal; font-size: 14px; line-height: 14px; }
 #face [data-face="sans"] .s { font-family: var(--page); }
 #face [data-face="serif"] .s { font-family: var(--serif); }
+#face [data-face="mono"] .s { font-family: var(--mono); }
 #bar.t1 #face .w { display: none; }
 #bar.t1 #face .s { display: inline; }
 #bar.t2 #boardBtn .lbl { display: none; }
 #bar.t2 #boardBtn { padding: 1px 9px 0; }
 #bar.t2 #boardBtn .pin { display: inline-block; position: static; margin: 0; vertical-align: top; }
-#bar.t3 { gap: 6px; padding-left: 8px; padding-right: 8px; }
-#bar.t3 button.ghost { padding-left: 7px; padding-right: 7px; }
+#bar.t3 { gap: 4px; padding-left: 8px; padding-right: 8px; }
+#bar.t3 button.ghost { padding-left: 4px; padding-right: 4px; }
 
 
 /* two views in one place under the toolbar's line: the pad (one note) and
@@ -326,7 +329,7 @@ body.mobile #status { padding-right: 8px; }
 <div id="bar">
   <button class="ghost" id="boardBtn" title="Corkboard" disabled><i class="pin red"></i><span class="lbl">Corkboard</span></button>
   <span class="seg" id="size"><button class="ghost" id="smaller" title="Smaller text">&minus;</button><button class="ghost" id="bigger" title="Larger text">+</button></span>
-  <span class="seg" id="face"><button class="ghost" data-face="sans" title="Sans Serif"><span class="w">Sans Serif</span><span class="s">Aa</span></button><button class="ghost" data-face="serif" title="Serif"><span class="w">Serif</span><span class="s">Aa</span></button></span>
+  <span class="seg" id="face"><button class="ghost" data-face="sans" title="Sans Serif"><span class="w">Sans Serif</span><span class="s">Aa</span></button><button class="ghost" data-face="serif" title="Serif"><span class="w">Serif</span><span class="s">Aa</span></button><button class="ghost" data-face="mono" title="Mono"><span class="w">Mono</span><span class="s">Aa</span></button></span>
   <span id="bar-gap"></span>
   <button class="ghost danger" id="del" disabled>Delete</button>
   <button class="ghost" id="new" disabled>New Note</button>
@@ -694,7 +697,7 @@ function render() {
 // never rewrites the notes — and copied to localStorage only so a window
 // opens in it from its first paint, before the file is read. − and + step
 // the size (12 by default, never 13, the house's rule for type), Sans
-// Serif | Serif picks the face. The size is the writing's on the pad; the
+// Serif | Serif | Mono picks the face. The size is the writing's on the pad; the
 // face is the board's sheets' too.
 const TYPE_URL = "/v1/apps/" + encodeURIComponent(APP) + "/data/settings.json";
 const TYPE_KEY = "exe-notes-type:" + APP;
@@ -705,7 +708,7 @@ let typeLoaded = false; // no save before the file was read, so a failed GET is 
 let typeAhead = false;  // chosen here before the file was read: saved, not replaced, once it is
 function setType(t) {
   if (t && SIZES.some(([s]) => s === t.size)) type.size = t.size;
-  if (t && (t.face === "serif" || t.face === "sans")) type.face = t.face;
+  if (t && ["sans", "serif", "mono"].includes(t.face)) type.face = t.face;
 }
 try { setType(JSON.parse(localStorage.getItem(TYPE_KEY) || "{}")); } catch (e) {}
 function applyType(keep) {
@@ -713,7 +716,7 @@ function applyType(keep) {
   const root = document.documentElement.style;
   root.setProperty("--size", type.size + "px");
   root.setProperty("--lead", lead + "px");
-  root.setProperty("--read", type.face === "serif" ? "var(--serif)" : "var(--page)");
+  root.setProperty("--read", type.face === "mono" ? "var(--mono)" : type.face === "serif" ? "var(--serif)" : "var(--page)");
   const i = SIZES.findIndex(([s]) => s === type.size);
   $("#smaller").disabled = i === 0 || !!offline;
   $("#bigger").disabled = i === SIZES.length - 1 || !!offline;

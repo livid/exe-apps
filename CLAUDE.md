@@ -191,8 +191,9 @@ days.
   at the top and sides — Livid's ask; Note Pad's was 3px and 5px), the
   reader's choice of size and face — the toolbar, a note open, carries −
   + (10 11 12 14 16 18 20 24 on 14…32px lines, never 13; 12 by default)
-  and a Sans Serif | Serif segment (Tides' joined buttons, `.on`
-  pressed): the serif is Charter (built into macOS and iOS), then Georgia.
+  and a Sans Serif | Serif | Mono segment (Tides' joined buttons, `.on`
+  pressed): the serif is Charter (built into macOS and iOS), then Georgia;
+  Mono uses the desktop's Monaco / system monospace stack.
   The choice is the same on every desk (Livid expected it saved and
   synced, 2026-10-09): `settings.json` `{size, face}`, a file of its own
   under the storage contract with its own save gate, last writer wins
