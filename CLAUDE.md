@@ -389,8 +389,16 @@ days.
   aggregates) and Hourly (48 hours × 65 surface variables), the tables in
   bordered boxes that scroll sideways under the OS 9 horizontal bar with
   a sticky label column, the current hour tinted. A `.popup` units menu
-  (°C · km/h · mm or °F · mph · in, defaulting from the browser locale)
-  refetches, since the API converts server-side. Search is Open-Meteo's
+  (°C · km/h · mm or °F · mph · in) refetches, since the API converts
+  server-side; the choice is the same on every desk (Livid, 2026-10-18):
+  `settings.json` `{units: "metric" | "us"}`, a file of its own under the
+  storage contract with its own save gate like Notes', last writer wins,
+  read before the first forecasts are asked for and again on
+  `data-changed`/`data-resync`; opening never writes it, fields the app
+  does not know go back as they came, and localStorage
+  (`exe-weather-units:<App>`) is only the first paint's copy — a browser
+  with neither goes by its language (US, Liberia, Myanmar read °F).
+  Search is Open-Meteo's
   geocoder (`geocoding-api.open-meteo.com/v1/search`, ≥2 chars, 250 ms
   debounce, a sequence number drops stale answers); one forecast call per
   city, three at a time, with `timezone=auto&forecast_days=7&
@@ -416,9 +424,13 @@ days.
   leaves null (updraft, growing degree days, the layered soil means), the
   pressure-level columns and `minutely_15` are left out on purpose.
   Headless check: `~/tools/playwright/exe-weather-test.js` (mocks the
-  document, calls Open-Meteo for real; `frame.click` in that harness can
-  take seconds, so a timed state like the 3-second armed × is driven with
-  DOM clicks).
+  document and the units file, calls Open-Meteo for real; `frame.click`
+  in that harness can take seconds, so a timed state like the 3-second
+  armed × is driven with DOM clicks). The units going between a desk, a
+  phone and a new browser through the daemon's real change stream:
+  `exe-weather-sync-test.js` beside it, on a throwaway daemon
+  (`SCRATCH=<dir>`, its home `<dir>/exehome` on 127.0.0.1:7796 with
+  `apps_dirs: ["/www/exe-apps"]`, places.json seeded).
 
 - **Paint** — MacPaint homage: 1-bit page (512×384 default; Resize dialog
   goes up to 1152×1440, the saved PNG carries the size), tool + pattern
