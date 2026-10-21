@@ -54,7 +54,7 @@ Apps and the desktop are same-origin and talk over `postMessage`:
 
 Per-app private state goes through `GET/PUT/DELETE
 /v1/apps/<AppName>/data/<file>`, kept in `~/.exe/appdata/<AppName>/`
-outside the served tree (10 MB per file). Files people should see go to the
+outside the served tree (100 MB per file). Files people should see go to the
 shared Workspace (`/v1/workspace/<path>`), which is also a desktop Finder.
 
 Joined exe desks sync app data between nodes, so every app here follows one

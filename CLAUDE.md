@@ -44,7 +44,7 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
 ```
 
 - Per-app persistent state: `GET/PUT/DELETE /v1/apps/<Name>/data/<file>`
-  (lives in `~/.exe/appdata/<Name>/`, outside the served tree; 10 MB/file cap).
+  (lives in `~/.exe/appdata/<Name>/`, outside the served tree; 100 MB/file cap).
 - An app that can be read while exe does not answer adds `"offline"` to
   app.json: `true` keeps its own files on a device that has had the desk
   open over HTTPS, and `{ "keep": [addresses], "fixed": [prefixes],
