@@ -17,8 +17,11 @@ deliberately separate from exe: apps here are mounted via `apps_dirs` in
   `data-autosave`, or the reload waits. No build step, no daemon restart.
 - Only changes to the exe daemon itself need `make build` + POST
   /v1/daemon/restart (in ~/Developer/exe; restarting kills running VMs).
-- API token: `api_token` in `~/.exe/config.json`. The desktop passes it to
-  apps as `?token=`; for curl use `Authorization: Bearer <token>`.
+- API token: `api_token` in `~/.exe/config.json`. It is a password, so it
+  goes on no address: the desk's session cookie lets an app in. An app's
+  own address carries `?token=` only in a browser that keeps no cookies,
+  and then the app sends it as before. For curl use `Authorization: Bearer
+  <token>`.
 - Visual checks: headless Chrome + CDP (`--headless=new
   --remote-debugging-port`, PUT /json/new, Page.captureScreenshot) against
   `/apps/<Name>/?token=…`. Screenshot and LOOK at every UI change.
@@ -93,8 +96,8 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
 - **Opening a picture**: `{exe:"view-image", url, name}` opens it in a
   Picture viewer window of the desk's (the Hub app's embeds, a Projects
   attachment, Easel's canvas). `url` is the picture's whole http(s)
-  address, which the desk fetches itself — so it carries the `?token=`
-  when there is one — and `name` is the window's title. Out of the desk
+  address, which the desk fetches itself with its cookie — so never put
+  the token on it — and `name` is the window's title. Out of the desk
   (`window.parent === window`) open the address in a new tab instead.
 - **A coding-agent session in a folder**: `{exe:"agent", app:"claude", dir:"/www/exe"}`
   (or `app:"codex"`) opens the desk's Claude Code or Codex window, or
@@ -111,7 +114,9 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   name alone again. Send it when what the window shows changes, not on a
   timer; out of the desk set `document.title` instead.
 - App name comes from `location.pathname.split("/")[2]`, token from
-  `?token=` — don't hardcode either.
+  `?token=` — don't hardcode either. The token is usually absent (the
+  cookie does the work); put it on an address you build only when the
+  app's own address came with one.
 - Vanilla JS + inline CSS in one index.html; no frameworks, no CDNs.
 - `<canvas>` gotcha: `inset:0` doesn't stretch a replaced element — set
   `width/height:100%` too, and scale the backing store by devicePixelRatio.
