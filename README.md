@@ -82,6 +82,14 @@ each file lives in exe's `internal/peer/merge.go`.
   page auto-saves as a PNG; **Save…** and **Load…** keep named paintings in
   the Workspace's `Paint` folder through a Standard File-style dialog. On a
   phone the tool bars swipe sideways.
+- **Ping** — SmokePing in a window. Add an IP address or a host name, and
+  every five minutes it gets twenty pings; each row shows the last round's
+  median and loss over SmokePing's 10-hour overview graph, and an open row
+  has SmokePing's four (3 hours to 360 days) with a drag across one to zoom.
+  The measuring is the exe daemon's own (`internal/ping`, `/v1/ping`): fping
+  sends the pings and RRDtool keeps and draws them, in SmokePing's file
+  layout, so the host needs `rrdtool` (and `fping`, or it falls back on
+  `ping`). This folder only shows the pictures; it keeps no app data.
 - **Tides** — NOAA tide charts. Defaults to Newport Beach, CA (station
   9410580); Today / 3 Days / 7 Days; search any NOAA tide-prediction
   station. Reference stations draw the real 6-minute curve, subordinate

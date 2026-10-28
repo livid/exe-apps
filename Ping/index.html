@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ping</title>
+<style>
+/* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
+:root {
+  --black: #262626;
+  --g200: #eee; --g300: #ddd; --g400: #ccc; --g500: #bbb; --g600: #999;
+  --hl: #333399; --red: #cc3333;
+  --font: "Charcoal", "Chicago", "Geneva", "Lucida Grande", "Lucida Sans", Geneva, Verdana, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; font: 12px/1.45 var(--font); color: var(--black); background: var(--g200);
+  user-select: none; cursor: default; overflow: hidden; display: flex; flex-direction: column; }
+
+#bar { display: flex; gap: 12px; padding: 10px 10px 8px; align-items: center; }
+input[type=text] { background: #fff; color: var(--black);
+  border: 1px solid var(--black); border-radius: 0; padding: 2px 5px; font: inherit; font-size: 12px;
+  height: 20px; line-height: 14px;
+  box-shadow: -1px -1px 0 var(--g600), -1px 0 0 var(--g600), 0 -1px 0 var(--g600),
+    1px 1px 0 #fff, 1px 0 0 #fff, 0 1px 0 #fff; }
+input[type=text]:focus { outline: 2px solid #9999fe; outline-offset: 0; }
+input[type=text]:disabled { color: #888; background: var(--g200); }
+#q { flex: 1; min-width: 0; }
+
+button { font: inherit; cursor: default; }
+button.ghost { background: var(--g300); color: var(--black);
+  border: 1px solid var(--black); border-radius: 3px;
+  padding: 2px 13px; font-size: 12px; line-height: 14px; font-weight: bold; height: 20px;
+  box-shadow: inset 1px 1px 0 var(--g300), inset -1px -1px 0 #777,
+    inset 2px 2px 0 #fff, inset -2px -2px 0 #aaa; }
+button.ghost:active { background: #666; color: #fff;
+  box-shadow: inset 1px 1px 0 #444, inset -1px -1px 0 #888,
+    inset 2px 2px 0 #555, inset -2px -2px 0 #777; }
+button.ghost:disabled { color: #999; }
+button.ghost.danger { color: #7a1010; }
+button.ghost.armed { background: var(--red); color: #fff;
+  box-shadow: inset 1px 1px 0 #e88, inset -1px -1px 0 #911; }
+button.ghost.sm { padding: 1px 8px; font-size: 10px; border-radius: 3px; height: auto; }
+#add { flex: none; }
+
+/* the destinations are a document area: flush left/right/bottom,
+   separator on top, an always-on OS 9 scrollbar like a Finder list */
+#list { flex: 1; min-height: 0; background: #fff; border-top: 1px solid var(--black);
+  overflow-y: scroll; overflow-x: hidden; position: relative; }
+.item { border-bottom: 1px solid #efefef; }
+.row { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 8px; }
+.tri { flex: none; width: 12px; height: 12px; background: no-repeat center;
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="9" height="12" shape-rendering="crispEdges"><path fill="%23000000" d="M0 0h1v1H0zM0 1h1v1H0zM1 1h1v1H1zM0 2h1v1H0zM2 2h1v1H2zM0 3h1v1H0zM3 3h1v1H3zM0 4h1v1H0zM4 4h1v1H4zM0 5h1v1H0zM5 5h1v1H5zM0 6h1v1H0zM4 6h1v1H4zM0 7h1v1H0zM3 7h1v1H3zM0 8h1v1H0zM2 8h1v1H2zM0 9h1v1H0zM1 9h1v1H1zM0 10h1v1H0z"/><path fill="%23ccccff" d="M1 2h1v1H1zM1 3h1v1H1zM1 4h1v1H1zM1 5h1v1H1zM1 6h1v1H1zM1 7h1v1H1z"/><path fill="%239999ff" d="M2 3h1v1H2zM2 4h1v1H2zM3 4h1v1H3zM2 5h1v1H2zM3 5h1v1H3zM2 6h1v1H2zM1 8h1v1H1z"/><path fill="%236666cc" d="M4 5h1v1H4zM3 6h1v1H3zM2 7h1v1H2z"/><path fill="%23888888" d="M5 6h1v1H5zM4 7h1v1H4zM3 8h1v1H3zM2 9h1v1H2zM1 10h1v1H1z"/><path fill="%23bbbbbb" d="M6 6h1v1H6zM5 7h1v1H5zM4 8h1v1H4zM3 9h1v1H3zM2 10h1v1H2zM1 11h1v1H1z"/></svg>'); }
+.open > .row .tri, .sec.open .tri { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="9" shape-rendering="crispEdges"><path fill="%23000000" d="M0 0h1v1H0zM1 0h1v1H1zM2 0h1v1H2zM3 0h1v1H3zM4 0h1v1H4zM5 0h1v1H5zM6 0h1v1H6zM7 0h1v1H7zM8 0h1v1H8zM9 0h1v1H9zM10 0h1v1H10zM1 1h1v1H1zM9 1h1v1H9zM2 2h1v1H2zM8 2h1v1H8zM3 3h1v1H3zM7 3h1v1H7zM4 4h1v1H4zM6 4h1v1H6zM5 5h1v1H5z"/><path fill="%23ccccff" d="M2 1h1v1H2zM3 1h1v1H3zM4 1h1v1H4zM5 1h1v1H5zM6 1h1v1H6zM7 1h1v1H7z"/><path fill="%239999ff" d="M8 1h1v1H8zM3 2h1v1H3zM4 2h1v1H4zM5 2h1v1H5zM6 2h1v1H6zM4 3h1v1H4zM5 3h1v1H5z"/><path fill="%23888888" d="M10 1h1v1H10zM9 2h1v1H9zM8 3h1v1H8zM7 4h1v1H7zM6 5h1v1H6z"/><path fill="%23bbbbbb" d="M11 1h1v1H11zM10 2h1v1H10zM9 3h1v1H9zM8 4h1v1H8zM7 5h1v1H7zM6 6h1v1H6z"/><path fill="%236666cc" d="M7 2h1v1H7zM6 3h1v1H6zM5 4h1v1H5z"/></svg>'); }
+/* the last round's loss, in SmokePing's colour for it */
+.lamp { flex: none; width: 10px; height: 10px; border: 1px solid var(--black); background: #fff; }
+.who { flex: 1; min-width: 0; }
+.name { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub { font-size: 11px; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub .bad { color: #7a1010; }
+.when { flex: none; text-align: right; }
+.rtt { font-size: 18px; font-weight: bold; line-height: 20px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.loss { font-size: 11px; color: #777; line-height: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; min-height: 14px; }
+.row .x { flex: none; }
+.empty, .notice { padding: 14px 10px; color: #777; }
+.notice { color: var(--black); border-bottom: 1px solid #efefef; }
+.notice b { display: block; margin-bottom: 4px; }
+.notice code { font: 11px/16px Monaco, "SF Mono", Menlo, monospace; user-select: text; }
+
+/* A graph is rrdtool's picture at the size asked, so its box has that size
+   before the picture comes; under rrdtool's narrowest the box scrolls. */
+.graphs { padding: 0 8px 8px; }
+.gscroll { overflow-x: auto; overflow-y: hidden; }
+.gbox { position: relative; overflow: hidden; touch-action: pan-x pan-y; }
+.gbox img { position: absolute; left: 0; top: 0; display: block; }
+.gbox .msg { position: absolute; left: 0; right: 0; top: 50%; margin-top: -8px; text-align: center;
+  font-size: 11px; line-height: 16px; color: #777; }
+.gbox.zoomable { cursor: crosshair; }
+/* the navigator's span as it is dragged: the Finder's dotted marquee */
+.sel { position: absolute; box-sizing: border-box; border: 1px dotted var(--black); pointer-events: none; }
+.gh { display: flex; align-items: center; gap: 8px; height: 20px; margin-top: 6px;
+  font-size: 11px; font-weight: bold; }
+.gh .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* an opened destination: its name and address, then the four graphs */
+.detail { display: none; }
+.open > .detail { display: block; }
+.open > .ov { display: none; }
+.kv { display: grid; grid-template-columns: max-content minmax(0, 360px); column-gap: 12px; row-gap: 6px;
+  align-items: center; padding: 2px 10px 4px 30px; font-size: 11px; }
+.kv label { color: #555; }
+.kv input { width: 100%; }
+
+/* 15px total (1px border + 14px face), same as the desktop's statusbars;
+   the grow tile's black top row lands on this border-top line */
+/* overflow: clip — the 11px text's line box is taller than the 14px face and
+   hangs a pixel past the bar; clipped, that pixel is no scrollable overflow of
+   the page (docs/platinum.md, status bar) */
+#status { display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--black);
+  background: var(--g300); font-size: 11px; color: #333; padding: 0 20px 0 8px; height: 15px;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.6), inset -1px -1px 0 #aaa; overflow: clip; }
+#st-left { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#st-right { flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+#grow { position: fixed; right: 0; bottom: 0; width: 15px; height: 15px;
+  touch-action: none; z-index: 6; }
+
+/* Mac OS 9 scrollbars — the desktop's pixel-sampled spec, adapted for a
+   document window: the host frame (or a bordered box) draws the outer black
+   line, so bars are 15px (1px leading separator + the sampled 14px face)
+   with no trailing border of their own — otherwise the edge doubles to 2px.
+   Vertical is the city list against the window frame; horizontal is the
+   forecast tables inside their own boxes. */
+::-webkit-scrollbar { width: 15px; height: 15px; }
+::-webkit-scrollbar-track:vertical { border-left: 1px solid var(--black);
+  background: linear-gradient(to right, #777 0, #777 1px, #888 1px, #888 2px, #aaa 2px, #aaa 12px, #bbb 12px, #bbb 13px, #ccc 13px, #ccc 14px); }
+::-webkit-scrollbar-track:horizontal { border-top: 1px solid var(--black);
+  background: linear-gradient(to bottom, #777 0, #777 1px, #888 1px, #888 2px, #aaa 2px, #aaa 12px, #bbb 12px, #bbb 13px, #ccc 13px, #ccc 14px); }
+::-webkit-scrollbar-thumb:vertical { border: 1px solid var(--black); border-right: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="0" width="6" height="1" fill="%23ccccff"/><rect x="4" y="1" width="7" height="1" fill="%23333399"/><rect x="3" y="2" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="2" width="6" height="1" fill="%23ccccff"/><rect x="4" y="3" width="7" height="1" fill="%23333399"/><rect x="3" y="4" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="4" width="6" height="1" fill="%23ccccff"/><rect x="4" y="5" width="7" height="1" fill="%23333399"/><rect x="3" y="6" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="6" width="6" height="1" fill="%23ccccff"/><rect x="4" y="7" width="7" height="1" fill="%23333399"/></svg>') center no-repeat,
+    linear-gradient(to right, #ccccff 0 1px, #9999ff 1px 13px, #6666cc 13px 14px);
+  box-shadow: inset 0 1px 0 #ccccff, inset 0 -1px 0 #6666cc; }
+::-webkit-scrollbar-thumb:horizontal { border: 1px solid var(--black); border-bottom: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="14" shape-rendering="crispEdges"><rect x="0" y="3" width="1" height="1" fill="%23eeeeee"/><rect x="0" y="4" width="1" height="6" fill="%23ccccff"/><rect x="1" y="4" width="1" height="7" fill="%23333399"/><rect x="2" y="3" width="1" height="1" fill="%23eeeeee"/><rect x="2" y="4" width="1" height="6" fill="%23ccccff"/><rect x="3" y="4" width="1" height="7" fill="%23333399"/><rect x="4" y="3" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="4" width="1" height="6" fill="%23ccccff"/><rect x="5" y="4" width="1" height="7" fill="%23333399"/><rect x="6" y="3" width="1" height="1" fill="%23eeeeee"/><rect x="6" y="4" width="1" height="6" fill="%23ccccff"/><rect x="7" y="4" width="1" height="7" fill="%23333399"/></svg>') center no-repeat,
+    linear-gradient(to bottom, #ccccff 0 1px, #9999ff 1px 13px, #6666cc 13px 14px);
+  box-shadow: inset 1px 0 0 #ccccff, inset -1px 0 0 #6666cc; }
+::-webkit-scrollbar-thumb:vertical:active {
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23ccccff"/><rect x="4" y="0" width="6" height="1" fill="%239999ff"/><rect x="4" y="1" width="7" height="1" fill="%23000066"/><rect x="3" y="2" width="1" height="1" fill="%23ccccff"/><rect x="4" y="2" width="6" height="1" fill="%239999ff"/><rect x="4" y="3" width="7" height="1" fill="%23000066"/><rect x="3" y="4" width="1" height="1" fill="%23ccccff"/><rect x="4" y="4" width="6" height="1" fill="%239999ff"/><rect x="4" y="5" width="7" height="1" fill="%23000066"/><rect x="3" y="6" width="1" height="1" fill="%23ccccff"/><rect x="4" y="6" width="6" height="1" fill="%239999ff"/><rect x="4" y="7" width="7" height="1" fill="%23000066"/></svg>') center no-repeat,
+    linear-gradient(to right, #9999ff 0 1px, #6666cc 1px 13px, #333399 13px 14px);
+  box-shadow: inset 0 1px 0 #9999ff, inset 0 -1px 0 #333399; }
+::-webkit-scrollbar-thumb:horizontal:active {
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="14" shape-rendering="crispEdges"><rect x="0" y="3" width="1" height="1" fill="%23ccccff"/><rect x="0" y="4" width="1" height="6" fill="%239999ff"/><rect x="1" y="4" width="1" height="7" fill="%23000066"/><rect x="2" y="3" width="1" height="1" fill="%23ccccff"/><rect x="2" y="4" width="1" height="6" fill="%239999ff"/><rect x="3" y="4" width="1" height="7" fill="%23000066"/><rect x="4" y="3" width="1" height="1" fill="%23ccccff"/><rect x="4" y="4" width="1" height="6" fill="%239999ff"/><rect x="5" y="4" width="1" height="7" fill="%23000066"/><rect x="6" y="3" width="1" height="1" fill="%23ccccff"/><rect x="6" y="4" width="1" height="6" fill="%239999ff"/><rect x="7" y="4" width="1" height="7" fill="%23000066"/></svg>') center no-repeat,
+    linear-gradient(to bottom, #9999ff 0 1px, #6666cc 1px 13px, #333399 13px 14px);
+  box-shadow: inset 1px 0 0 #9999ff, inset -1px 0 0 #333399; }
+:not(.scrolled-y)::-webkit-scrollbar-thumb:vertical {
+  border-top-color: #ccccff; box-shadow: inset 0 -1px 0 #6666cc; }
+:not(.scrolled-y)::-webkit-scrollbar-thumb:vertical:active {
+  border-top-color: #9999ff; box-shadow: inset 0 -1px 0 #333399; }
+.at-y-end::-webkit-scrollbar-thumb:vertical {
+  border-bottom-color: #6666cc; box-shadow: inset 0 1px 0 #ccccff; }
+.at-y-end::-webkit-scrollbar-thumb:vertical:active {
+  border-bottom-color: #333399; box-shadow: inset 0 1px 0 #9999ff; }
+:not(.scrolled-x)::-webkit-scrollbar-thumb:horizontal {
+  border-left-color: #ccccff; box-shadow: inset -1px 0 0 #6666cc; }
+:not(.scrolled-x)::-webkit-scrollbar-thumb:horizontal:active {
+  border-left-color: #9999ff; box-shadow: inset -1px 0 0 #333399; }
+.at-x-end::-webkit-scrollbar-thumb:horizontal {
+  border-right-color: #6666cc; box-shadow: inset 1px 0 0 #ccccff; }
+.at-x-end::-webkit-scrollbar-thumb:horizontal:active {
+  border-right-color: #333399; box-shadow: inset 1px 0 0 #9999ff; }
+/* Safari redraws a custom scroll bar only when its element's own style
+   changes, and the classes above change nothing of the element's own: the
+   thumb's end merges stayed stale there and doubled the line against the
+   arrows. Each class sets a property of its own, so WebKit sees a change. */
+.scrolled-y { --sb-scrolled-y: 1; } .at-y-end { --sb-at-y-end: 1; }
+.scrolled-x { --sb-scrolled-x: 1; } .at-x-end { --sb-at-x-end: 1; }
+::-webkit-scrollbar-button { display: block; width: 16px; height: 16px;
+  background: #ddd; border: 1px solid var(--black);
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #bbb;
+  background-position: center; background-repeat: no-repeat; }
+::-webkit-scrollbar-button:vertical { border-right: 0; }
+::-webkit-scrollbar-button:vertical:end:increment:enabled { height: 14px; border-top: 0; border-bottom: 0; }
+::-webkit-scrollbar-button:horizontal { border-bottom: 0; }
+::-webkit-scrollbar-button:horizontal:end:increment:enabled { width: 14px; border-left: 0; border-right: 0; }
+::-webkit-scrollbar-button:vertical:decrement {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M3 0h2v1h-2z M2 1h4v1h-4z M1 2h6v1h-6z M0 3h8v1h-8z"/></svg>'); }
+::-webkit-scrollbar-button:vertical:increment {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M0 0h8v1h-8z M1 1h6v1h-6z M2 2h4v1h-4z M3 3h2v1h-2z"/></svg>'); }
+::-webkit-scrollbar-button:horizontal:decrement {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="4" height="8" shape-rendering="crispEdges"><path fill="black" d="M0 3h1v2h-1z M1 2h1v4h-1z M2 1h1v6h-1z M3 0h1v8h-1z"/></svg>'); }
+::-webkit-scrollbar-button:horizontal:increment {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="4" height="8" shape-rendering="crispEdges"><path fill="black" d="M0 0h1v8h-1z M1 1h1v6h-1z M2 2h1v4h-1z M3 3h1v2h-1z"/></svg>'); }
+::-webkit-scrollbar-button:active { background-color: #777;
+  box-shadow: inset 1px 1px 0 #555, inset -1px -1px 0 #999; }
+::-webkit-scrollbar-button:vertical:start:decrement,
+::-webkit-scrollbar-button:vertical:start:increment,
+::-webkit-scrollbar-button:horizontal:start:decrement,
+::-webkit-scrollbar-button:horizontal:start:increment { display: none; }
+/* Disabled (nothing to scroll), sampled from OS 9: the strip goes flat #eee
+   between the rails, arrows ghost to #888 with no button face or bevel,
+   and a 1px #888 line separates the two arrows. The list sits in this
+   state until it holds more cities than the window shows; a forecast
+   table narrower than its box too. */
+::-webkit-scrollbar-track:disabled { background: #eee; }
+::-webkit-scrollbar-button:disabled { background-color: #eee; box-shadow: none; border: 0; }
+::-webkit-scrollbar-button:vertical:disabled { border-left: 1px solid var(--black); }
+::-webkit-scrollbar-button:horizontal:disabled { border-top: 1px solid var(--black); }
+::-webkit-scrollbar-button:vertical:end:increment:disabled { border-top: 1px solid #888; }
+::-webkit-scrollbar-button:horizontal:end:increment:disabled { border-left: 1px solid #888; }
+/* OS 9 draws a darker #555 line where the disabled arrow pair meets the track */
+::-webkit-scrollbar-button:vertical:end:decrement:disabled { border-top: 1px solid #555; }
+::-webkit-scrollbar-button:horizontal:end:decrement:disabled { border-left: 1px solid #555; }
+::-webkit-scrollbar-button:vertical:decrement:disabled {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="%23888888" d="M3 0h2v1h-2z M2 1h4v1h-4z M1 2h6v1h-6z M0 3h8v1h-8z"/></svg>'); }
+::-webkit-scrollbar-button:vertical:increment:disabled {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="%23888888" d="M0 0h8v1h-8z M1 1h6v1h-6z M2 2h4v1h-4z M3 3h2v1h-2z"/></svg>'); }
+::-webkit-scrollbar-button:horizontal:decrement:disabled {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="4" height="8" shape-rendering="crispEdges"><path fill="%23888888" d="M0 3h1v2h-1z M1 2h1v4h-1z M2 1h1v6h-1z M3 0h1v8h-1z"/></svg>'); }
+::-webkit-scrollbar-button:horizontal:increment:disabled {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="4" height="8" shape-rendering="crispEdges"><path fill="%23888888" d="M0 0h1v8h-1z M1 1h1v6h-1z M2 2h1v4h-1z M3 3h1v2h-1z"/></svg>'); }
+::-webkit-scrollbar-corner { background: var(--g300); }
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <input type="text" id="q" placeholder="Add an IP address or a host name…" autocomplete="off" spellcheck="false" autocapitalize="off">
+  <button class="ghost" id="add">Add</button>
+</div>
+<div id="list"></div>
+<div id="status">
+  <span id="st-left">…</span>
+  <span id="st-right"></span>
+</div>
+<!-- grow box sampled pixel-for-pixel from Mac OS 9 (Infinite Mac) -->
+<svg id="grow" width="15" height="15" viewBox="0 0 15 15" shape-rendering="crispEdges">
+  <rect width="15" height="15" fill="#ccc"/>
+  <path fill="#000" d="M0 0h15v1H0zM0 1h1v14H0z"/>
+  <path fill="#fff" d="M1 1h14v1H1zM1 2h1v13H1z"/>
+  <path fill="#fff" d="M9 4h2v1H9zM8 5h1v1H8zM7 6h1v1H7zM6 7h1v1H6zM5 8h1v1H5zM4 9h1v1H4zM11 6h2v1h-2zM10 7h1v1h-1zM9 8h1v1H9zM8 9h1v1H8zM7 10h1v1H7zM6 11h1v1H6zM13 8h2v1h-2zM12 9h1v1h-1zM11 10h1v1h-1zM10 11h1v1h-1zM9 12h1v1H9zM8 13h1v1H8z"/>
+  <path fill="#777" d="M10 5h1v1h-1zM9 6h1v1H9zM8 7h1v1H8zM7 8h1v1H7zM6 9h1v1H6zM5 10h1v1H5zM12 7h1v1h-1zM11 8h1v1h-1zM10 9h1v1h-1zM9 10h1v1H9zM8 11h1v1H8zM7 12h1v1H7zM14 9h1v1h-1zM13 10h1v1h-1zM12 11h1v1h-1zM11 12h1v1h-1zM10 13h1v1h-1zM9 14h1v1H9z"/>
+  <path fill="#aaa" d="M4 10h1v1H4zM6 12h1v1H6zM8 14h1v1H8z"/>
+</svg>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v);
+  }
+  for (const kid of kids) n.append(kid);
+  return n;
+}
+
+// The measuring is the daemon's (internal/ping in exe): twenty pings to
+// every destination each five minutes, kept in RRD files and drawn by
+// rrdtool graph the way SmokePing draws them. This window lists them,
+// adds and removes them, and shows the pictures.
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+const MOBILE = new URLSearchParams(location.search).has("mobile");
+const OPEN_KEY = "exe-ping:open"; // which destinations this viewer has open
+const POLL_MS = 15000;
+const DETAIL_H = 300, OVERVIEW_H = 120;
+
+async function api(url, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers);
+  if (TOKEN) opts.headers["Authorization"] = "Bearer " + TOKEN;
+  if (opts.body) opts.headers["Content-Type"] = "application/json";
+  return fetch(url, Object.assign({ cache: "no-store" }, opts));
+}
+// the daemon's error, as a sentence for the status line
+async function said(r) {
+  let e = "";
+  try { e = (await r.json()).error || ""; } catch (err) {}
+  if (!e) return "exe answered " + r.status + ".";
+  return e[0].toUpperCase() + e.slice(1) + (/[.!?]$/.test(e) ? "" : ".");
+}
+
+let st = null;        // the last GET /v1/ping
+let paused = false;
+let pollT = 0;
+let note = "", noteT = 0; // a moment's word in the status line
+const openIds = new Set((() => { try { return JSON.parse(localStorage.getItem(OPEN_KEY)) || []; } catch (e) { return []; } })());
+function keepOpen() { try { localStorage.setItem(OPEN_KEY, JSON.stringify([...openIds])); } catch (e) {} }
+// a detail graph dragged to a span of its own, by destination and range
+const spans = {};
+
+// SmokePing's colours for what a round lost, out of twenty
+const LOSS = [[0, "#26ff00"], [1, "#00b8ff"], [2, "#0059ff"], [3, "#7e00ff"], [5, "#ff00ff"], [10, "#ff5500"], [19, "#ff0000"], [20, "#a00000"]];
+function lossColor(n) { for (const [upTo, c] of LOSS) if (n <= upTo) return c; return "#a00000"; }
+
+function ms(sec) {
+  const v = sec * 1000;
+  return (v < 1 ? v.toFixed(2) : v < 100 ? v.toFixed(1) : Math.round(v)) + " ms";
+}
+function clock(unix) {
+  return new Date(unix * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+function day(unix) {
+  return new Date(unix * 1000).toLocaleDateString([], { month: "short", day: "numeric" });
+}
+// a span dragged out, said once for one day: "Oct 28, 3:49 – 4:34 AM"
+function spanText(a, b) {
+  return day(a) === day(b) ? day(a) + ", " + clock(a) + " – " + clock(b)
+    : day(a) + ", " + clock(a) + " – " + day(b) + ", " + clock(b);
+}
+function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+
+// ---- the list ----
+const list = $("#list");
+let shown = ""; // the ids the list was built for, in order
+
+function ready() { return st && st.rrdtool && st.probe; }
+
+function render() {
+  const ids = st ? st.targets.map(t => t.id).join(" ") : "";
+  const tools = st ? (st.rrdtool ? "" : "r") + (st.probe ? "" : "p") : "";
+  if (ids + "|" + tools === shown) { st.targets.forEach(fill); return; }
+  shown = ids + "|" + tools;
+  for (const img of list.querySelectorAll("img")) URL.revokeObjectURL(img.src);
+  list.replaceChildren();
+  if (!st) return;
+  if (!st.rrdtool) list.append(el("div", { class: "notice" },
+    el("b", {}, "RRDtool is not installed on this computer."),
+    "Ping keeps what it measures in RRDtool's files and draws it with RRDtool, so it waits until RRDtool is here. Install it and Ping starts by itself: ",
+    el("code", {}, "sudo apt install rrdtool"), " on Debian and Ubuntu, ",
+    el("code", {}, "brew install rrdtool"), " on a Mac."));
+  if (!st.probe) list.append(el("div", { class: "notice" },
+    el("b", {}, "This computer has neither fping nor ping."),
+    "Ping sends its echo requests with fping, as SmokePing does: ",
+    el("code", {}, "sudo apt install fping"), " or ", el("code", {}, "brew install fping"), "."));
+  if (!st.targets.length) list.append(el("div", { class: "empty" },
+    "No destinations — add an IP address or a host name above. Every five minutes Ping sends it twenty pings and draws what comes back."));
+  for (const t of st.targets) list.append(item(t));
+  st.targets.forEach(fill);
+}
+
+function item(t) {
+  const x = el("button", { class: "ghost sm danger x", title: "Remove " + t.title }, "×");
+  x.onclick = e => {
+    e.stopPropagation();
+    if (!x.classList.contains("armed")) { // the desktop's two-click armed ×
+      x.classList.add("armed");
+      setTimeout(() => x.classList.remove("armed"), 3000);
+      return;
+    }
+    remove(t.id);
+  };
+  const row = el("div", { class: "row" },
+    el("span", { class: "tri" }),
+    el("span", { class: "lamp" }),
+    el("div", { class: "who" }, el("div", { class: "name" }), el("div", { class: "sub" })),
+    el("div", { class: "when" }, el("div", { class: "rtt" }), el("div", { class: "loss" })),
+    x);
+  const box = el("div", { class: "item" + (openIds.has(t.id) ? " open" : ""), "data-id": t.id }, row,
+    el("div", { class: "ov graphs" }, graph(t.id, "overview")),
+    detail(t));
+  row.addEventListener("click", () => {
+    box.classList.toggle("open");
+    if (box.classList.contains("open")) openIds.add(t.id); else openIds.delete(t.id);
+    keepOpen();
+    drawItem(box);
+  });
+  return box;
+}
+
+function detail(t) {
+  const name = el("input", { type: "text", value: t.title, spellcheck: "false", "aria-label": "Name" });
+  const host = el("input", { type: "text", value: t.host, spellcheck: "false", autocapitalize: "off", "aria-label": "Address" });
+  const kv = el("div", { class: "kv" }, el("label", {}, "Name"), name, el("label", {}, "Address"), host);
+  for (const [f, key] of [[name, "title"], [host, "host"]]) {
+    f.addEventListener("keydown", e => {
+      if (e.key === "Enter") f.blur();
+      else if (e.key === "Escape") { f.value = f.defaultValue; f.blur(); }
+    });
+    f.addEventListener("change", () => edit(t.id, key, f));
+  }
+  const d = el("div", { class: "detail" }, kv);
+  const g = el("div", { class: "graphs" });
+  for (const r of (st.ranges || [])) g.append(el("div", { class: "gh" }, el("span", { class: "t" })), graph(t.id, r.seconds));
+  d.append(g);
+  return d;
+}
+
+// a graph's box: its picture, a word while there is none, and the drag
+// that opens a span of its own
+function graph(id, range) {
+  const box = el("div", { class: "gbox", "data-id": id, "data-range": String(range) });
+  box.append(el("div", { class: "msg" }));
+  return el("div", { class: "gscroll" }, box);
+}
+
+function fill(t) {
+  const box = list.querySelector(`.item[data-id="${t.id}"]`);
+  if (!box) return;
+  const l = t.last;
+  box.querySelector(".lamp").style.background = l ? lossColor(l.loss) : "#fff";
+  box.querySelector(".name").textContent = t.title;
+  box.querySelector(".x").title = "Remove " + t.title;
+  const sub = box.querySelector(".sub");
+  sub.replaceChildren(t.host);
+  if (l && l.note) sub.append(" · ", el("span", { class: "bad" }, l.note === "unknown host" ? "No such host" : l.note));
+  box.querySelector(".rtt").textContent = l && l.median != null ? ms(l.median) : "—";
+  box.querySelector(".loss").textContent = !l ? (ready() ? "Measuring…" : " ")
+    : l.loss === 0 ? "No loss" : l.loss >= st.pings ? "All " + st.pings + " lost" : l.loss + " of " + st.pings + " lost";
+  const [name, host] = box.querySelectorAll(".kv input");
+  if (document.activeElement !== name) name.value = name.defaultValue = t.title;
+  if (document.activeElement !== host) host.value = host.defaultValue = t.host;
+  for (const gh of box.querySelectorAll(".gh")) heading(gh, t.id);
+}
+
+function heading(gh, id) {
+  const range = gh.nextElementSibling.querySelector(".gbox").dataset.range;
+  const r = st.ranges.find(r => String(r.seconds) === range);
+  const span = spans[id + "/" + range];
+  const t = gh.querySelector(".t");
+  let back = gh.querySelector("button");
+  if (!span) {
+    t.textContent = r.title;
+    if (back) back.remove();
+    return;
+  }
+  t.textContent = spanText(span.start, span.end);
+  if (!back) {
+    back = el("button", { class: "ghost sm" }, "Back");
+    back.onclick = () => {
+      delete spans[id + "/" + range];
+      heading(gh, id);
+      draw(gh.nextElementSibling.querySelector(".gbox"), true);
+    };
+    gh.append(back);
+  }
+}
+
+// ---- the pictures ----
+function width(zoom) {
+  // the list's inner width less the graphs' padding; rrdtool's narrowest
+  // under that, and the box scrolls sideways. At a fractional ratio it is
+  // a width of whole device pixels (an even one at 1.5), or the picture
+  // is stretched a part of a pixel and blurs.
+  let w = Math.max(st.min_width || 560, list.clientWidth - 16);
+  while (Math.abs(w * zoom - Math.round(w * zoom)) > 0.001 && w > 1) w--;
+  return w;
+}
+
+function drawAll(force) { for (const box of list.querySelectorAll(".item")) drawItem(box, force); }
+function drawItem(item, force) {
+  const sel = item.classList.contains("open") ? ".detail .gbox" : ".ov .gbox";
+  for (const g of item.querySelectorAll(sel)) draw(g, force);
+}
+
+async function draw(g, force) {
+  if (!st || paused) return;
+  const id = g.dataset.id, t = st.targets.find(t => t.id === id);
+  if (!t) return;
+  const overview = g.dataset.range === "overview";
+  const zoom = Math.min(4, Math.max(1, window.devicePixelRatio || 1));
+  const w = width(zoom), h = overview ? OVERVIEW_H : DETAIL_H;
+  const span = spans[id + "/" + g.dataset.range];
+  const round = t.last ? t.last.t : 0;
+  const want = [w, h, zoom, round, span ? span.start + "-" + span.end : ""].join(" ");
+  // drawn already, or on its way
+  if (!force && g.want === want) return;
+  g.style.width = w + "px";
+  g.style.height = h + "px";
+  const msg = g.querySelector(".msg");
+  if (!ready()) { msg.textContent = ""; return; }
+  if (!t.last) { msg.textContent = "Measuring — the first twenty pings take about twenty seconds."; return; }
+  g.want = want;
+  const q = new URLSearchParams({ width: w, height: h, zoom });
+  if (overview) { q.set("overview", "1"); q.set("range", st.overview); }
+  else if (span) { q.set("start", span.start); q.set("end", span.end); }
+  else q.set("range", g.dataset.range);
+  const ask = (g.ask || 0) + 1;
+  g.ask = ask;
+  let r;
+  try { r = await api("/v1/ping/targets/" + encodeURIComponent(id) + "/graph?" + q); }
+  catch (e) {
+    if (g.ask === ask) { g.want = ""; if (!g.querySelector("img")) msg.textContent = "exe did not answer."; }
+    return;
+  }
+  if (g.ask !== ask) return;
+  if (!r.ok) {
+    g.want = ""; // asked again at the next poll
+    if (!g.querySelector("img")) msg.textContent = r.status === 404 ? "No measurements yet." : await said(r);
+    return;
+  }
+  const blob = await r.blob();
+  if (g.ask !== ask) return;
+  const p = (r.headers.get("X-Ping-Plot") || "").split(" ").map(Number);
+  g.plot = p.length === 6 ? { left: p[0], top: p[1], width: p[2], height: p[3], start: p[4], end: p[5] } : null;
+  let img = g.querySelector("img");
+  if (!img) { img = el("img", { alt: "" }); img.draggable = false; g.prepend(img); }
+  const old = img.src;
+  img.onload = () => { if (old) URL.revokeObjectURL(old); };
+  img.src = URL.createObjectURL(blob);
+  img.style.width = w + "px";
+  img.style.height = h + "px";
+  msg.textContent = "";
+  g.classList.toggle("zoomable", !overview && !!g.plot);
+}
+
+// SmokePing's navigator: drag across a detail graph's plotting area, and
+// that graph shows the span dragged over until Back
+list.addEventListener("pointerdown", e => {
+  const g = e.target.closest(".gbox.zoomable");
+  if (!g || e.button !== 0 || !g.plot) return;
+  const p = g.plot, rect = g.getBoundingClientRect();
+  const x0 = e.clientX - rect.left, y0 = e.clientY - rect.top;
+  if (x0 < p.left || x0 > p.left + p.width || y0 < p.top || y0 > p.top + p.height) return;
+  e.preventDefault();
+  g.setPointerCapture(e.pointerId);
+  const sel = el("div", { class: "sel" });
+  sel.style.top = p.top + "px";
+  sel.style.height = p.height + "px";
+  let x1 = x0;
+  const place = () => {
+    sel.style.left = Math.min(x0, x1) + "px";
+    sel.style.width = Math.abs(x1 - x0) + 1 + "px";
+  };
+  place();
+  g.append(sel);
+  const move = ev => { x1 = Math.min(p.left + p.width, Math.max(p.left, ev.clientX - rect.left)); place(); };
+  const up = () => {
+    g.removeEventListener("pointermove", move);
+    g.removeEventListener("pointerup", up);
+    g.removeEventListener("pointercancel", up);
+    sel.remove();
+    if (Math.abs(x1 - x0) < 4) return; // a click, not a drag
+    const at = x => Math.round(p.start + (x - p.left) / p.width * (p.end - p.start));
+    const key = g.dataset.id + "/" + g.dataset.range;
+    spans[key] = { start: at(Math.min(x0, x1)), end: at(Math.max(x0, x1)) };
+    heading(g.parentElement.previousElementSibling, g.dataset.id);
+    draw(g, true);
+  };
+  g.addEventListener("pointermove", move);
+  g.addEventListener("pointerup", up);
+  g.addEventListener("pointercancel", up);
+});
+
+// ---- changes ----
+function say(text) {
+  note = text;
+  clearTimeout(noteT);
+  noteT = setTimeout(() => { note = ""; status(); }, 5000);
+  status();
+}
+
+async function add() {
+  const q = $("#q"), host = q.value.trim();
+  if (!host) return;
+  $("#add").disabled = true;
+  try {
+    const r = await api("/v1/ping/targets", { method: "POST", body: JSON.stringify({ host }) });
+    if (!r.ok) { say(await said(r)); return; }
+    q.value = "";
+    await poll();
+    const t = await r.json();
+    const box = list.querySelector(`.item[data-id="${t.id}"]`);
+    if (box) box.scrollIntoView({ block: "nearest" });
+  } catch (e) {
+    say("exe did not answer.");
+  } finally {
+    $("#add").disabled = false;
+  }
+}
+
+async function edit(id, key, f) {
+  const v = f.value.trim();
+  if (v === f.defaultValue) { f.value = f.defaultValue; return; }
+  try {
+    const r = await api("/v1/ping/targets/" + encodeURIComponent(id), { method: "PUT", body: JSON.stringify({ [key]: v }) });
+    if (!r.ok) { say(await said(r)); f.value = f.defaultValue; return; }
+    await poll();
+  } catch (e) {
+    say("exe did not answer.");
+    f.value = f.defaultValue;
+  }
+}
+
+async function remove(id) {
+  try {
+    const r = await api("/v1/ping/targets/" + encodeURIComponent(id), { method: "DELETE" });
+    if (!r.ok && r.status !== 404) { say(await said(r)); return; }
+    openIds.delete(id);
+    keepOpen();
+    await poll();
+  } catch (e) {
+    say("exe did not answer.");
+  }
+}
+
+$("#add").onclick = add;
+$("#q").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); add(); }
+  else if (e.key === "Escape") e.target.value = "";
+});
+
+// ---- the status line ----
+function status() {
+  const left = $("#st-left"), right = $("#st-right");
+  if (note) { left.textContent = note; right.textContent = ""; return; }
+  if (!st) { left.textContent = "…"; right.textContent = ""; return; }
+  if (!st.rrdtool) left.textContent = "Waiting for RRDtool";
+  else if (!st.probe) left.textContent = "Waiting for fping";
+  else left.textContent = plural(st.targets.length, "destination", "destinations") + " · " +
+    st.pings + " pings every " + Math.round(st.step / 60) + " minutes" + (st.from ? " from " + st.from : "");
+  right.textContent = !ready() || !st.targets.length ? "" : st.busy ? "Measuring…" : "Next round at " + clock(st.next);
+}
+
+// ---- keeping up ----
+async function poll() {
+  clearTimeout(pollT);
+  try {
+    const r = await api("/v1/ping");
+    if (r.ok) {
+      st = await r.json();
+      for (const k of Object.keys(spans)) if (!st.targets.some(t => k.startsWith(t.id + "/"))) delete spans[k];
+      render();
+      drawAll();
+    }
+  } catch (e) {}
+  status();
+  // a round under way is asked after more often, to show it the moment it is in
+  if (!paused) pollT = setTimeout(poll, st && st.busy ? 3000 : POLL_MS);
+}
+
+// a new width draws every picture again, once the window stops changing
+let sizeT = 0, lastW = 0;
+new ResizeObserver(() => {
+  if (list.clientWidth === lastW) return;
+  lastW = list.clientWidth;
+  clearTimeout(sizeT);
+  sizeT = setTimeout(() => { if (st) drawAll(); }, 250);
+}).observe(list);
+
+// ---- desktop window plumbing (same bridge as the other apps) ----
+window.addEventListener("pointerdown", () => {
+  if (window.parent !== window) parent.postMessage({ exe: "focus" }, location.origin);
+}, { capture: true, passive: true });
+
+// no grow box on its own page, nor on a phone, where the window fills the
+// screen and the desktop hides its own grow boxes
+const grow = $("#grow");
+if (window.parent === window || MOBILE) grow.style.display = "none";
+if (MOBILE) $("#status").style.paddingRight = "8px";
+grow.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  grow.setPointerCapture(e.pointerId);
+  const sx = e.clientX, sy = e.clientY;
+  const move = ev =>
+    parent.postMessage({ exe: "grow", dx: ev.clientX - sx, dy: ev.clientY - sy }, location.origin);
+  const up = () => {
+    grow.removeEventListener("pointermove", move);
+    grow.removeEventListener("pointerup", up);
+    parent.postMessage({ exe: "grow-end" }, location.origin);
+  };
+  grow.addEventListener("pointermove", move);
+  grow.addEventListener("pointerup", up);
+  parent.postMessage({ exe: "grow-start" }, location.origin);
+});
+
+// OS 9 scrollbar end-merges need the same scrolled/at-end flags as the desktop
+document.addEventListener("scroll", e => {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  t.classList.toggle("scrolled-y", t.scrollTop >= 1);
+  t.classList.toggle("at-y-end", t.scrollTop >= 1 && t.scrollTop >= t.scrollHeight - t.clientHeight - 1);
+  t.classList.toggle("scrolled-x", t.scrollLeft >= 1);
+  t.classList.toggle("at-x-end", t.scrollLeft >= 1 && t.scrollLeft >= t.scrollWidth - t.clientWidth - 1);
+}, { capture: true, passive: true });
+
+// a closed window asks nothing; reopened, it catches up at once
+window.addEventListener("message", e => {
+  if (e.origin !== location.origin || !e.data || typeof e.data.exe !== "string") return;
+  if (e.data.exe === "hide") {
+    paused = true;
+    clearTimeout(pollT);
+  } else if (e.data.exe === "show") {
+    paused = false;
+    poll();
+  }
+});
+
+poll();
+</script>
+</body>
+</html>

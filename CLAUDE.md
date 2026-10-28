@@ -461,3 +461,22 @@ days.
   scroll sideways with no scrollbar (`scrollbar-width: none`), which is
   how they fit a phone; a phone (`?mobile=1`, body.mobile) also hides the
   grow tile.
+
+- **Ping** — SmokePing in a window, with its measuring in the exe daemon
+  (`/www/exe/internal/ping`, routes in `internal/server/ping.go`): the only
+  app here with a daemon side of its own, so a change to what it is told
+  is a change to exe, and `docs.md` there ("Ping for an agent") lists the
+  calls. The list of addresses is the daemon's (`~/.exe/ping/targets.json`,
+  beside one `<id>.rrd` each), not app data: it does not sync, since each
+  node pings from where it stands. Every picture is `rrdtool graph` asked
+  for at the box's exact CSS size with `zoom` = devicePixelRatio, so it is
+  sharp at 1, 1.5 and 2; the box has that size before the picture comes
+  (no jump), and under the daemon's `min_width` (560, where SmokePing's
+  legend stops fitting) it scrolls sideways. `X-Ping-Plot` on a graph says
+  where its plotting area is and the times at its edges; the drag-to-zoom
+  (SmokePing's navigator) maps the pointer through it and asks for
+  `start`/`end`. The window polls `GET /v1/ping` every 15 s (3 s while a
+  round is out) and redraws a destination's graphs when its last round
+  changes or the window's width does. Test: `node
+  ~/tools/playwright/exe-ping-test.js http://127.0.0.1:7797` on a scratch
+  daemon (it adds and removes an address).
