@@ -67,7 +67,8 @@ button.ghost.sm { padding: 1px 8px; font-size: 10px; border-radius: 3px; height:
 .notice code { font: 11px/16px Monaco, "SF Mono", Menlo, monospace; user-select: text; }
 
 /* A graph is rrdtool's picture at the size asked, so its box has that size
-   before the picture comes; under rrdtool's narrowest the box scrolls. */
+   before the picture comes. It is as wide as the window, a phone's too;
+   only under the daemon's narrowest (300) does the box scroll. */
 .graphs { padding: 0 8px 8px; }
 .gscroll { overflow-x: auto; overflow-y: hidden; }
 .gbox { position: relative; overflow: hidden; touch-action: pan-x pan-y; }
@@ -243,7 +244,10 @@ const TOKEN = new URLSearchParams(location.search).get("token") || "";
 const MOBILE = new URLSearchParams(location.search).has("mobile");
 const OPEN_KEY = "exe-ping:open"; // which destinations this viewer has open
 const POLL_MS = 15000;
+// a graph's height: with SmokePing's legend, and under the daemon's
+// wide_width, where its figures go two to a line and take more lines
 const DETAIL_H = 300, OVERVIEW_H = 120;
+const NARROW_DETAIL_H = 380, NARROW_OVERVIEW_H = 150;
 
 async function api(url, opts = {}) {
   opts.headers = Object.assign({}, opts.headers);
@@ -417,10 +421,10 @@ function heading(gh, id) {
 
 // ---- the pictures ----
 function width(zoom) {
-  // the list's inner width less the graphs' padding; rrdtool's narrowest
-  // under that, and the box scrolls sideways. At a fractional ratio it is
-  // a width of whole device pixels (an even one at 1.5), or the picture
-  // is stretched a part of a pixel and blurs.
+  // the list's inner width less the graphs' padding, and not under the
+  // daemon's narrowest. At a fractional ratio it is a width of whole device
+  // pixels (an even one at 1.5), or the picture stretches part of a pixel
+  // and blurs.
   let w = Math.max(st.min_width || 560, list.clientWidth - 16);
   while (Math.abs(w * zoom - Math.round(w * zoom)) > 0.001 && w > 1) w--;
   return w;
@@ -438,7 +442,8 @@ async function draw(g, force) {
   if (!t) return;
   const overview = g.dataset.range === "overview";
   const zoom = Math.min(4, Math.max(1, window.devicePixelRatio || 1));
-  const w = width(zoom), h = overview ? OVERVIEW_H : DETAIL_H;
+  const w = width(zoom), narrow = w < (st.wide_width || 0);
+  const h = overview ? (narrow ? NARROW_OVERVIEW_H : OVERVIEW_H) : (narrow ? NARROW_DETAIL_H : DETAIL_H);
   const span = spans[id + "/" + g.dataset.range];
   const round = t.last ? t.last.t : 0;
   const want = [w, h, zoom, round, span ? span.start + "-" + span.end : ""].join(" ");

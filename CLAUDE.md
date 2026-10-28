@@ -471,8 +471,11 @@ days.
   node pings from where it stands. Every picture is `rrdtool graph` asked
   for at the box's exact CSS size with `zoom` = devicePixelRatio, so it is
   sharp at 1, 1.5 and 2; the box has that size before the picture comes
-  (no jump), and under the daemon's `min_width` (560, where SmokePing's
-  legend stops fitting) it scrolls sideways. `X-Ping-Plot` on a graph says
+  (no jump). The box is the window's width, a phone's too: under the
+  daemon's `wide_width` (680, where SmokePing's legend stops fitting) the
+  daemon draws its figures two to a line a size smaller and the window asks
+  for taller pictures (380 and 150, not 300 and 120); only under
+  `min_width` (300) does a box scroll sideways. `X-Ping-Plot` on a graph says
   where its plotting area is and the times at its edges; the drag-to-zoom
   (SmokePing's navigator) maps the pointer through it and asks for
   `start`/`end`. The window polls `GET /v1/ping` every 15 s (3 s while a
