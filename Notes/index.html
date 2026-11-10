@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Notes</title>
+<link rel="stylesheet" href="/platinum/combo.css">
 <style>
 /* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
 :root {
@@ -39,8 +40,8 @@ button.ghost { background: var(--g300); color: var(--black);
   flex: none; white-space: nowrap;
   box-shadow: inset 1px 1px 0 var(--g300), inset -1px -1px 0 #777,
     inset 2px 2px 0 #fff, inset -2px -2px 0 #aaa; }
-/* .open: the Corkboard button wears the pressed look while the board is
-   up, as the Hub app's buttons do while their layer is */
+/* .open: Send wears the pressed look while its menu is up, as the Hub
+   app's buttons do while their layer is */
 button.ghost:active, button.ghost.open { background: #666; color: #fff;
   box-shadow: inset 1px 1px 0 #444, inset -1px -1px 0 #888,
     inset 2px 2px 0 #555, inset -2px -2px 0 #777; }
@@ -70,6 +71,11 @@ body.on-board #size, body.on-board #face, body.on-board #del { display: none; }
    (fitBar): the faces show as a sample "Aa" each in itself; then Corkboard
    shrinks to its pushpin; then every button's sides and the gaps come in;
    and in a window too narrow even so, Delete and New Note are glyphs */
+/* Corkboard is a combo button (/platinum/combo.css, the shared block):
+   its body puts the board up and down, pressed in (.open) while the board
+   is up, and names the board that is up; its arrow part has the boards'
+   menu. The name takes whole pixels (set by the script), 132px at most. */
+#boardBtn .lbl { display: inline-block; vertical-align: top; max-width: 132px; overflow: hidden; text-overflow: ellipsis; }
 #face .s, #boardBtn .pin { display: none; }
 #face .s { font-weight: normal; font-size: 14px; line-height: 14px; }
 #face [data-face="sans"] .s { font-family: var(--page); }
@@ -82,6 +88,11 @@ body.on-board #size, body.on-board #face, body.on-board #del { display: none; }
 #bar.t2 #boardBtn .pin { display: inline-block; position: static; margin: 0; vertical-align: top; }
 #bar.t3 { gap: 4px; padding-left: 8px; padding-right: 8px; }
 #bar.t3 button.ghost { padding-left: 4px; padding-right: 4px; }
+#bar.t3 #boardBtn { padding-left: 6px; padding-right: 5px; }
+/* the last step makes room for the arrow part too: the pushpin close in
+   its body, the gaps and the bar's own sides a little in */
+#bar.t4 { gap: 3px; padding-left: 6px; padding-right: 6px; }
+#bar.t4 #boardBtn { padding-left: 3px; padding-right: 2px; }
 /* a glyph on a button, in the button's own ink: 12px of pixel art, a
    smooth copy of the same shapes between 1x and 2x. Send — a tray with
    an arrow leaving it — is only ever its glyph, and opens a menu: Send to
@@ -110,6 +121,33 @@ body:not(.on-board) #bar.t4 #del, #bar.t4 #new { display: inline-flex; align-ite
 .dd-item.dis { color: #888; }
 .dd-item.dis:hover { background: none; color: #888; }
 body.mobile .dd-item { padding: 7px 22px 7px 18px; }
+/* the boards' menu and a sheet's: a groove between groups, the check mark
+   of the board that is up 5px in, a long name cut short */
+.dd-sep { height: 2px; margin: 3px 2px; border-top: 1px solid var(--g600); border-bottom: 1px solid #fff; }
+.dd-item { position: relative; }
+.dd-item .nm { display: block; max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+.dd-item .ck { position: absolute; left: 5px; top: 50%; margin-top: -4px; width: 10px; height: 8px; fill: currentColor;
+  shape-rendering: crispEdges; }
+@media (min-resolution: 1.01dppx) and (max-resolution: 1.99dppx) { .dd-item .ck { shape-rendering: geometricPrecision; } }
+/* the sheet whose menu is up stays dark, as a Finder icon does */
+.card.menu { filter: brightness(.82); }
+/* a dialog: New Board, Rename Board, and the question before a board or a
+   note goes. The window's own modal box, laid out by the dialog rules:
+   12px inside its edges, a sunken 20px field, the buttons 58px wide and
+   12px apart at the lower right, the Return default in its ring. Nothing
+   under it takes a press while it is up. */
+#veil { position: fixed; inset: 0; z-index: 40; display: flex; align-items: flex-start; justify-content: center;
+  padding: 56px 12px 12px; }
+.dlg { width: 100%; max-width: 292px; background: var(--g300); border: 1px solid var(--black); padding: 12px;
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 var(--g600), 2px 2px 0 var(--black); }
+.dlg p { margin: 0; line-height: 16px; overflow-wrap: anywhere; }
+.dlg input { display: block; width: calc(100% - 2px); height: 20px; margin: 9px 1px 1px; padding: 2px 5px; background: #fff;
+  color: #000; border: 1px solid var(--black); border-radius: 0; font: 12px/14px var(--font); user-select: text;
+  box-shadow: -1px -1px 0 #999, 1px 1px 0 #fff; }
+.dlg input:focus { outline: 2px solid #9999fe; outline-offset: 0; }
+.dlg .row { display: flex; justify-content: flex-end; gap: 12px; margin-top: 14px; }
+.dlg .row button { width: 58px; padding-left: 0; padding-right: 0; }
+button.ghost.def { outline: 2px solid var(--black); outline-offset: 1px; border-radius: 4px; }
 
 
 /* two views in one place under the toolbar's line: the pad (one note) and
@@ -356,7 +394,7 @@ body.mobile #status { padding-right: 8px; }
 <body>
 
 <div id="bar">
-  <button class="ghost" id="boardBtn" title="Corkboard" disabled><i class="pin red"></i><span class="lbl">Corkboard</span></button>
+  <span class="combo dis" id="boardCombo"><button class="cb-body" id="boardBtn" title="Corkboard" disabled><i class="pin red"></i><span class="lbl">Corkboard</span></button><button class="cb-arrow" id="boardMenuBtn" title="Boards" aria-label="Boards" aria-haspopup="menu" aria-expanded="false" disabled></button></span>
   <span class="seg" id="size"><button class="ghost" id="smaller" title="Smaller text">&minus;</button><button class="ghost" id="bigger" title="Larger text">+</button></span>
   <span class="seg" id="face"><button class="ghost" data-face="sans" title="Sans Serif"><span class="w">Sans Serif</span><span class="s">Aa</span></button><button class="ghost" data-face="serif" title="Serif"><span class="w">Serif</span><span class="s">Aa</span></button><button class="ghost" data-face="mono" title="Mono"><span class="w">Mono</span><span class="s">Aa</span></button></span>
   <span id="bar-gap"></span>
@@ -484,6 +522,7 @@ function back() {
   say();
   if (loaded) { setControls(); reloadFromDisk(); }
   loadType();
+  loadBoards();
   askAgents();
 }
 // how old the copy is, where the date goes on the pad and on the board's line
@@ -549,6 +588,7 @@ let draft = null;
 let told = new Map();
 const toldBy = notes => new Map([...notes].map(n => [String(n.id), { u: +n.updated || 0, p: +n.placed || 0 }]));
 const ed = $("#ed"), num = $("#num"), msg = $("#msg"), stMsg = $("#st-msg");
+const boardCombo = $("#boardCombo"), boardMenuBtn = $("#boardMenuBtn");
 const delBtn = $("#del"), newBtn = $("#new"), boardBtn = $("#boardBtn"), tintsBox = $("#tints"), stickBtn = $("#stick");
 const cork = $("#cork"), cards = $("#cards"), stCount = $("#st-count");
 // which view is up — the pad (one note) or the corkboard (all of them) — is
@@ -557,16 +597,47 @@ const VIEW_KEY = "exe-notes-view:" + APP;
 let view = "pad";
 
 const live = () => doc.notes.filter(n => !n.deleted);
-// The pad's pages: newest note on top, in the order the notes were made, so
-// a page keeps its place while it is written on.
+
+// ---- boards ----
+// A viewer can make more corkboards than the first. A note hangs on one
+// board: it keeps the board's id as `board`, and a note with none, or
+// with the id of a board that is gone, hangs on the first, Corkboard,
+// which has no record and cannot be renamed or deleted. The boards are a
+// file of their own, boards.json {version: 1, items: [{id, name, created,
+// updated, deleted?}]}, under the storage contract with its own save
+// gate, so a window on an older Notes never writes it and the notes'
+// saves never carry it; the daemon merges it board by board
+// (internal/peer/merge.go). Which board is up is per viewer, like the
+// open page: the pad's pages are that board's notes, and New Note pins
+// its sheet there.
+const BOARDS_URL = "/v1/apps/" + encodeURIComponent(APP) + "/data/boards.json";
+const BOARD_KEY = "exe-notes-board:" + APP;
+const FIRST = "Corkboard";
+let boards = [];            // every board's record, tombstones too
+let boardsFile = {};        // the file as read: what this Notes does not know goes back as it came
+let boardsLoaded = false;   // no save before the file was read
+let boardsTold = new Map(); // id -> updated, as the daemon last gave it
+let board = "";             // the board that is up; "" is the first
+try { if (!STICKY) board = localStorage.getItem(BOARD_KEY) || ""; } catch (e) {}
+const liveBoards = () => boards.filter(b => !b.deleted).sort((a, b) => a.created - b.created || (a.id < b.id ? -1 : 1));
+const boardOf = n => (n && n.board && boards.some(b => b.id === n.board && !b.deleted)) ? n.board : "";
+const boardName = id => { const b = boards.find(b => b.id === id && !b.deleted); return b ? b.name : FIRST; };
+function keepBoard(id) {
+  board = id;
+  try { if (id) localStorage.setItem(BOARD_KEY, id); else localStorage.removeItem(BOARD_KEY); } catch (e) {}
+}
+// The pad's pages: the notes of the board that is up, newest on top, in
+// the order the notes were made, so a page keeps its place while it is
+// written on.
 function pages() {
-  const p = live().sort((a, b) => b.created - a.created || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
+  const p = live().filter(n => boardOf(n) === board).sort((a, b) => b.created - a.created || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
   if (draft) p.unshift(draft);
   return p;
 }
 const cur = () => (draft && draft.id === sel) ? draft : doc.notes.find(n => n.id === sel && !n.deleted);
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-const blank = () => ({ id: newId(), text: "", created: Date.now(), updated: Date.now() });
+// a blank sheet is for the board that is up
+const blank = () => Object.assign({ id: newId(), text: "", created: Date.now(), updated: Date.now() }, board ? { board } : {});
 
 // a note's title is its first line with words; a sheet shows as much of it
 // as fits in its lines, so it takes the whole line
@@ -711,7 +782,8 @@ function render() {
   const i = p.findIndex(n => n.id === sel);
   num.textContent = i >= 0 ? String(i + 1) : "";
   const n = cur(), onBoard = view === "board";
-  boardBtn.disabled = !loaded;
+  boardBtn.disabled = boardMenuBtn.disabled = !loaded;
+  boardCombo.classList.toggle("dis", !loaded);
   delBtn.disabled = !loaded || onBoard || !n || n === draft || !!offline;
   newBtn.disabled = !loaded || (!onBoard && !!n && n === draft) || !!offline;
   stickBtn.disabled = !loaded || onBoard || !n || n === draft || !!offline;
@@ -861,7 +933,7 @@ function fitBar() {
     bar.classList.add(step);
   }
 }
-new ResizeObserver(() => fitBar()).observe(bar);
+new ResizeObserver(() => { if (boardBtn.querySelector(".lbl").style.width) fitBar(); else nameBoard(); }).observe(bar);
 
 // ---- Send to Claude Code, Send to Codex ----
 // The open note as the first message of a new session of the agent's, in
@@ -919,45 +991,83 @@ function askAgents() {
     asking = null;
   })();
 }
-let menuEl = null, sendSkip = false;
+// One menu at a time, the desktop's contextual block: Send's, the boards'
+// and a sheet's. `items` are {name, pick} — with `check` for its mark,
+// `why` for one that is dimmed and says so — and "-" for a groove. It
+// stands at `at` ({left, top}, and `min` for its least width), kept inside
+// the window; `btn`, the button it hangs from, is pressed in while it is
+// up. An item is chosen where a press is let go: a click, or — `drag`, the
+// combo button's arrow — the press that opened the menu, dragged to an
+// item. A menu that came up under a held pointer (a right-click, a long
+// press) waits for a press of its own.
+const CHECK = '<svg class="ck" viewBox="0 0 10 8" aria-hidden="true"><path d="M9 0h1v2H9zM8 1h1v2H8zM7 2h1v2H7zM6 3h1v2H6zM5 4h1v2H5zM4 5h1v2H4zM3 6h1v2H3zM0 3h1v2H0zM1 4h1v2H1zM2 5h1v2H2z"/></svg>';
+let menuEl = null, menuBtn = null, menuCard = null, menuSkip = null;
 function closeMenu() {
   if (!menuEl) return;
   menuEl.remove();
   menuEl = null;
-  sendBtn.classList.remove("open");
-  sendBtn.setAttribute("aria-expanded", "false");
+  if (menuBtn) { menuBtn.classList.remove("open"); menuBtn.setAttribute("aria-expanded", "false"); }
+  if (menuCard) menuCard.classList.remove("menu");
+  menuBtn = menuCard = null;
   setSend(); // an answer that came while it was up
+}
+function showMenu(items, at, { btn = null, card = null, drag = false } = {}) {
+  closeMenu();
+  const m = document.createElement("div");
+  m.className = "dropdown"; m.id = "menu";
+  m.setAttribute("role", "menu");
+  for (const it of items) {
+    const d = document.createElement("div");
+    if (it === "-") { d.className = "dd-sep"; m.append(d); continue; }
+    d.className = "dd-item" + (it.why ? " dis" : "");
+    d.innerHTML = (it.check ? CHECK : "") + '<span class="nm"></span>';
+    d.lastChild.textContent = it.name;
+    d.setAttribute("role", "menuitem");
+    if (it.why) { d.title = it.why === true ? "" : it.why; d.setAttribute("aria-disabled", "true"); }
+    else d._pick = it.pick;
+    m.append(d);
+  }
+  let armed = drag;
+  m.addEventListener("pointerdown", () => { armed = true; });
+  m.addEventListener("pointerup", e => {
+    const d = e.target.closest(".dd-item");
+    if (!armed || e.button || !d || !d._pick) return;
+    const pick = d._pick;
+    closeMenu();
+    pick();
+  });
+  m.addEventListener("mousedown", e => e.preventDefault()); // the caret stays in the note
+  m.addEventListener("contextmenu", e => e.preventDefault());
+  document.body.append(m);
+  if (at.min) m.style.minWidth = Math.max(170, Math.ceil(at.min)) + "px";
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.max(4, Math.min(at.left, innerWidth - r.width - 4)) + "px";
+  m.style.top = Math.max(4, Math.min(at.top, innerHeight - r.height - 4)) + "px";
+  menuEl = m; menuBtn = btn; menuCard = card;
+  if (btn) { btn.classList.add("open"); btn.setAttribute("aria-expanded", "true"); }
+  if (card) card.classList.add("menu");
+}
+// Send to Claude Code, Send to Codex, for the note `n`: an item for each
+// agent found, dimmed with its reason where it cannot take the note
+function sendItems(n) {
+  const size = new TextEncoder().encode(n.text).length;
+  return sendable().map(app => ({
+    name: "Send to " + AGENTS[app],
+    why: offline ? "exe does not answer" : !n.text.trim() ? "This note has no words"
+      : size > FIRST_MAX ? "This note is " + Math.ceil(size / 1024) + " KiB, and an agent's first message is at most 64 KiB"
+      : !agents[app].sessions ? "A new session needs tmux on this machine" : "",
+    pick: () => sendTo(app, n),
+  }));
 }
 function openMenu() {
   const n = cur();
   if (sendBtn.hidden || sendBtn.disabled || !n || n === draft) return;
-  const size = new TextEncoder().encode(n.text).length;
-  const m = document.createElement("div");
-  m.className = "dropdown"; m.id = "menu";
-  m.setAttribute("role", "menu");
-  for (const app of sendable()) {
-    const why = size > FIRST_MAX ? "This note is " + Math.ceil(size / 1024) + " KiB, and an agent's first message is at most 64 KiB"
-      : !agents[app].sessions ? "A new session needs tmux on this machine" : "";
-    const d = document.createElement("div");
-    d.className = "dd-item" + (why ? " dis" : "");
-    d.textContent = "Send to " + AGENTS[app];
-    d.setAttribute("role", "menuitem");
-    if (why) { d.title = why; d.setAttribute("aria-disabled", "true"); }
-    else d.addEventListener("click", () => { closeMenu(); sendTo(app); });
-    m.append(d);
-  }
-  m.addEventListener("mousedown", e => e.preventDefault()); // the caret stays in the note
-  document.body.append(m);
-  const b = sendBtn.getBoundingClientRect(), r = m.getBoundingClientRect();
-  m.style.left = Math.max(4, Math.min(b.left, innerWidth - r.width - 4)) + "px";
-  m.style.top = Math.min(b.bottom + 2, innerHeight - r.height - 4) + "px";
-  menuEl = m;
-  sendBtn.classList.add("open");
-  sendBtn.setAttribute("aria-expanded", "true");
+  const b = sendBtn.getBoundingClientRect();
+  showMenu(sendItems(n), { left: b.left, top: b.bottom + 2 }, { btn: sendBtn });
   askAgents();
 }
-function sendTo(app) {
-  const n = cur(), a = agents[app];
+function sendTo(app, n = cur()) {
+  const a = agents[app];
   if (!IN_DESK || !a || !n || n === draft || !n.text.trim()) return;
   const m = { exe: "agent", app, prompt: n.text };
   if (!a.ask) m.dir = a.dir; // a desk that does not ask where: the agents' own folder
@@ -967,11 +1077,11 @@ function sendTo(app) {
 // press closes it, and the click that follows must not open it again);
 // so do a press anywhere else, Escape, and the window losing the keyboard
 sendBtn.addEventListener("mousedown", e => e.preventDefault());
-sendBtn.onclick = () => { if (sendSkip) sendSkip = false; else openMenu(); };
+sendBtn.onclick = () => { if (menuSkip === sendBtn) menuSkip = null; else openMenu(); };
 document.addEventListener("pointerdown", e => {
-  sendSkip = false;
+  menuSkip = null;
   if (!menuEl || e.target.closest("#menu")) return;
-  sendSkip = !!e.target.closest("#send");
+  if (menuBtn && menuBtn.contains(e.target)) menuSkip = menuBtn;
   closeMenu();
 }, true);
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeMenu(); });
@@ -1045,7 +1155,7 @@ function fmtDay(t) {
 }
 function renderBoard() {
   const p = pages().filter(n => n !== draft);
-  stCount.textContent = p.length ? p.length + (p.length === 1 ? " note" : " notes") : "No notes";
+  stCount.textContent = (board ? boardName(board) + ": " : "") + (p.length ? p.length + (p.length === 1 ? " note" : " notes") : "No notes");
   cards.replaceChildren(...p.map((n, i) => {
     const h = idHash(n.id);
     const c = document.createElement("div");
@@ -1066,7 +1176,7 @@ function renderBoard() {
     f.className = "f"; fd.textContent = fmtDay(n.created); fn.textContent = String(i + 1);
     f.append(fd, fn);
     c.append(pin, t, x, f);
-    c.onclick = () => openNote(n.id, true, c);
+    c.onclick = () => { if (heldCard === c) heldCard = null; else openNote(n.id, true, c); };
     return c;
   }));
   // the titles that wrapped leave the note two lines (all read after all built)
@@ -1094,7 +1204,7 @@ function setView(v) {
   disarm();
   if (v === "board") {
     // putting the pad down drops a blank page: it was never a note
-    if (draft && sel === draft.id && live().length) { draft = null; sel = null; ensurePage(); syncEditor(false); }
+    if (draft && sel === draft.id && pages().length > 1) { draft = null; sel = null; ensurePage(); syncEditor(false); }
     ed.blur();
   }
   render();
@@ -1189,6 +1299,10 @@ function go(id, focus) {
   if (id === sel && cur()) { if (focus) ed.focus(); return; }
   if (draft && draft.id !== id) draft = null;
   sel = id;
+  // a note found from elsewhere (the desk's search) may hang on another
+  // board: that board comes up with it
+  const to = cur();
+  if (!STICKY && to && to !== draft && boardOf(to) !== board) { keepBoard(boardOf(to)); nameBoard(); }
   if (!STICKY && (!draft || draft.id !== id)) {
     try {
       if (id) localStorage.setItem(SEL_KEY, id);
@@ -1202,7 +1316,12 @@ function go(id, focus) {
 }
 // a pad never runs out of paper: with no notes left, a blank page is open
 function ensurePage() {
-  if (cur() || STICKY) return; // a sticky shows its note, or nothing
+  if (STICKY) return; // a sticky shows its note, or nothing
+  const n = cur();
+  if (n && (n === draft || boardOf(n) === board)) return;
+  // the open note was moved to another board elsewhere: the pad goes with
+  // it; the board that is up stays, and its first page is the open one
+  if (n && loaded && view === "pad") { keepBoard(boardOf(n)); nameBoard(); return; }
   const p = pages();
   if (p.length) { sel = p[0].id; return; }
   draft = blank();
@@ -1342,13 +1461,25 @@ ed.addEventListener("keydown", e => {
 newBtn.onclick = () => {
   const n = cur();
   if (offline) return;
-  if (n && n === draft) { ed.focus(); return; }
+  if (n && n === draft) {
+    // a board with no notes has its blank sheet open already: put it up
+    if (view === "board") { setView("pad"); swapViews("pad", null); }
+    ed.focus();
+    return;
+  }
   draft = blank();
   const fromBoard = view === "board";
   go(draft.id, false);
   if (fromBoard) { setView("pad"); swapViews("pad", null); }
   ed.focus(); // asked for paper to write on: a phone raises its keyboard too
 };
+function tearOut(n) {
+  n.deleted = n.updated = Date.now();
+  // a tombstone keeps its id and stamps and nothing it said
+  for (const k of Object.keys(n)) if (!["id", "created", "updated", "deleted"].includes(k)) delete n[k];
+  n.text = "";
+  scheduleSave();
+}
 // Delete tears the open page out: the desktop's two-click armed button,
 // then the page under it is open (the one above, when it was the last)
 delBtn.onclick = () => {
@@ -1361,15 +1492,285 @@ delBtn.onclick = () => {
   }
   disarm();
   const p = pages(), i = p.findIndex(x => x.id === n.id);
-  n.deleted = n.updated = Date.now();
-  // a tombstone keeps its id and stamps and nothing it said
-  for (const k of Object.keys(n)) if (!["id", "created", "updated", "deleted"].includes(k)) delete n[k];
-  n.text = "";
-  scheduleSave();
+  tearOut(n);
   const rest = pages();
   if (rest.length) go(rest[Math.min(i, rest.length - 1)].id, true);
   else { draft = blank(); go(draft.id, true); }
 };
+
+// ---- the boards: the combo button, the file, the dialogs ----
+// The body's label is the board that is up. Its width is set in whole
+// pixels, so the combo button's separator stands on one.
+function nameBoard() {
+  const l = boardBtn.querySelector(".lbl"), name = boardName(board);
+  if (l.textContent !== name) l.textContent = name;
+  boardBtn.title = name;
+  l.style.width = "";
+  bar.classList.remove("t1", "t2", "t3", "t4"); // measured with its words showing; fitBar steps the bar again
+  const w = l.getBoundingClientRect().width;
+  if (w) l.style.width = Math.ceil(w) + "px";
+  fitBar();
+}
+// The file's own save, as the settings': debounced, serialized, flushed
+// with keepalive when the window goes; none before the file was read.
+let boardsT = null, boardsSaving = false, boardsAgain = false;
+function saveBoards() {
+  if (!boardsLoaded) return;
+  clearTimeout(boardsT);
+  boardsT = setTimeout(saveBoardsNow, 250);
+}
+async function saveBoardsNow(flush) {
+  clearTimeout(boardsT); boardsT = null;
+  if (offline) return;
+  boards = boards.filter(b => !b.deleted || Date.now() - b.deleted < TOMBSTONE_TTL);
+  const body = JSON.stringify(Object.assign({}, boardsFile, { version: 1, items: boards }), null, 2);
+  const seq = { "X-Exe-Seq": String(nextSeq()) };
+  if (flush) {
+    try { api(BOARDS_URL, { method: "PUT", keepalive: true, headers: seq, body }); } catch (e) {}
+    return;
+  }
+  if (boardsSaving) { boardsAgain = true; return; }
+  boardsSaving = true;
+  try {
+    await api(BOARDS_URL, { method: "PUT", headers: seq, body });
+    setSave("saved");
+  } catch (e) { setSave("error", e.message); }
+  boardsSaving = false;
+  if (boardsAgain) { boardsAgain = false; saveBoardsNow(); }
+}
+addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && (boardsT || boardsSaving)) saveBoardsNow(true);
+});
+addEventListener("pagehide", () => { if (boardsT || boardsSaving) saveBoardsNow(true); });
+// every field a board carries is kept, known or not
+const normBoard = b => Object.assign({}, b, { id: String(b.id), name: typeof b.name === "string" ? b.name.slice(0, 64) : "",
+  created: +b.created || +b.updated || 0, updated: +b.updated || 0 }, +b.deleted ? { deleted: +b.deleted } : {});
+// Read at boot, when another window or a peer node wrote the file, and
+// when the desk's change stream comes back. The daemon's answer is its
+// merged result: it is taken, and a board of this window's is kept over
+// it only when it was changed here since the daemon last spoke and is
+// strictly newer, as a note is. A first read that fails is tried again;
+// until one succeeds every note shows on the first board and no board
+// can be made.
+let boardsTries = 0;
+async function loadBoards() {
+  try {
+    const r = await read(BOARDS_URL);
+    const d = r.status === 404 ? null : await r.json();
+    const ok = d && typeof d === "object" && !Array.isArray(d);
+    if (offline && boardsLoaded) return; // the copy has nothing the window lacks
+    const disk = new Map((ok && Array.isArray(d.items) ? d.items : []).filter(b => b && b.id).map(b => [String(b.id), normBoard(b)]));
+    const by = new Map(disk);
+    let ahead = false;
+    for (const l of boards) {
+      const dv = disk.get(l.id), was = boardsTold.get(l.id);
+      if ((was === undefined || l.updated > was) && (!dv || l.updated > dv.updated)) { by.set(l.id, l); ahead = true; }
+    }
+    if (ok) boardsFile = d;
+    boardsTold = new Map([...disk.values()].map(b => [b.id, b.updated]));
+    boards = [...by.values()];
+    boardsLoaded = true;
+    if (ahead) saveBoards();
+    if (loaded) afterBoards();
+  } catch (e) {
+    if (!boardsLoaded && boardsTries++ < 12) setTimeout(loadBoards, 5000);
+  }
+}
+// the boards changed under the window: the one that is up may be gone,
+// and the notes may hang elsewhere
+function afterBoards() {
+  if (STICKY) return;
+  closeMenu();
+  if (board && !boards.some(b => b.id === board && !b.deleted)) keepBoard("");
+  const open = sel;
+  ensurePage();
+  if (sel !== open) syncEditor(false);
+  nameBoard();
+  render();
+}
+const boardsReady = STICKY ? null : loadBoards();
+
+// Another board comes up: from the pad the board is put up, as Corkboard
+// does it; a blank sheet belonged to the board that was up
+function switchBoard(id) {
+  if (id !== board) {
+    keepBoard(id);
+    draft = null; sel = null;
+    ensurePage();
+    syncEditor(false);
+    nameBoard();
+    cork.scrollTop = 0;
+  }
+  if (view === "board") render();
+  else showBoard();
+}
+// The arrow part's menu: every board, the one that is up checked, then
+// New Board…, Rename Board… and Delete Board…; the last two are for a
+// board the viewer made. A press shows it at once: dragged to an item
+// and let go, that item is chosen; let go on the arrow, the menu stays.
+function openBoardMenu() {
+  if (boardMenuBtn.disabled) return;
+  const no = offline ? "exe does not answer" : !boardsLoaded ? "The boards could not be read" : "";
+  const own = no || (board ? "" : "The first board cannot be renamed or deleted");
+  const items = [{ name: FIRST, check: !board, pick: () => switchBoard("") }]
+    .concat(liveBoards().map(b => ({ name: b.name, check: b.id === board, pick: () => switchBoard(b.id) })));
+  items.push("-", { name: "New Board…", why: no, pick: askNewBoard },
+    { name: "Rename Board…", why: own, pick: askRenameBoard }, { name: "Delete Board…", why: own, pick: askDeleteBoard });
+  const b = boardCombo.getBoundingClientRect();
+  showMenu(items, { left: b.left, top: b.bottom + 2, min: b.width }, { btn: boardMenuBtn, drag: true });
+}
+boardMenuBtn.addEventListener("mousedown", e => e.preventDefault());
+boardMenuBtn.addEventListener("pointerdown", e => {
+  if (e.button) return;
+  // a finger's press is held by the button: let it go to the menu's items
+  try { boardMenuBtn.releasePointerCapture(e.pointerId); } catch (x) {}
+  if (menuSkip === boardMenuBtn) { menuSkip = null; return; }
+  openBoardMenu();
+});
+// by the keyboard: Space or Return on the arrow part, Down Arrow on either part
+boardCombo.addEventListener("keydown", e => {
+  if (e.key === "ArrowDown" || (e.target === boardMenuBtn && (e.key === "Enter" || e.key === " "))) { e.preventDefault(); openBoardMenu(); }
+});
+
+// A dialog in the window: `text`, a field holding `value` when it asks for
+// a name, Cancel and the default button `ok`. Resolves to the name
+// (trimmed, its spaces single), to true where there is no field, to null
+// on Cancel or Escape. Return is the default button; OK is dimmed while
+// the name is empty.
+function ask({ text, value = null, ok = "OK" }) {
+  closeMenu();
+  disarm();
+  const old = $("#veil");
+  if (old) old.remove();
+  return new Promise(done => {
+    const veil = document.createElement("div");
+    veil.id = "veil";
+    veil.innerHTML = '<div class="dlg" role="dialog" aria-modal="true"><p></p>' +
+      (value === null ? "" : '<input type="text" maxlength="40" spellcheck="false" autocomplete="off">') +
+      '<div class="row"><button class="ghost" type="button">Cancel</button><button class="ghost def" type="button"></button></div></div>';
+    const p = veil.querySelector("p"), field = veil.querySelector("input"), [no, yes] = veil.querySelectorAll("button");
+    p.textContent = text; yes.textContent = ok;
+    const name = () => field ? field.value.trim().replace(/\s+/g, " ") : "";
+    const fit = () => { if (field) yes.disabled = !name(); };
+    const end = v => { veil.remove(); done(v); };
+    const go = () => { if (!yes.disabled) end(field ? name() : true); };
+    if (field) { field.value = value; field.oninput = fit; }
+    fit();
+    no.onclick = () => end(null);
+    yes.onclick = go;
+    veil.addEventListener("keydown", e => {
+      if (e.isComposing) return;
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); end(null); }
+      else if (e.key === "Enter" && e.target !== no) { e.preventDefault(); go(); }
+    });
+    // a press beside the box does nothing, and takes nothing from it
+    veil.addEventListener("mousedown", e => { if (e.target === veil) e.preventDefault(); });
+    document.body.append(veil);
+    if (field) { field.focus(); field.select(); } else yes.focus();
+  });
+}
+const writable = () => !offline && boardsLoaded;
+async function askNewBoard() {
+  const name = await ask({ text: "Name of the new board:", value: "" });
+  if (!name || !writable()) return;
+  const now = Date.now(), b = { id: newId(), name, created: now, updated: now };
+  boards.push(b);
+  saveBoards();
+  switchBoard(b.id);
+}
+async function askRenameBoard() {
+  const b = boards.find(b => b.id === board && !b.deleted);
+  if (!b) return;
+  const name = await ask({ text: "Rename the board “" + b.name + "” to:", value: b.name });
+  if (!name || name === b.name || b.deleted || !writable()) return;
+  b.name = name;
+  b.updated = Date.now();
+  saveBoards();
+  nameBoard();
+  render();
+}
+// A board that goes takes no note with it: its notes hang on the first
+// board again, by the rule that an id no board has is the first board's.
+// Its record stays 30 days as a tombstone, id and stamps only.
+async function askDeleteBoard() {
+  const b = boards.find(b => b.id === board && !b.deleted);
+  if (!b) return;
+  const k = live().filter(n => n.board === b.id).length;
+  const yes = await ask({ ok: "Delete", text: "Delete the board “" + b.name + "”?" +
+    (k ? " Its " + (k === 1 ? "note goes" : k + " notes go") + " back to " + FIRST + "." : "") });
+  if (!yes || b.deleted || !writable()) return;
+  b.deleted = b.updated = Date.now();
+  delete b.name;
+  saveBoards();
+  switchBoard("");
+}
+
+// ---- a sheet's menu ----
+// A right-click on a sheet of the board (a finger: a press held half a
+// second) shows what can be done with that note without opening it: Send
+// to Claude Code and Send to Codex, where the Send button would be; Move
+// to each other board; Delete, after a question, since a menu has no
+// second click to arm. A move is an edit of the note: it keeps the board's
+// id (none for the first board) and its stamp counts up.
+let heldCard = null; // the sheet a held finger opened the menu on: the click that follows is not for it
+function cardMenu(c, x, y) {
+  const n = doc.notes.find(n => n.id === c.dataset.id && !n.deleted);
+  if (!n || (menuEl && menuCard === c)) return;
+  const no = offline ? "exe does not answer" : "";
+  const items = IN_DESK ? sendItems(n) : [];
+  if (items.length) items.push("-");
+  const at = boardOf(n);
+  const others = [{ id: "", name: FIRST }].concat(liveBoards()).filter(b => b.id !== at);
+  for (const b of others) items.push({ name: "Move to " + b.name, why: no, pick: () => moveNote(n, b.id) });
+  if (others.length) items.push("-");
+  items.push({ name: "Delete", why: no, pick: () => askDeleteNote(n) });
+  showMenu(items, { left: x + 1, top: y + 1 }, { card: c });
+  askAgents();
+}
+// the open page, when it left the board that is up: the board's first page is open instead
+function offBoard(n) {
+  if (n.id !== sel) return;
+  sel = null;
+  ensurePage();
+  syncEditor(false);
+}
+function moveNote(n, id) {
+  if (offline || n.deleted || boardOf(n) === id) return;
+  if (id) n.board = id; else delete n.board;
+  n.updated = Date.now();
+  scheduleSave();
+  offBoard(n);
+  render();
+}
+async function askDeleteNote(n) {
+  const yes = await ask({ ok: "Delete", text: "Delete the note “" + noteTitle(n, 40) + "”?" });
+  if (!yes || offline || n.deleted) return;
+  tearOut(n);
+  offBoard(n);
+  render();
+}
+cards.addEventListener("contextmenu", e => {
+  const c = e.target.closest(".card");
+  if (!c) return;
+  e.preventDefault();
+  cardMenu(c, e.clientX, e.clientY);
+});
+// a finger has no right button: held still for half a second on a sheet
+{
+  let t = null, sx = 0, sy = 0;
+  const drop = () => { clearTimeout(t); t = null; };
+  cards.addEventListener("pointerdown", e => {
+    drop();
+    heldCard = null;
+    const c = e.target.closest(".card");
+    if (e.pointerType !== "touch" || !c) return;
+    sx = e.clientX; sy = e.clientY;
+    t = setTimeout(() => { t = null; heldCard = c; cardMenu(c, sx, sy); }, 500);
+  });
+  cards.addEventListener("pointermove", e => { if (t && Math.hypot(e.clientX - sx, e.clientY - sy) > 8) drop(); });
+  for (const ev of ["pointerup", "pointercancel"]) cards.addEventListener(ev, drop);
+  cork.addEventListener("scroll", drop, { passive: true });
+}
 
 // ---- desktop window plumbing (same bridge as the Todo app) ----
 window.addEventListener("pointerdown", () => {
@@ -1424,6 +1825,9 @@ function normNote(n) {
   else delete m.color;
   if (+n.deleted) m.deleted = +n.deleted;
   else delete m.deleted;
+  // the board it hangs on, by id; none is the first board
+  if (typeof n.board === "string" && n.board && !m.deleted) m.board = n.board.slice(0, 64);
+  else delete m.board;
   // its place on the desk, when it has one: four numbers, and whether it
   // is windowshaded; the stamp of the last change to it
   const p = n.place;
@@ -1477,9 +1881,11 @@ async function reloadFromDisk() {
     const aheadOfDisk = key(byId) !== key(diskById);
     const before = cur() && cur().text;
     doc.notes = [...byId.values()];
-    if (!cur()) { ensurePage(); syncEditor(false); }
+    const open = sel;
+    ensurePage(); // the open note gone, or moved to another board
+    if (sel !== open) syncEditor(false);
     // keep the caret out of it unless the open page's text really changed
-    else if (cur().text !== before) syncEditor(true);
+    else if (cur() && cur().text !== before) syncEditor(true);
     render();
     if (aheadOfDisk) scheduleSave(); // we hold something disk lacks; push it back
   } catch (e) {}
@@ -1490,12 +1896,14 @@ window.addEventListener("message", e => {
     if (e.data.client && e.data.client === CLIENT) return; // our own write
     if (offline) { probe(); return; }
     if (loaded && e.data.path === "notes.json") reloadFromDisk();
+    else if (e.data.path === "boards.json") loadBoards();
     else if (typeLoaded && e.data.path === "settings.json") loadType();
   } else if (e.data.exe === "data-resync") {
     // the desktop's change stream was down: anything may have changed
     if (offline) { probe(); return; }
     if (loaded) reloadFromDisk();
     if (typeLoaded) loadType();
+    loadBoards();
   } else if (e.data.exe === "show") {
     // the window is up again: an agent may have been installed meanwhile
     askAgents();
@@ -1545,6 +1953,10 @@ applySheet(); // the dog-ear has its art from the first paint
   if (STICKY) sel = STICKY;
   else try { sel = localStorage.getItem(SEL_KEY) || legacySel; } catch (e) { sel = legacySel; }
   await typeReady;
+  await boardsReady;
+  // a board that is gone, or a file not read: the first board is up
+  if (!boards.some(b => b.id === board && !b.deleted)) board = "";
+  nameBoard();
   ensurePage();
   loaded = true;
   syncEditor(false);

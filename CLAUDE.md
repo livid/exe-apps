@@ -354,6 +354,36 @@ days.
   under the bar, 4px at the sides) and shows no scroll bar, as its notes
   had none; the window's chrome is the desk's, sampled from the guest
   (exe docs/platinum.md, Stickies).
+  **Boards** (2026-11-09, Livid's ask): Corkboard is a combo button, the
+  first one (`/platinum/combo.css`, linked; exe docs/platinum.md, Combo
+  button). Its body puts the board up and down as before, pressed in
+  (`.open`) while the board is up, and names the board that is up, in
+  whole pixels (`nameBoard`, 132px at most); its arrow part has the
+  boards' menu: every board in the order made, the one that is up
+  checked, then New Board…, Rename Board… and Delete Board…, the last two
+  dimmed on the first board. A press shows the menu at once, so a drag to
+  an item and a release choose it. The boards are a file of their own,
+  `boards.json` `{version: 1, items: [{id, name, created, updated,
+  deleted?}]}`, with its own save gate like `settings.json`, so the notes'
+  saves never carry it and a window on an older Notes never writes it;
+  the daemon merges it board by board (`Notes/boards.json` in
+  internal/peer/merge.go). The first board, Corkboard, has no record. A
+  note hangs on one board: it keeps the board's id as `board` (none: the
+  first board; an id no live board has: the first board too, so deleting
+  a board writes no note). A move is an edit (`updated` bumps); the
+  daemon's merge struct carries `board`, and at an equal stamp a copy
+  without it (an older daemon's) does not take it away. Which board is up
+  is per viewer (`exe-notes-board:<App>`): the pad's pages, their numbers
+  and the status line's count are that board's, New Note pins its sheet
+  there, and a note found from elsewhere (the desk's search) brings its
+  board up. New and Rename ask for the name in the window's own dialog
+  (`ask`: 12px inside, a sunken field, Cancel and the Return default 58px
+  wide, Escape cancels), and Delete Board… and a sheet's Delete ask
+  through it too. On the board a right-click on a sheet (a finger held
+  500ms) shows the sheet's menu: Send to Claude Code and Send to Codex
+  (the Send button's items and reasons), Move to each other board, and
+  Delete. One menu at a time (`showMenu`), the Send button's included.
+  Checks: `~/tools/playwright/exe-notes/boards.js`.
 - **Tides** — NOAA CO-OPS tide charts (fetches NOAA directly; CORS is open).
   Gotchas encoded there: only type-R stations serve 6-minute curves (type-S
   fall back to cosine fit between hi/lo); fetch `time_zone=gmt`, render in
