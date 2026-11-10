@@ -107,7 +107,14 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   a folder that is not on this machine, and the window says so. Without
   the agent's CLI on the host the desk says so too; without tmux a second
   session cannot start. Out of the desk there is no window to ask, so dim
-  the control.
+  the control. `prompt` is the session's first message (Projects' Send to
+  Claude Code: the issue; at most 64 KiB). With a `prompt` and no `dir`
+  (Notes' Send to Claude Code: a note has no folder) the window's New
+  Session dialog asks where, and its Start sends the prompt with the
+  folder chosen. Which agents there are, and what the desk takes, is
+  `/v1/hostinfo`'s `agents`: `{claude: {dir, sessions, tasks, ask}}` —
+  `sessions` is tmux for a second session, `tasks` a desk that takes a
+  `prompt`, `ask` one that asks where when no `dir` comes with it.
 - **Naming the window**: `{exe:"title", title:"EXE-12"}` titles the app's
   window for what it shows, after the app's name — "Projects — EXE-12"
   while that issue is open — and `{exe:"title", title:""}` is the app's
@@ -211,7 +218,9 @@ days.
   is read, so the writing never changes size as a window opens. The size
   is the pad's, the face the board's sheets' too; where the words will not fit the
   toolbar gives way a step at a time (`fitBar`: the faces as "Aa"
-  samples, then Corkboard as its pushpin, then tighter sides and gaps) —
+  samples, then Corkboard as its pushpin, then tighter sides and gaps,
+  then Delete and New Note as 30px glyph buttons, a trash can and a sheet
+  with a plus: Livid's ask for a really narrow window, 2026-11-09) —
   the sheet's foot left to right: the dog-ear, the note's date (`created`) in
   11px Geneva `#777` 6px past it, the page number, the colour squares 5px
   short of the scroll bar (Livid moved the date out of the toolbar's
@@ -312,7 +321,20 @@ days.
   border-right would be (has-vbar toggling is a desktop-16px-spec thing).
   On a phone the sheet hides its bar (a finger scrolls it) and the band and
   page edges run the full width; New Note raises the keyboard, a page turn
-  does not. **Stickies** (2026-10-14): the pushpin at the sheet's foot, left
+  does not. **Send** (2026-11-09, Livid's ask): with a note open the
+  toolbar has a glyph button left of Delete, a tray with an arrow leaving
+  it, whose menu (Projects' contextual block, 2px under the button) says
+  Send to Claude Code and Send to Codex, each only where
+  `/v1/hostinfo`'s `agents` names that agent with `tasks`; with neither,
+  in a Sticky and out of the desk there is no button. An item posts
+  `{exe:"agent", app, prompt: <the note's text>}`, and the desk's New
+  Session dialog asks for the folder (a desk without `ask` gets the
+  entry's `dir` too and starts at once). The answer is kept in
+  localStorage (`exe-notes-agents:<App>`) so the button is there from the
+  first paint, and asked again at open, at `{exe:"show"}` and at each
+  menu. Dimmed on a blank sheet and offline; an item is dimmed, with the
+  reason as its title, without tmux and for a note past 64 KiB. Checks:
+  `~/tools/playwright/exe-notes/send.js`. **Stickies** (2026-10-14): the pushpin at the sheet's foot, left
   of the colours, sticks the open note to the desk — the note gets
   `place: {x, y, w, h, shaded?}` (desk pixels: the window's corner and
   width, the sheet's height) and `placed`, a stamp of its own — and the

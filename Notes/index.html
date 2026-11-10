@@ -50,8 +50,8 @@ button.ghost.danger:disabled { color: #777; }
 button.ghost.armed { background: var(--red); color: #fff;
   box-shadow: inset 1px 1px 0 #e88, inset -1px -1px 0 #911; }
 
-/* the toolbar, like Todo's: Corkboard at the left, Delete and New Note at
-   the right */
+/* the toolbar, like Todo's: Corkboard at the left; Send (where there is
+   an agent to send to), Delete and New Note at the right */
 #bar { display: flex; gap: 8px; padding: 10px 10px 8px; align-items: center; }
 #bar-gap { flex: 1; }
 /* reading a note: − + for the text's size and Sans Serif | Serif | Mono for its
@@ -68,7 +68,8 @@ button.ghost.on { background: #888; color: #fff;
 body.on-board #size, body.on-board #face, body.on-board #del { display: none; }
 /* where the words will not fit, the toolbar gives way a step at a time
    (fitBar): the faces show as a sample "Aa" each in itself; then Corkboard
-   shrinks to its pushpin; then every button's sides and the gaps come in */
+   shrinks to its pushpin; then every button's sides and the gaps come in;
+   and in a window too narrow even so, Delete and New Note are glyphs */
 #face .s, #boardBtn .pin { display: none; }
 #face .s { font-weight: normal; font-size: 14px; line-height: 14px; }
 #face [data-face="sans"] .s { font-family: var(--page); }
@@ -81,6 +82,34 @@ body.on-board #size, body.on-board #face, body.on-board #del { display: none; }
 #bar.t2 #boardBtn .pin { display: inline-block; position: static; margin: 0; vertical-align: top; }
 #bar.t3 { gap: 4px; padding-left: 8px; padding-right: 8px; }
 #bar.t3 button.ghost { padding-left: 4px; padding-right: 4px; }
+/* a glyph on a button, in the button's own ink: 12px of pixel art, a
+   smooth copy of the same shapes between 1x and 2x. Send — a tray with
+   an arrow leaving it — is only ever its glyph, and opens a menu: Send to
+   Claude Code, Send to Codex, each where exe has found that agent. With
+   neither there is no button. Pressed in (.open) while its menu is up. */
+button.ghost .gl { display: none; flex: none; fill: currentColor; shape-rendering: crispEdges; }
+@media (min-resolution: 1.01dppx) and (max-resolution: 1.99dppx) {
+  button.ghost .gl { shape-rendering: geometricPrecision; }
+}
+#send { display: inline-flex; align-items: center; justify-content: center; width: 30px; padding: 0; }
+#send .gl { display: block; }
+#send[hidden], body.on-board #send { display: none; }
+/* the last step, a window too narrow even so (t4): Delete is its trash
+   can and New Note its sheet with a plus, 30px buttons as Send is */
+body:not(.on-board) #bar.t4 #del, #bar.t4 #new { display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; padding: 0; }
+#bar.t4 #del .lbl, #bar.t4 #new .lbl { display: none; }
+#bar.t4 #del .gl, #bar.t4 #new .gl { display: block; }
+/* Send's menu, the desktop's contextual one (Projects' block): it hangs
+   2px under the button, kept inside the window */
+.dropdown { position: fixed; z-index: 30; min-width: 170px; background: var(--g300);
+  border: 1px solid var(--black); padding: 2px 1px;
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 var(--g500), 2px 2px 0 rgba(38,38,38,.85); }
+.dd-item { padding: 3px 22px 3px 18px; line-height: 18px; white-space: nowrap; }
+.dd-item:hover { background: var(--hl); color: #fff; }
+.dd-item.dis { color: #888; }
+.dd-item.dis:hover { background: none; color: #888; }
+body.mobile .dd-item { padding: 7px 22px 7px 18px; }
 
 
 /* two views in one place under the toolbar's line: the pad (one note) and
@@ -331,8 +360,9 @@ body.mobile #status { padding-right: 8px; }
   <span class="seg" id="size"><button class="ghost" id="smaller" title="Smaller text">&minus;</button><button class="ghost" id="bigger" title="Larger text">+</button></span>
   <span class="seg" id="face"><button class="ghost" data-face="sans" title="Sans Serif"><span class="w">Sans Serif</span><span class="s">Aa</span></button><button class="ghost" data-face="serif" title="Serif"><span class="w">Serif</span><span class="s">Aa</span></button><button class="ghost" data-face="mono" title="Mono"><span class="w">Mono</span><span class="s">Aa</span></button></span>
   <span id="bar-gap"></span>
-  <button class="ghost danger" id="del" disabled>Delete</button>
-  <button class="ghost" id="new" disabled>New Note</button>
+  <button class="ghost" id="send" title="Send to…" aria-label="Send to…" aria-haspopup="menu" hidden disabled><svg class="gl" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M5 0h2v1H5zM4 1h4v1H4zM3 2h6v1H3zM2 3h8v1H2zM5 4h2v4H5zM0 5h2v5H0zM10 5h2v5H10zM0 10h12v2H0z"/></svg></button>
+  <button class="ghost danger" id="del" title="Delete" disabled><svg class="gl" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 0h4v1H4zM0 1h12v2H0zM1 3h1v8H1zM4 3h1v8H4zM7 3h1v8H7zM10 3h1v8H10zM1 11h10v1H1z"/></svg><span class="lbl">Delete</span></button>
+  <button class="ghost" id="new" title="New Note" disabled><svg class="gl" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M0 0h9v1H0zM0 1h1v10H0zM8 1h2v1H8zM8 2h1v1H8zM10 2h1v1H10zM8 3h4v1H8zM11 4h1v7H11zM5 4h2v2H5zM3 6h6v2H3zM5 8h2v2H5zM0 11h12v1H0z"/></svg><span class="lbl">New Note</span></button>
 </div>
 <div id="main">
 <div id="pad">
@@ -454,6 +484,7 @@ function back() {
   say();
   if (loaded) { setControls(); reloadFromDisk(); }
   loadType();
+  askAgents();
 }
 // how old the copy is, where the date goes on the pad and on the board's line
 function ago(t) {
@@ -686,6 +717,7 @@ function render() {
   stickBtn.disabled = !loaded || onBoard || !n || n === draft || !!offline;
   stickBtn.classList.toggle("on", !!(n && n.place));
   stickBtn.title = n && n.place ? "Take off Desk" : "Stick to Desk";
+  setSend();
   document.body.classList.toggle("solo", p.length < 2);
   applySheet();
   showDate();
@@ -807,8 +839,9 @@ const typeReady = loadType();
 
 // The toolbar gives way a step at a time where its words will not fit:
 // the faces as "Aa" samples (t1), then Corkboard as its pushpin (t2),
-// then the buttons' sides and the gaps between them in (t3, a 320px
-// phone) — the fewest steps that fit.
+// then the buttons' sides and the gaps between them in (t3), then Delete
+// and New Note as their glyphs (t4, a 320px phone with Send on the bar)
+// — the fewest steps that fit.
 const bar = $("#bar");
 // Opened as its own page from exe's alert on a phone, with no desk round
 // it and, in an installed app, no browser either: Back leads to exe,
@@ -822,13 +855,130 @@ if (FROM_ALERT && MOBILE && window.parent === window) {
   bar.prepend(b);
 }
 function fitBar() {
-  bar.classList.remove("t1", "t2", "t3");
-  for (const step of ["t1", "t2", "t3"]) {
+  bar.classList.remove("t1", "t2", "t3", "t4");
+  for (const step of ["t1", "t2", "t3", "t4"]) {
     if (bar.scrollWidth <= bar.clientWidth) return;
     bar.classList.add(step);
   }
 }
 new ResizeObserver(() => fitBar()).observe(bar);
+
+// ---- Send to Claude Code, Send to Codex ----
+// The open note as the first message of a new session of the agent's, in
+// the desk's Claude Code or Codex window. Send, on the toolbar with a
+// note open, has the menu: an item for each agent exe has found on this
+// machine — /v1/hostinfo's agents, the registry the desk's own agent
+// windows go by — and no button at all when it has found neither, or out
+// of the desk, where there is no window to ask. The desk is asked over
+// the bridge ({exe:"agent", app, prompt}): a note has no folder, so the
+// window's New Session dialog asks where the session starts, and Start
+// there sends the note. An exe from before the desk asked ("ask") gets
+// the agents' own folder with it, and the session starts there at once.
+// The answer is kept (localStorage) so the button is there from a
+// window's first paint and nothing moves when the daemon answers; it is
+// asked again as the window opens, as it is shown again and at each
+// menu, for the next one, and the desk checks again before it starts
+// anything. An item is dimmed, and says why, where there is no tmux for
+// a second session and for a note past the 64 KiB a first message may be.
+const IN_DESK = window.parent !== window;
+const sendBtn = $("#send");
+const AGENTS = { claude: "Claude Code", codex: "Codex" };
+const AGENTS_KEY = "exe-notes-agents:" + APP;
+const FIRST_MAX = 64 * 1024;
+let agents = {};
+function seenAgents(a) {
+  const o = {};
+  for (const k of Object.keys(AGENTS)) {
+    const v = a && a[k];
+    if (v && typeof v === "object") o[k] = { dir: typeof v.dir === "string" ? v.dir : "", sessions: !!v.sessions, tasks: !!v.tasks, ask: !!v.ask };
+  }
+  return o;
+}
+try { agents = seenAgents(JSON.parse(localStorage.getItem(AGENTS_KEY) || "{}")); } catch (e) {}
+// the agents a note can be sent to: found, on a desk that takes a first message
+const sendable = () => Object.keys(AGENTS).filter(k => agents[k] && agents[k].tasks && (agents[k].ask || agents[k].dir));
+function setSend() {
+  const show = IN_DESK && !STICKY && sendable().length > 0;
+  if (sendBtn.hidden === show) { sendBtn.hidden = !show; fitBar(); }
+  const n = cur();
+  sendBtn.disabled = !loaded || !n || n === draft || !n.text.trim() || !!offline;
+  if (!show || sendBtn.disabled) closeMenu();
+}
+let asking = null;
+function askAgents() {
+  if (!IN_DESK || STICKY || offline) return;
+  asking = asking || (async () => {
+    try {
+      const r = await api("/v1/hostinfo", { cache: "no-store" });
+      if (r.ok && !+r.headers.get("X-Exe-Kept")) {
+        agents = seenAgents((await r.json()).agents);
+        try { localStorage.setItem(AGENTS_KEY, JSON.stringify(agents)); } catch (e) {}
+        if (!menuEl) setSend();
+      }
+    } catch (e) {}
+    asking = null;
+  })();
+}
+let menuEl = null, sendSkip = false;
+function closeMenu() {
+  if (!menuEl) return;
+  menuEl.remove();
+  menuEl = null;
+  sendBtn.classList.remove("open");
+  sendBtn.setAttribute("aria-expanded", "false");
+  setSend(); // an answer that came while it was up
+}
+function openMenu() {
+  const n = cur();
+  if (sendBtn.hidden || sendBtn.disabled || !n || n === draft) return;
+  const size = new TextEncoder().encode(n.text).length;
+  const m = document.createElement("div");
+  m.className = "dropdown"; m.id = "menu";
+  m.setAttribute("role", "menu");
+  for (const app of sendable()) {
+    const why = size > FIRST_MAX ? "This note is " + Math.ceil(size / 1024) + " KiB, and an agent's first message is at most 64 KiB"
+      : !agents[app].sessions ? "A new session needs tmux on this machine" : "";
+    const d = document.createElement("div");
+    d.className = "dd-item" + (why ? " dis" : "");
+    d.textContent = "Send to " + AGENTS[app];
+    d.setAttribute("role", "menuitem");
+    if (why) { d.title = why; d.setAttribute("aria-disabled", "true"); }
+    else d.addEventListener("click", () => { closeMenu(); sendTo(app); });
+    m.append(d);
+  }
+  m.addEventListener("mousedown", e => e.preventDefault()); // the caret stays in the note
+  document.body.append(m);
+  const b = sendBtn.getBoundingClientRect(), r = m.getBoundingClientRect();
+  m.style.left = Math.max(4, Math.min(b.left, innerWidth - r.width - 4)) + "px";
+  m.style.top = Math.min(b.bottom + 2, innerHeight - r.height - 4) + "px";
+  menuEl = m;
+  sendBtn.classList.add("open");
+  sendBtn.setAttribute("aria-expanded", "true");
+  askAgents();
+}
+function sendTo(app) {
+  const n = cur(), a = agents[app];
+  if (!IN_DESK || !a || !n || n === draft || !n.text.trim()) return;
+  const m = { exe: "agent", app, prompt: n.text };
+  if (!a.ask) m.dir = a.dir; // a desk that does not ask where: the agents' own folder
+  parent.postMessage(m, location.origin);
+}
+// a press on the button while its menu is up puts the menu away (the
+// press closes it, and the click that follows must not open it again);
+// so do a press anywhere else, Escape, and the window losing the keyboard
+sendBtn.addEventListener("mousedown", e => e.preventDefault());
+sendBtn.onclick = () => { if (sendSkip) sendSkip = false; else openMenu(); };
+document.addEventListener("pointerdown", e => {
+  sendSkip = false;
+  if (!menuEl || e.target.closest("#menu")) return;
+  sendSkip = !!e.target.closest("#send");
+  closeMenu();
+}, true);
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeMenu(); });
+addEventListener("blur", closeMenu);
+addEventListener("resize", closeMenu);
+setSend();
+askAgents();
 
 // The open note's date at the sheet's foot beside the dog-ear: the longest
 // form that keeps 16px (the HIG's room between groups) from the page
@@ -935,6 +1085,7 @@ function revealCard() {
 }
 function setView(v) {
   if (STICKY) v = "pad";
+  closeMenu();
   view = v;
   if (!STICKY) try { localStorage.setItem(VIEW_KEY, v); } catch (e) {}
   document.body.classList.toggle("on-board", v === "board");
@@ -1034,6 +1185,7 @@ function disarm() {
 // per viewer (a blank page is not — it is gone once left).
 function go(id, focus) {
   disarm();
+  closeMenu();
   if (id === sel && cur()) { if (focus) ed.focus(); return; }
   if (draft && draft.id !== id) draft = null;
   sel = id;
@@ -1153,6 +1305,7 @@ ed.addEventListener("input", () => {
   n.updated = Date.now();
   scheduleSave();
   if (made) render();
+  else setSend(); // a note with no words left has nothing to send
 });
 // Tab indents, SimpleText-style; execCommand (here and below) keeps the
 // native undo stack — assigning ed.value would wipe it
@@ -1343,6 +1496,11 @@ window.addEventListener("message", e => {
     if (offline) { probe(); return; }
     if (loaded) reloadFromDisk();
     if (typeLoaded) loadType();
+  } else if (e.data.exe === "show") {
+    // the window is up again: an agent may have been installed meanwhile
+    askAgents();
+  } else if (e.data.exe === "hide") {
+    closeMenu();
   } else if (e.data.exe === "reveal") {
     // before the load settles the pages don't exist yet — remember the id
     // and let boot apply it (and ack) instead
