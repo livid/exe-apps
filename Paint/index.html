@@ -120,7 +120,9 @@ input[type=text]:focus { outline: 2px solid #9999fe; outline-offset: 0; }
 #dc, #ov { display: block; image-rendering: pixelated; }
 #ov { position: absolute; inset: 0; pointer-events: none; }
 #ti { position: absolute; display: none; border: 1px dotted #666; background: transparent;
-  font: 12px Geneva, Verdana, sans-serif; color: var(--black); padding: 0; margin: 0;
+  /* ink on the paper, which is white by night too: a colour in a variable
+     of the rule's own keeps the day (docs/platinum.md, "Appearance") */
+  --ink: #262626; font: 12px Geneva, Verdana, sans-serif; color: var(--ink); padding: 0; margin: 0;
   outline: none; min-width: 40px; }
 
 /* MacPaint's bottom palette: current pattern swatch + 2x19 pattern cells */
@@ -132,7 +134,8 @@ input[type=text]:focus { outline: 2px solid #9999fe; outline-offset: 0; }
 #patcur { width: 34px; height: 26px; border: 1px solid var(--black); background: #fff;
   box-shadow: 1px 1px 0 rgba(0,0,0,.3); flex: none; }
 #pats { display: grid; grid-template-columns: repeat(19, 17px); grid-auto-rows: 13px;
-  border: 1px solid var(--black); background: var(--black); gap: 1px; flex: none; }
+  /* the lines between the patterns stay ink: the patterns keep the day */
+  --rule: #262626; border: 1px solid var(--black); background: var(--rule); gap: 1px; flex: none; }
 #pats canvas { width: 16px; height: 12px; background: #fff; display: block; }
 
 #grow { position: fixed; right: 0; bottom: 0; width: 15px; height: 15px;

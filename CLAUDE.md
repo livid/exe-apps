@@ -124,6 +124,27 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   `?token=` — don't hardcode either. The token is usually absent (the
   cookie does the work); put it on an address you build only when the
   app's own address came with one.
+- **Appearance (day and night)**: write the sheet by day, as Platinum says it;
+  never write a night. The daemon gives the page its night on the way out
+  (`/www/exe/docs/platinum.md`, "Appearance: day and night"): every colour
+  in a `<style>` rule or a `style=""` attribute gets one. It cannot read
+  what a script writes, so:
+  - a colour a script would set goes in the sheet instead: a class on the
+    element and a rule for the class (Notes' tints are `tint-yellow` and so
+    on, not `el.style.background`);
+  - a `<canvas>`, or SVG a script builds in more than one colour, keeps its
+    colours twice, a day set and a night set from the guide's palette, takes
+    the one `exeDark()` names and draws again when the root hears
+    `exe-scheme` (Tides' `INK`); guard it, `typeof exeDark === "function"`,
+    for a page opened without the daemon;
+  - a line that must be seen on a list or a chart is ink, `color:
+    var(--black); border: 1px solid currentColor`, for an outline is black
+    by night; a colour that must keep the day (ink on a painting's white
+    paper) is said through a variable of the rule's own, `--ink: #262626;
+    color: var(--ink)`.
+  Check both: `node ~/tools/playwright/exe-app-look.js <App>` loads the page
+  by day and by night, takes a screenshot of each and lists what stayed
+  light or reads badly. By day nothing may change.
 - Vanilla JS + inline CSS in one index.html; no frameworks, no CDNs.
 - `<canvas>` gotcha: `inset:0` doesn't stretch a replaced element — set
   `width/height:100%` too, and scale the backing store by devicePixelRatio.

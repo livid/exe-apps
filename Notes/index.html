@@ -162,9 +162,10 @@ body.on-board #pad, body:not(.on-board) #board { visibility: hidden; }
    the window frame on three sides; the scroll bar runs down to the grow
    box; under the sheet's bottom line two page edges (#444 on #eee) stand
    for the pages beneath; the dog-ear at the bottom left turns them. ---- */
-/* --sheet is the open note's colour (white, or a Stickies tint), set by
-   the script on the pad; the field and the band are the same paper */
-#pad { background: var(--grain) var(--sheet, #fff); }
+/* the pad is white paper, or the open note's colour by its class (the
+   paper colours below); the field and the band are the same paper, the
+   pad's colour inherited */
+#pad { background: var(--grain) #fff; }
 /* the writing: Geneva 12 on 16px lines, Note Pad's, with the toolbar's
    own 10px of room above and at the sides (Livid's ask; Note Pad set it
    3px under the top and 5px in). Its scroll bar's right edge is the frame's line and its
@@ -174,12 +175,13 @@ body.on-board #pad, body:not(.on-board) #board { visibility: hidden; }
    scroll clear of it, and scroll-padding keeps the caret clear of it while
    typing or arrowing down */
 #ed { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% - 15px); resize: none; margin: 0; border: 0; border-radius: 0;
-  background: var(--grain) var(--sheet, #fff); color: #000; padding: 10px 10px 30px; font: var(--size, 12px)/var(--lead, 16px) var(--read);
+  background-image: var(--grain); background-color: inherit; color: #000; padding: 10px 10px 30px; font: var(--size, 12px)/var(--lead, 16px) var(--read);
   overflow-y: scroll; scroll-padding-bottom: 30px; user-select: text; cursor: text; }
 #ed:focus { outline: none; }
 #ed:disabled { background: var(--g200); }
 /* the blank band at the sheet's foot: the dog-ear, the page number */
-#foot { position: absolute; left: 0; right: 15px; bottom: 6px; height: 30px; background: var(--grain) var(--sheet, #fff); }
+#foot { position: absolute; left: 0; right: 15px; bottom: 6px; height: 30px;
+  background-image: var(--grain); background-color: inherit; }
 #num { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center;
   font: 12px/16px var(--page); color: #000; pointer-events: none; }
 /* the note's colour, at the sheet's foot on the right, 5px short of the
@@ -202,6 +204,36 @@ body.on-board #pad, body:not(.on-board) #board { visibility: hidden; }
 #tints button i { display: block; width: 10px; height: 10px; border: 1px solid; }
 #tints button.on { border-color: var(--hl); }
 #tints button:disabled { visibility: hidden; }
+/* the paper colours: Stickies' Color menu (Mac OS 9, sampled in the guest)
+   and Note Pad's white, which is the ground the rules start from. Stickies'
+   own pastels, with its two loud ones (yellow #ffff99, blue #99ffff) a step
+   lighter so a whole sheet stays subtle, every one in the Mac's 256-colour
+   palette. Each is a class (tint-<name>, the name a note keeps) on the pad,
+   on a sheet of the board and on its colour square, and on the dog-ear for
+   the page under the fold; written here, not by the script, so that the
+   desk's night gives every colour its own dark paper. A square wears its
+   tint inside Stickies' own edge colour for it (white: Note Pad's grey). */
+#pad.tint-yellow, .card.tint-yellow { background-color: #ffffcc; }
+#pad.tint-blue, .card.tint-blue { background-color: #ccffff; }
+#pad.tint-green, .card.tint-green { background-color: #ccffcc; }
+#pad.tint-pink, .card.tint-pink { background-color: #ffcccc; }
+#pad.tint-purple, .card.tint-purple { background-color: #ccccff; }
+#pad.tint-gray, .card.tint-gray { background-color: #eeeeee; }
+#tints .tint-white i { background: #ffffff; border-color: #999999; }
+#tints .tint-yellow i { background: #ffffcc; border-color: #ffcc00; }
+#tints .tint-blue i { background: #ccffff; border-color: #00ccff; }
+#tints .tint-green i { background: #ccffcc; border-color: #66ff66; }
+#tints .tint-pink i { background: #ffcccc; border-color: #ff9999; }
+#tints .tint-purple i { background: #ccccff; border-color: #9999ff; }
+#tints .tint-gray i { background: #eeeeee; border-color: #bbbbbb; }
+/* under the fold the next page's colour, in the shade of the one on top
+   (the colour times #eee; white's is #corner's own) */
+#corner.tint-yellow { background-color: #eeeebe; }
+#corner.tint-blue { background-color: #beeeee; }
+#corner.tint-green { background-color: #beeebe; }
+#corner.tint-pink { background-color: #eebebe; }
+#corner.tint-purple { background-color: #bebeee; }
+#corner.tint-gray { background-color: #dedede; }
 /* the note's date at the sheet's foot on the left, beside the dog-ear, in
    secondary grey: the longest form that keeps 16px from the page number,
    else none; blank on a blank sheet. A save that failed says so there in
@@ -225,13 +257,15 @@ body.on-board #pad, body:not(.on-board) #board { visibility: hidden; }
 /* the dog-ear, 23px of art under a black top line, a black right line that
    stops one row short so the lifted corner leaves the sheet's bottom line a
    gap, and the next page showing below the fold (#eee on white paper, the
-   next note's colour times #eee on a tinted one). The flap's pixels are the
-   real ones, multiplied by the sheet's colour, drawn by the script into
-   --flap-px; at fractional scales its vector copy --flap-vec keeps the fold
-   one clean line. Clicking the flap turns forward, below the fold back. */
+   next note's colour times #eee on a tinted one: its class, above). The
+   flap's pixels are the real ones, multiplied by the sheet's colour (lit
+   instead by night, SHADE in the script), drawn by the script into
+   --flap-px; at fractional scales its vector copy
+   --flap-vec keeps the fold one clean line. Clicking the flap turns
+   forward, below the fold back. */
 #corner { position: absolute; left: 0; bottom: 5px; width: 24px; height: 25px; z-index: 1;
   border-top: 1px solid var(--black);
-  background: var(--under, #eee) var(--flap-px) 0 0 no-repeat; }
+  background: #eee var(--flap-px) 0 0 no-repeat; }
 #corner::after { content: ""; box-sizing: border-box; position: absolute; top: 0; right: 0;
   width: 1px; height: 23px; border-right: 1px solid var(--black); }
 @media (min-resolution: 1.01dppx) and (max-resolution: 1.99dppx) {
@@ -641,24 +675,31 @@ const blank = () => Object.assign({ id: newId(), text: "", created: Date.now(), 
 
 // a note's title is its first line with words; a sheet shows as much of it
 // as fits in its lines, so it takes the whole line
-// ---- paper colours: Stickies' Color menu (Mac OS 9, sampled in the
-// guest) and Note Pad's white. Stickies' own pastels, with its two loud
-// ones (yellow #ffff99, blue #99ffff) a step lighter so a whole sheet stays
-// subtle, every one in the Mac's 256-colour palette. A note keeps the
-// colour's name; no name, or one this app does not know, is white.
-const TINTS = { white: "#ffffff", yellow: "#ffffcc", blue: "#ccffff", green: "#ccffcc",
-  pink: "#ffcccc", purple: "#ccccff", gray: "#eeeeee" };
-// each colour's edge, as Stickies drew a note's frame (white: Note Pad's grey)
-const EDGES = { white: "#999999", yellow: "#ffcc00", blue: "#00ccff", green: "#66ff66",
-  pink: "#ff9999", purple: "#9999ff", gray: "#bbbbbb" };
-const tintOf = n => (n && n.color && Object.hasOwn(TINTS, n.color) && TINTS[n.color]) || TINTS.white;
-// paper in shade takes its colour: multiply two #rrggbb colours
-function mul(a, b) {
-  let o = "#";
-  for (let i = 1; i < 7; i += 2)
-    o += Math.round(parseInt(a.substr(i, 2), 16) * parseInt(b.substr(i, 2), 16) / 255).toString(16).padStart(2, "0");
-  return o;
+// ---- paper colours: Stickies' Color menu and Note Pad's white. A note
+// keeps the colour's name; no name, or one this app does not know, is
+// white. The colours themselves are in the sheet, a class each
+// (tint-<name>), where the desk's night gives each one its own.
+const TINTS = ["white", "yellow", "blue", "green", "pink", "purple", "gray"];
+const tintOf = n => (n && n.color && TINTS.includes(n.color)) ? n.color : "white";
+function wearTint(el, name) {
+  el.classList.remove(...TINTS.map(t => "tint-" + t));
+  el.classList.add("tint-" + name);
 }
+// what a grey of the dog-ear's flap (0…255) makes of the paper ([r, g, b]).
+// By day paper in shade takes its colour: the paper times the grey, as
+// sampled. By night the desk's paper is dark and shade on it would not
+// show, so the fold is lit instead: the grey's depth lifts the paper toward
+// white, the far corner (#fff) not at all and the crease (#444) LIFT of the
+// way, which on white paper (#1c1c1c by night) is the night's lit bevel
+// edge, #6c6c6c.
+const LIFT = 0.48;
+const SHADE = {
+  day: (paper, g) => paper.map(v => v * g / 255),
+  night: (paper, g) => paper.map(v => v + (255 - v) * LIFT * (1 - g / 255)),
+};
+// exeDark, the desk's night (the reader's choice or the system's), is
+// absent when the page is opened as a file
+const dark = () => typeof exeDark === "function" && exeDark();
 // the dog-ear's flap as sampled from Note Pad, one character a pixel: a grey
 // level ("4" #444 … "f" #fff), "." where the page beneath shows through
 const FLAP = [
@@ -686,10 +727,14 @@ const FLAP = [
   "......................4",
   "......................."];
 const flapCache = {};
-// the flap drawn on a sheet of colour `tint`: pixels at whole scales, a
-// vector copy (the same bands as a gradient) at fractional ones
-function flapArt(tint) {
-  if (flapCache[tint]) return flapCache[tint];
+// the flap drawn on paper of colour `paper`, the pad's ground as the page
+// has it ("rgb(…)", by day or by night): pixels at whole scales, a vector
+// copy (the same bands as a gradient) at fractional ones
+function flapArt(paper) {
+  const when = dark() ? "night" : "day", rgb = paper.match(/[\d.]+/g).slice(0, 3).map(Number);
+  const hex = c => "#" + c.map(v => Math.round(v).toString(16).padStart(2, "0")).join("");
+  const key = (when === "night" ? "night " : "") + hex(rgb);
+  if (flapCache[key]) return flapCache[key];
   const runs = {};
   FLAP.forEach((row, y) => {
     for (let x = 0; x < row.length; ) {
@@ -699,7 +744,7 @@ function flapArt(tint) {
       x = x2 + 1;
     }
   });
-  const grey = c => mul("#" + c.repeat(6), tint);
+  const grey = c => hex(SHADE[when](rgb, parseInt(c + c, 16)));
   const url = svg => 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
   const px = '<svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" shape-rendering="crispEdges">' +
     Object.entries(runs).map(([c, d]) => `<path fill="${grey(c)}" d="${d.join("")}"/>`).join("") + "</svg>";
@@ -708,7 +753,7 @@ function flapArt(tint) {
     '<defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="12" y1="11" x2="23" y2="0">' +
     stops.map(([o, c]) => `<stop offset="${o}" stop-color="${grey(c)}"/>`).join("") + "</linearGradient></defs>" +
     `<path d="M1 0H23V22z" fill="url(#g)"/><path d="M1 0L23 22" stroke="${grey("4")}" stroke-width="1"/></svg>`;
-  return (flapCache[tint] = { px: url(px), vec: url(vec) });
+  return (flapCache[key] = { px: url(px), vec: url(vec) });
 }
 
 function noteTitle(n, max = 60) {
@@ -1116,20 +1161,24 @@ new ResizeObserver(() => showDate()).observe($("#pad"));
 // flap the same paper turned over, and under the fold the next page's
 // colour in the shade of the one on top. Its square at the foot is ringed.
 function applySheet() {
-  const p = pages(), i = p.findIndex(n => n.id === sel), n = cur(), t = tintOf(n);
+  const p = pages(), i = p.findIndex(n => n.id === sel), n = cur(), name = tintOf(n);
   const next = p.length > 1 && i >= 0 ? p[(i + 1) % p.length] : null;
-  const art = flapArt(t);
-  $("#pad").style.setProperty("--sheet", t);
-  const corner = $("#corner");
-  corner.style.setProperty("--under", mul(tintOf(next), "#eeeeee"));
+  const pad = $("#pad"), corner = $("#corner");
+  wearTint(pad, name);
+  wearTint(corner, tintOf(next));
+  // the flap is drawn on the paper's colour as the page has it, the
+  // night's dark paper by night
+  const art = flapArt(getComputedStyle(pad).backgroundColor);
   corner.style.setProperty("--flap-px", art.px);
   corner.style.setProperty("--flap-vec", art.vec);
-  const name = tintOf(n) === TINTS.white ? "white" : n.color;
   for (const b of tintsBox.children) {
     b.classList.toggle("on", b.dataset.c === name);
     b.disabled = !loaded || !n || !!offline;
   }
 }
+// Light, Dark or Auto changed, or the system did: the paper has its other
+// colour now, and the flap is drawn again on it
+document.documentElement.addEventListener("exe-scheme", applySheet);
 
 // ---- the corkboard ----
 // Every note is a sheet pinned to the cork in the pad's order. Its pin's
@@ -1160,8 +1209,7 @@ function renderBoard() {
     const h = idHash(n.id);
     const c = document.createElement("div");
     const body = excerpt(n.text);
-    c.className = "card" + (body ? "" : " bare");
-    c.style.backgroundColor = tintOf(n);
+    c.className = "card tint-" + tintOf(n) + (body ? "" : " bare");
     c.dataset.id = n.id;
     c.style.left = (h % 7 - 3) + "px";
     c.style.top = ((h >>> 3) % 7 - 3) + "px";
@@ -1361,14 +1409,13 @@ $("#foot").addEventListener("mousedown", e => {
 });
 // the colour squares; a press keeps the caret where it was. A colour is an
 // edit to the note (a blank page keeps it until it is one).
-for (const [name, hex] of Object.entries(TINTS)) {
-  const b = document.createElement("button"), sw = document.createElement("i");
+for (const name of TINTS) {
+  const b = document.createElement("button");
   b.dataset.c = name;
+  b.className = "tint-" + name;
   b.title = name[0].toUpperCase() + name.slice(1);
   b.disabled = true;
-  sw.style.background = hex;
-  sw.style.borderColor = EDGES[name];
-  b.append(sw);
+  b.append(document.createElement("i"));
   b.addEventListener("mousedown", e => e.preventDefault());
   b.onclick = () => setColor(name);
   tintsBox.append(b);

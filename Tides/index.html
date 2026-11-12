@@ -642,11 +642,12 @@ const ICONS = {
 };
 // Each icon is painted once per device pixel ratio into a sprite of its
 // own, every art pixel's edges snapped to whole device pixels (crispEdges
-// at 1.5x), then stamped at a whole device pixel.
+// at 1.5x), then stamped at a whole device pixel. The outline is the
+// chart's day or night one (C.edge), so it keys the sprite too.
 const ICON = 16;
 const sprites = {};
 function sprite(kind, dpr) {
-  const k = kind + "@" + dpr;
+  const k = kind + "@" + dpr + C.edge;
   if (sprites[k]) return sprites[k];
   const c = document.createElement("canvas");
   c.width = c.height = Math.round(ICON * dpr);
@@ -654,7 +655,7 @@ function sprite(kind, dpr) {
   (ICONS[kind] || ICONS.cloudy).forEach((row, y) => {
     for (let x = 0; x < row.length; x++) {
       if (row[x] === ".") continue;
-      g.fillStyle = PAL[row[x]];
+      g.fillStyle = row[x] === "K" ? C.edge : PAL[row[x]];
       g.fillRect(snap(x), snap(y), snap(x + 1) - snap(x), snap(y + 1) - snap(y));
     }
   });
@@ -684,6 +685,26 @@ function updateStatus() {
 // ---- chart ----
 const box = $("#chart-box"), cv = $("#cv"), ctx = cv.getContext("2d");
 const M = { l: 32, r: 10, t: 16, b: 20 };
+
+// The chart's colours. The daemon gives the sheet a night (the field under
+// the transparent canvas turns #1c1c1c), but not what a script draws, so
+// draw() picks a set: the day as Platinum draws it, the night from the
+// desk's night palette (exe docs/platinum.md, "Appearance: day and night").
+// The grid over the water is see-through both ways, so it reads on the water
+// and on the field alike; by night the icons' black outline, lost on the
+// dark field, is drawn light.
+const dark = () => typeof exeDark === "function" && exeDark(); // absent on the page opened as a file
+const INK = {
+  day: { text: "#555", height: "#262626", hours: "#e4e4e4", midnight: "#d4d4d4", noon: "#efefef",
+    feet: "rgba(0,0,0,.10)", zero: "rgba(0,0,0,.28)", axis: "#999", water: "#ccccff", line: "#333399",
+    field: "#fff", now: "#cc0000", cross: "#888", ring: "#262626", edge: PAL.K },
+  night: { text: "#b4b4b4", height: "#e2e2e2", hours: "#2a2a2a", midnight: "#4c4c4c", noon: "#2a2a2a",
+    feet: "rgba(255,255,255,.08)", zero: "rgba(255,255,255,.22)", axis: "#909090", water: "#30305c", line: "#a9a9ff",
+    field: "#1c1c1c", now: "#ff8a80", cross: "#909090", ring: "#e2e2e2", edge: "#909090" },
+};
+let C = INK.day;
+// Light, Dark or Auto chosen on the desk, or the system turning: draw again
+document.documentElement.addEventListener("exe-scheme", () => draw());
 
 // What each high/low marker carries: its height, then a row with its clock
 // (not at 7 days) and the temperature after a middot, and outermost the
@@ -728,13 +749,14 @@ function plan(W, H) {
 function draw() {
   const W = box.clientWidth, H = box.clientHeight, dpr = devicePixelRatio || 1;
   if (W < 40 || H < 40) return;
+  C = dark() ? INK.night : INK.day;
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
   ctx.textBaseline = "alphabetic";
 
   if (!curve.length) {
-    ctx.fillStyle = "#555"; ctx.font = "11px Geneva, Verdana, sans-serif"; ctx.textAlign = "center";
+    ctx.fillStyle = C.text; ctx.font = "11px Geneva, Verdana, sans-serif"; ctx.textAlign = "center";
     ctx.fillText(loadErr ? "No tide data: " + loadErr : "Loading…", W / 2, H / 2);
     return;
   }
@@ -747,27 +769,27 @@ function draw() {
   if (st.range === 1) {
     for (let h = 3; h < 24; h += 3) {
       const t = start + h * 3600000, x = Math.round(X(t)) + .5;
-      ctx.strokeStyle = "#e4e4e4";
+      ctx.strokeStyle = C.hours;
       ctx.beginPath(); ctx.moveTo(x, M.t); ctx.lineTo(x, H - M.b); ctx.stroke();
-      ctx.fillStyle = "#555";
+      ctx.fillStyle = C.text;
       const lbl = h === 12 ? "12PM" : (h % 12) + (h < 12 ? "AM" : "PM");
       ctx.fillText(lbl, x, H - M.b + 13);
     }
-    ctx.fillStyle = "#555";
+    ctx.fillStyle = C.text;
     ctx.textAlign = "left"; ctx.fillText("12AM", M.l + 2, H - M.b + 13); ctx.textAlign = "center";
   } else {
     for (let d = 0; d < st.range; d++) {
       const t = start + d * DAY, x = Math.round(X(t)) + .5;
       if (d > 0) {
-        ctx.strokeStyle = "#d4d4d4";
+        ctx.strokeStyle = C.midnight;
         ctx.beginPath(); ctx.moveTo(x, M.t); ctx.lineTo(x, H - M.b); ctx.stroke();
       }
       if (st.range === 3) {
         const xn = Math.round(X(t + DAY / 2)) + .5;
-        ctx.strokeStyle = "#efefef";
+        ctx.strokeStyle = C.noon;
         ctx.beginPath(); ctx.moveTo(xn, M.t); ctx.lineTo(xn, H - M.b); ctx.stroke();
       }
-      ctx.fillStyle = "#555";
+      ctx.fillStyle = C.text;
       ctx.fillText(fmtDay(t), X(t + DAY / 2), H - M.b + 13);
     }
   }
@@ -778,11 +800,11 @@ function draw() {
   ctx.lineTo(X(curve[curve.length - 1].t), H - M.b);
   ctx.lineTo(X(curve[0].t), H - M.b);
   ctx.closePath();
-  ctx.fillStyle = "#ccccff";
+  ctx.fillStyle = C.water;
   ctx.fill();
   ctx.beginPath();
   curve.forEach((p, i) => { const x = X(p.t), y = Y(p.v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
-  ctx.strokeStyle = "#333399"; ctx.lineWidth = 2; ctx.lineJoin = "round"; ctx.stroke();
+  ctx.strokeStyle = C.line; ctx.lineWidth = 2; ctx.lineJoin = "round"; ctx.stroke();
   ctx.lineWidth = 1;
 
   // horizontal grid over the water so depth stays readable, labels in ink;
@@ -791,15 +813,15 @@ function draw() {
   ctx.textAlign = "right";
   for (let v = Math.ceil(P.vbot / step) * step; v <= P.vtop; v += step) {
     const y = Math.round(Y(v)) + .5;
-    ctx.strokeStyle = v === 0 ? "rgba(0,0,0,.28)" : "rgba(0,0,0,.10)";
+    ctx.strokeStyle = v === 0 ? C.zero : C.feet;
     ctx.beginPath(); ctx.moveTo(M.l, y); ctx.lineTo(W - M.r, y); ctx.stroke();
-    ctx.fillStyle = "#555";
+    ctx.fillStyle = C.text;
     ctx.fillText(String(v), M.l - 5, y + 3);
   }
-  ctx.fillStyle = "#555"; ctx.fillText("ft", M.l - 5, M.t - 5);
+  ctx.fillStyle = C.text; ctx.fillText("ft", M.l - 5, M.t - 5);
 
   // frame line at the bottom of the plot
-  ctx.strokeStyle = "#999";
+  ctx.strokeStyle = C.axis;
   ctx.beginPath(); ctx.moveTo(M.l, Math.round(H - M.b) + .5); ctx.lineTo(W - M.r, Math.round(H - M.b) + .5); ctx.stroke();
 
   // high/low markers: the chart's only direct labels (dataviz: selective).
@@ -809,8 +831,8 @@ function draw() {
   for (const e of P.exIn) {
     const x = X(e.t), y = Y(e.v);
     ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = "#fff"; ctx.fill();
-    ctx.strokeStyle = "#333399"; ctx.lineWidth = 2; ctx.stroke(); ctx.lineWidth = 1;
+    ctx.fillStyle = C.field; ctx.fill();
+    ctx.strokeStyle = C.line; ctx.lineWidth = 2; ctx.stroke(); ctx.lineWidth = 1;
     const above = e.type === "H";
     // centred on the dot, held in the plot by the row's full width (the
     // stand-in's, so the forecast landing never shifts it)
@@ -818,13 +840,13 @@ function draw() {
     const edge = Math.max(12, ctx.measureText(rowText(e.t, P.wx ? "00°" : "")).width / 2 + 1);
     const lx = Math.min(Math.max(x, M.l + edge), W - M.r - edge);
     const vy = above ? Math.max(y - 16, M.t + 10) : Math.min(y + 16, H - M.b - 11);
-    ctx.fillStyle = "#262626";
+    ctx.fillStyle = C.height;
     ctx.font = "bold 10px Geneva, Verdana, sans-serif";
     ctx.fillText(fmtFt(e.v), lx, vy);
     const w = P.wx && wxAt(e.t);
     const row = rowText(e.t, w ? fmtTemp(w.c) : "");
     if (row) {
-      ctx.fillStyle = "#555";
+      ctx.fillStyle = C.text;
       ctx.font = ROW_FONT;
       ctx.fillText(row, lx, vy + 9);
     }
@@ -836,13 +858,13 @@ function draw() {
   const now = Date.now();
   if (now >= start && now <= end) {
     const x = Math.round(X(now)) + .5;
-    ctx.strokeStyle = "#cc0000";
+    ctx.strokeStyle = C.now;
     ctx.beginPath(); ctx.moveTo(x, M.t); ctx.lineTo(x, H - M.b); ctx.stroke();
     const v = valueAt(now);
     if (v != null) {
       ctx.beginPath(); ctx.arc(X(now), Y(v), 3, 0, Math.PI * 2);
-      ctx.fillStyle = "#cc0000"; ctx.fill();
-      ctx.fillStyle = "#cc0000"; ctx.font = "9px Geneva, Verdana, sans-serif";
+      ctx.fillStyle = C.now; ctx.fill();
+      ctx.font = "9px Geneva, Verdana, sans-serif";
       // height, clock and temperature, in the chart's compact clock form,
       // in the margin over the plot (on the "ft" line), where no marker's
       // stack reaches; right of the line until it would run past the plot,
@@ -894,13 +916,13 @@ function drawHover(P) {
   if (!hover) return;
   const H = box.clientHeight;
   const x = Math.round(hover.x) + .5;
-  ctx.strokeStyle = "#888"; ctx.setLineDash([2, 2]);
+  ctx.strokeStyle = C.cross; ctx.setLineDash([2, 2]);
   ctx.beginPath(); ctx.moveTo(x, M.t); ctx.lineTo(x, H - M.b); ctx.stroke();
   ctx.setLineDash([]);
   // dot on the water line at the hovered time
   ctx.beginPath(); ctx.arc(hover.x, P.Y(hover.v), 3.5, 0, Math.PI * 2);
-  ctx.fillStyle = "#fff"; ctx.fill();
-  ctx.strokeStyle = "#262626"; ctx.stroke();
+  ctx.fillStyle = C.field; ctx.fill();
+  ctx.strokeStyle = C.ring; ctx.stroke();
 }
 
 // ---- range control ----

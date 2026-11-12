@@ -77,7 +77,7 @@ button.ghost.sm { padding: 1px 8px; font-size: 10px; border-radius: 3px; height:
   font-size: 11px; line-height: 16px; color: #777; }
 .gbox.zoomable { cursor: crosshair; }
 /* the navigator's span as it is dragged: the Finder's dotted marquee */
-.sel { position: absolute; box-sizing: border-box; border: 1px dotted var(--black); pointer-events: none; }
+.sel { position: absolute; box-sizing: border-box; color: var(--black); border: 1px dotted currentColor; pointer-events: none; }
 .gh { display: flex; align-items: center; gap: 8px; height: 20px; margin-top: 6px;
   font-size: 11px; font-weight: bold; }
 .gh .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -431,6 +431,8 @@ function width(zoom) {
 }
 
 function drawAll(force) { for (const box of list.querySelectorAll(".item")) drawItem(box, force); }
+// Appearance changed, here or on the reader's system: the graphs are asked for again
+document.documentElement.addEventListener("exe-scheme", () => drawAll());
 function drawItem(item, force) {
   const sel = item.classList.contains("open") ? ".detail .gbox" : ".ov .gbox";
   for (const g of item.querySelectorAll(sel)) draw(g, force);
@@ -446,7 +448,10 @@ async function draw(g, force) {
   const h = overview ? (narrow ? NARROW_OVERVIEW_H : OVERVIEW_H) : (narrow ? NARROW_DETAIL_H : DETAIL_H);
   const span = spans[id + "/" + g.dataset.range];
   const round = t.last ? t.last.t : 0;
-  const want = [w, h, zoom, round, span ? span.start + "-" + span.end : ""].join(" ");
+  // the picture has no ground of its own: on a dark page the daemon draws
+  // its words and lines light (docs/platinum.md, "Appearance")
+  const dark = typeof exeDark === "function" && exeDark();
+  const want = [w, h, zoom, round, span ? span.start + "-" + span.end : "", dark ? "dark" : ""].join(" ");
   // drawn already, or on its way
   if (!force && g.want === want) return;
   g.style.width = w + "px";
@@ -456,6 +461,7 @@ async function draw(g, force) {
   if (!t.last) { msg.textContent = "Measuring — the first twenty pings take about twenty seconds."; return; }
   g.want = want;
   const q = new URLSearchParams({ width: w, height: h, zoom });
+  if (dark) q.set("dark", "1");
   if (overview) { q.set("overview", "1"); q.set("range", st.overview); }
   else if (span) { q.set("start", span.start); q.set("end", span.end); }
   else q.set("range", g.dataset.range);
