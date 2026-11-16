@@ -62,14 +62,19 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
 
 - **Look**: Mac OS 9 Platinum — the full guide (numbers, colours, rules) is
   `/www/exe/docs/platinum.md`. Copy the CSS blocks from an existing app —
-  root color vars, beveled buttons, sunken text fields, and the pixel-sampled
-  OS 9 scrollbar block. The pop-up menu button is the exception: it is one
-  shared stylesheet the daemon serves, `<link rel="stylesheet"
-  href="/platinum/popup.css">` in the head (Weather's units menu), with the
+  root color vars, beveled buttons, sunken text fields. Two blocks are the
+  exception, shared stylesheets the daemon serves, linked in the head and
+  never copied: the pop-up menu button, `<link rel="stylesheet"
+  href="/platinum/popup.css">` (Weather's units menu), with the
   markup `<span class="popup"><select>…</select><span class="well"><i><b></b></i></span></span>`
-  and a width from the app; never copy the block. Only the Return-triggered default button gets the
+  and a width from the app; and the pixel-sampled OS 9 scroll bar,
+  `<link rel="stylesheet" href="/platinum/scrollbar.css">`, which draws
+  both its states (something to scroll, nothing to scroll: an
+  `overflow: scroll` bar is in the second whenever its content fits).
+  The scroll bar blocks in the apps here are older copies; Tides' draws
+  only the first state. Only the Return-triggered default button gets the
   black ring; others stay plain. Bordered scroll containers share 1px edges
-  with the scrollbar — reuse the existing block verbatim, don't restyle.
+  with the scrollbar — link the block, don't restyle.
 - **Desktop bridge** (postMessage, same-origin): send `{exe:"focus"}` on
   pointerdown so clicks raise the window; if `window.grow` is true, include
   the 15px grow-box SVG and stream `{exe:"grow", dx, dy}` / `grow-start` /
@@ -336,8 +341,8 @@ days.
   drops to a fresh one, Shift+Enter is the plain-newline escape — all
   through execCommand so native undo survives. Its always-on
   page bar carries the OS 9 disabled-flat scrollbar block (flat #eee strip,
-  #888 ghost arrows) that Tides doesn't need — copy from here for any
-  overflow:scroll bar. The app's 15px bar spec has no trailing line: here
+  #888 ghost arrows) that Tides doesn't need — a new
+  overflow:scroll bar links `/platinum/scrollbar.css`, which has it. The app's 15px bar spec has no trailing line: here
   the window frame's line is the bar's right rail, as a bordered box's
   border-right would be (has-vbar toggling is a desktop-16px-spec thing).
   On a phone the sheet hides its bar (a finger scrolls it) and the band and
