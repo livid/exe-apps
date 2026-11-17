@@ -71,10 +71,10 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   `<link rel="stylesheet" href="/platinum/scrollbar.css">`, which draws
   both its states (something to scroll, nothing to scroll: an
   `overflow: scroll` bar is in the second whenever its content fits).
-  Notes, Tides, Paint, World Clock, Todo and Weather link it; Ping still
-  carries an older copy. Only the Return-triggered default button gets the
-  black ring; others stay plain. Bordered scroll containers share 1px
-  edges with the scrollbar — link the block, don't restyle.
+  Every app here links it; none carries a copy. Only the Return-triggered
+  default button gets the black ring; others stay plain. Bordered scroll
+  containers share 1px edges with the scrollbar — link the block, don't
+  restyle.
 - **Desktop bridge** (postMessage, same-origin): send `{exe:"focus"}` on
   pointerdown so clicks raise the window; if `window.grow` is true, include
   the 15px grow-box SVG and stream `{exe:"grow", dx, dy}` / `grow-start` /
@@ -568,7 +568,8 @@ days.
   daemon's `wide_width` (680, where SmokePing's legend stops fitting) the
   daemon draws its figures two to a line a size smaller and the window asks
   for taller pictures (380 and 150, not 300 and 120); only under
-  `min_width` (300) does a box scroll sideways. `X-Ping-Plot` on a graph says
+  `min_width` (300) does a box scroll sideways (its bar, like the list's,
+  is the linked `/platinum/scrollbar.css`). `X-Ping-Plot` on a graph says
   where its plotting area is and the times at its edges; the drag-to-zoom
   (SmokePing's navigator) maps the pointer through it and asks for
   `start`/`end`. The window polls `GET /v1/ping` every 15 s (3 s while a
