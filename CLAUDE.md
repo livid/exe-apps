@@ -55,7 +55,10 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   keeping and its alert offers the app; `/www/exe/internal/server/ui/sw.js`
   ("what an app keeps") is the contract, and a kept answer carries
   `X-Exe-Kept`. The app says it shows a copy and dims what writes
-  (`/www/exe/docs/platinum.md`, Apps).
+  (`/www/exe/docs/platinum.md`, Apps). Every shared sheet the app links
+  (`/platinum/…`) is in `keep` too: the worker keeps only what is named,
+  and a copy read without its sheet draws that block undressed (Notes'
+  scroll bars and combo box, until 2026-11-17).
 - `~/.exe/apps` wins name collisions with this repo.
 
 ## Conventions (see Tides/index.html for a worked example)
