@@ -340,9 +340,9 @@ days.
   resetting), Enter on an empty item turns its marker into a blank line and
   drops to a fresh one, Shift+Enter is the plain-newline escape — all
   through execCommand so native undo survives. Its always-on
-  page bar carries the OS 9 disabled-flat scrollbar block (flat #eee strip,
-  #888 ghost arrows) that Tides doesn't need — a new
-  overflow:scroll bar links `/platinum/scrollbar.css`, which has it. The app's 15px bar spec has no trailing line: here
+  page bar and the corkboard's link `/platinum/scrollbar.css` and sit in
+  its disabled-flat state (flat #eee strip, #888 ghost arrows) whenever
+  the note or the board fits. The app's 15px bar spec has no trailing line: here
   the window frame's line is the bar's right rail, as a bordered box's
   border-right would be (has-vbar toggling is a desktop-16px-spec thing).
   On a phone the sheet hides its bar (a finger scrolls it) and the band and
