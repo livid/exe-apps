@@ -71,8 +71,8 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   `<link rel="stylesheet" href="/platinum/scrollbar.css">`, which draws
   both its states (something to scroll, nothing to scroll: an
   `overflow: scroll` bar is in the second whenever its content fits).
-  Notes, Tides, Paint and World Clock link it; the other apps here still
-  carry older copies. Only the Return-triggered default button gets the
+  Notes, Tides, Paint, World Clock and Todo link it; Weather and Ping
+  still carry older copies. Only the Return-triggered default button gets the
   black ring; others stay plain. Bordered scroll containers share 1px
   edges with the scrollbar — link the block, don't restyle.
 - **Desktop bridge** (postMessage, same-origin): send `{exe:"focus"}` on
@@ -221,7 +221,11 @@ days.
   list stops the pan for the rest of the drag
   (`~/tools/playwright/exe-apps-touch-reorder-test.js`). The daemon's
   merge struct must carry every field the apps write
-  (internal/peer/merge.go strips unknown keys).
+  (internal/peer/merge.go strips unknown keys). Both the list's bars are
+  always on (the linked `/platinum/scrollbar.css`), so they sit empty
+  while the items fit; rows end in an ellipsis, so the sideways one
+  never has anything to scroll and the scroll listener sets only the y
+  classes.
 
 - **Notes** — Mac OS's Note Pad (Apple Extras in the Mac OS 9 guest; Sherlock
   finds it), sampled from the real one: one white sheet under a toolbar
