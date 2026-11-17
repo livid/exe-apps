@@ -71,10 +71,10 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   `<link rel="stylesheet" href="/platinum/scrollbar.css">`, which draws
   both its states (something to scroll, nothing to scroll: an
   `overflow: scroll` bar is in the second whenever its content fits).
-  The scroll bar blocks in the apps here are older copies; Tides' draws
-  only the first state. Only the Return-triggered default button gets the
-  black ring; others stay plain. Bordered scroll containers share 1px edges
-  with the scrollbar — link the block, don't restyle.
+  Notes and Tides link it; the other apps here still carry older copies,
+  and Paint's draws only the first state. Only the Return-triggered
+  default button gets the black ring; others stay plain. Bordered scroll
+  containers share 1px edges with the scrollbar — link the block, don't restyle.
 - **Desktop bridge** (postMessage, same-origin): send `{exe:"focus"}` on
   pointerdown so clicks raise the window; if `window.grow` is true, include
   the 15px grow-box SVG and stream `{exe:"grow", dx, dy}` / `grow-start` /
@@ -438,8 +438,10 @@ days.
   station's position is saved with
   it in settings.json when picked; a settings file from before is looked
   up once in NOAA's mdapi (`stations/<id>.json`) and kept in memory — no
-  background write. °C/°F is the shared `.popup`, per viewer in
-  localStorage (`exe-tides-units:<App>`), converted client-side. Checks:
+  background write. The station list's scroll bar is the linked
+  `/platinum/scrollbar.css` (`overflow-y: auto`: it never sits empty).
+  °C/°F is the shared `.popup`, per viewer in localStorage
+  (`exe-tides-units:<App>`), converted client-side. Checks:
   `~/tools/playwright/exe-tides-now-label-test.js` (label text with the
   temperature, fit, no overlap with the markers' rows) and
   `exe-tides-tick-test.js`.
