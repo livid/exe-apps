@@ -71,8 +71,8 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   `<link rel="stylesheet" href="/platinum/scrollbar.css">`, which draws
   both its states (something to scroll, nothing to scroll: an
   `overflow: scroll` bar is in the second whenever its content fits).
-  Notes, Tides, Paint, World Clock and Todo link it; Weather and Ping
-  still carry older copies. Only the Return-triggered default button gets the
+  Notes, Tides, Paint, World Clock, Todo and Weather link it; Ping still
+  carries an older copy. Only the Return-triggered default button gets the
   black ring; others stay plain. Bordered scroll containers share 1px
   edges with the scrollbar — link the block, don't restyle.
 - **Desktop bridge** (postMessage, same-origin): send `{exe:"focus"}` on
@@ -480,7 +480,10 @@ days.
   elevation, zone, offset, generation time), Daily (7 days × 59
   aggregates) and Hourly (48 hours × 65 surface variables), the tables in
   bordered boxes that scroll sideways under the OS 9 horizontal bar with
-  a sticky label column, the current hour tinted. A `.popup` units menu
+  a sticky label column, the current hour tinted. The bars are the linked
+  `/platinum/scrollbar.css`: the list's and each table's are always on, so
+  they sit empty while the content fits, and the scroll listener sets the
+  x classes as well as the y ones. A `.popup` units menu
   (°C · km/h · mm or °F · mph · in) refetches, since the API converts
   server-side; the choice is the same on every desk (Livid, 2026-10-18):
   `settings.json` `{units: "metric" | "us"}`, a file of its own under the
