@@ -71,10 +71,10 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   `<link rel="stylesheet" href="/platinum/scrollbar.css">`, which draws
   both its states (something to scroll, nothing to scroll: an
   `overflow: scroll` bar is in the second whenever its content fits).
-  Notes, Tides and Paint link it; the other apps here still carry older
-  copies. Only the Return-triggered default button gets the black ring;
-  others stay plain. Bordered scroll containers share 1px edges with the
-  scrollbar — link the block, don't restyle.
+  Notes, Tides, Paint and World Clock link it; the other apps here still
+  carry older copies. Only the Return-triggered default button gets the
+  black ring; others stay plain. Bordered scroll containers share 1px
+  edges with the scrollbar — link the block, don't restyle.
 - **Desktop bridge** (postMessage, same-origin): send `{exe:"focus"}` on
   pointerdown so clicks raise the window; if `window.grow` is true, include
   the 15px grow-box SVG and stream `{exe:"grow", dx, dy}` / `grow-start` /
@@ -461,6 +461,9 @@ days.
   `World Clock/clocks.json` — the City app has an unrelated cities.json).
   Default is Los Angeles, CA when the doc is absent; removing uses the
   two-click armed ×; the minute tick sleeps on hide and resumes on show.
+  The clock list's bar is always on (a Finder list's), so it sits empty
+  until the cities outgrow the window; it and the search list's bar are
+  the linked `/platinum/scrollbar.css`.
 
 - **Weather** — the World Clock's list shape, each row a 32-grid condition
   icon (`ART` in index.html, generated pixel art: sun, moon, cloud, rain,

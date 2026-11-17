@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>World Clock</title>
+<link rel="stylesheet" href="/platinum/scrollbar.css">
 <style>
 /* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
 :root {
@@ -87,68 +88,6 @@ button.ghost.sm { padding: 1px 8px; font-size: 10px; border-radius: 3px; height:
 
 #grow { position: fixed; right: 0; bottom: 0; width: 15px; height: 15px;
   touch-action: none; z-index: 6; }
-
-/* Mac OS 9 scrollbars — the desktop's pixel-sampled spec, adapted for a
-   document window: the host frame draws the outer black line, so bars are
-   15px (1px leading separator + the sampled 14px face) with no trailing
-   border of their own — otherwise the edge doubles to 2px. */
-::-webkit-scrollbar { width: 15px; height: 15px; }
-::-webkit-scrollbar-track:vertical { border-left: 1px solid var(--black);
-  background: linear-gradient(to right, #777 0, #777 1px, #888 1px, #888 2px, #aaa 2px, #aaa 12px, #bbb 12px, #bbb 13px, #ccc 13px, #ccc 14px); }
-::-webkit-scrollbar-thumb:vertical { border: 1px solid var(--black); border-right: 0;
-  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="0" width="6" height="1" fill="%23ccccff"/><rect x="4" y="1" width="7" height="1" fill="%23333399"/><rect x="3" y="2" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="2" width="6" height="1" fill="%23ccccff"/><rect x="4" y="3" width="7" height="1" fill="%23333399"/><rect x="3" y="4" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="4" width="6" height="1" fill="%23ccccff"/><rect x="4" y="5" width="7" height="1" fill="%23333399"/><rect x="3" y="6" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="6" width="6" height="1" fill="%23ccccff"/><rect x="4" y="7" width="7" height="1" fill="%23333399"/></svg>') center no-repeat,
-    linear-gradient(to right, #ccccff 0 1px, #9999ff 1px 13px, #6666cc 13px 14px);
-  box-shadow: inset 0 1px 0 #ccccff, inset 0 -1px 0 #6666cc; }
-::-webkit-scrollbar-thumb:vertical:active {
-  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23ccccff"/><rect x="4" y="0" width="6" height="1" fill="%239999ff"/><rect x="4" y="1" width="7" height="1" fill="%23000066"/><rect x="3" y="2" width="1" height="1" fill="%23ccccff"/><rect x="4" y="2" width="6" height="1" fill="%239999ff"/><rect x="4" y="3" width="7" height="1" fill="%23000066"/><rect x="3" y="4" width="1" height="1" fill="%23ccccff"/><rect x="4" y="4" width="6" height="1" fill="%239999ff"/><rect x="4" y="5" width="7" height="1" fill="%23000066"/><rect x="3" y="6" width="1" height="1" fill="%23ccccff"/><rect x="4" y="6" width="6" height="1" fill="%239999ff"/><rect x="4" y="7" width="7" height="1" fill="%23000066"/></svg>') center no-repeat,
-    linear-gradient(to right, #9999ff 0 1px, #6666cc 1px 13px, #333399 13px 14px);
-  box-shadow: inset 0 1px 0 #9999ff, inset 0 -1px 0 #333399; }
-:not(.scrolled-y)::-webkit-scrollbar-thumb:vertical {
-  border-top-color: #ccccff; box-shadow: inset 0 -1px 0 #6666cc; }
-:not(.scrolled-y)::-webkit-scrollbar-thumb:vertical:active {
-  border-top-color: #9999ff; box-shadow: inset 0 -1px 0 #333399; }
-.at-y-end::-webkit-scrollbar-thumb:vertical {
-  border-bottom-color: #6666cc; box-shadow: inset 0 1px 0 #ccccff; }
-.at-y-end::-webkit-scrollbar-thumb:vertical:active {
-  border-bottom-color: #333399; box-shadow: inset 0 1px 0 #9999ff; }
-/* Safari redraws a custom scroll bar only when its element's own style
-   changes, and the classes above change nothing of the element's own: the
-   thumb's end merges stayed stale there and doubled the line against the
-   arrows. Each class sets a property of its own, so WebKit sees a change. */
-.scrolled-y { --sb-scrolled-y: 1; } .at-y-end { --sb-at-y-end: 1; }
-.scrolled-x { --sb-scrolled-x: 1; } .at-x-end { --sb-at-x-end: 1; }
-::-webkit-scrollbar-button { display: block; width: 16px; height: 16px;
-  background: #ddd; border: 1px solid var(--black);
-  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #bbb;
-  background-position: center; background-repeat: no-repeat; }
-::-webkit-scrollbar-button:vertical { border-right: 0; }
-::-webkit-scrollbar-button:vertical:end:increment:enabled { height: 14px; border-top: 0; border-bottom: 0; }
-::-webkit-scrollbar-button:vertical:decrement {
-  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M3 0h2v1h-2z M2 1h4v1h-4z M1 2h6v1h-6z M0 3h8v1h-8z"/></svg>'); }
-::-webkit-scrollbar-button:vertical:increment {
-  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M0 0h8v1h-8z M1 1h6v1h-6z M2 2h4v1h-4z M3 3h2v1h-2z"/></svg>'); }
-::-webkit-scrollbar-button:active { background-color: #777;
-  box-shadow: inset 1px 1px 0 #555, inset -1px -1px 0 #999; }
-::-webkit-scrollbar-button:vertical:start:decrement,
-::-webkit-scrollbar-button:vertical:start:increment,
-::-webkit-scrollbar-button:horizontal:start:decrement,
-::-webkit-scrollbar-button:horizontal:start:increment { display: none; }
-/* Disabled (nothing to scroll), sampled from OS 9: the strip goes flat #eee
-   between the rails, arrows ghost to #888 with no button face or bevel,
-   and a 1px #888 line separates the two arrows — Notes' block for an
-   always-on bar. The list sits in this state until it holds more cities
-   than the window shows. */
-::-webkit-scrollbar-track:disabled { background: #eee; }
-::-webkit-scrollbar-button:disabled { background-color: #eee; box-shadow: none; border: 0;
-  border-left: 1px solid var(--black); }
-::-webkit-scrollbar-button:vertical:end:increment:disabled { border-top: 1px solid #888; }
-/* OS 9 draws a darker #555 line where the disabled arrow pair meets the track */
-::-webkit-scrollbar-button:vertical:end:decrement:disabled { border-top: 1px solid #555; }
-::-webkit-scrollbar-button:vertical:decrement:disabled {
-  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="%23888888" d="M3 0h2v1h-2z M2 1h4v1h-4z M1 2h6v1h-6z M0 3h8v1h-8z"/></svg>'); }
-::-webkit-scrollbar-button:vertical:increment:disabled {
-  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="%23888888" d="M0 0h8v1h-8z M1 1h6v1h-6z M2 2h4v1h-4z M3 3h2v1h-2z"/></svg>'); }
-::-webkit-scrollbar-corner { background: var(--g300); }
 </style>
 </head>
 <body>
