@@ -71,10 +71,10 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   `<link rel="stylesheet" href="/platinum/scrollbar.css">`, which draws
   both its states (something to scroll, nothing to scroll: an
   `overflow: scroll` bar is in the second whenever its content fits).
-  Notes and Tides link it; the other apps here still carry older copies,
-  and Paint's draws only the first state. Only the Return-triggered
-  default button gets the black ring; others stay plain. Bordered scroll
-  containers share 1px edges with the scrollbar — link the block, don't restyle.
+  Notes, Tides and Paint link it; the other apps here still carry older
+  copies. Only the Return-triggered default button gets the black ring;
+  others stay plain. Bordered scroll containers share 1px edges with the
+  scrollbar — link the block, don't restyle.
 - **Desktop bridge** (postMessage, same-origin): send `{exe:"focus"}` on
   pointerdown so clicks raise the window; if `window.grow` is true, include
   the 15px grow-box SVG and stream `{exe:"grow", dx, dy}` / `grow-start` /
@@ -540,7 +540,10 @@ days.
   limit to fit before thresholding. The button row and the pattern bar
   scroll sideways with no scrollbar (`scrollbar-width: none`), which is
   how they fit a phone; a phone (`?mobile=1`, body.mobile) also hides the
-  grow tile.
+  grow tile. The page's two bars and the file list's are the linked
+  `/platinum/scrollbar.css`; the page scrolls both ways, so the scroll
+  listener sets `scrolled-x` / `at-x-end` beside the y pair, or the
+  sideways thumb would keep its start merge all the way along.
 
 - **Ping** — SmokePing in a window, with its measuring in the exe daemon
   (`/www/exe/internal/ping`, routes in `internal/server/ping.go`): the only
