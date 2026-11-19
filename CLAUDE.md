@@ -70,7 +70,15 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   with `.default`, `.on`, `.sm`, `.danger`, `.armed`, `.open`) and the
   sunken text field, `<link rel="stylesheet"
   href="/platinum/controls.css">`, after which the app says only what is
-  its own (a width, a place in a row); the pop-up menu button, `<link rel="stylesheet"
+  its own (a width, a place in a row); a menu (a contextual one, or the
+  list under a button), `<link rel="stylesheet"
+  href="/platinum/menu.css">` and `<script
+  src="/platinum/menu.js"></script>` before the app's own script: the
+  app writes the rows and says what a pick does, and the script lights,
+  walks, picks and closes (its head is the reference; Notes is the
+  worked example); a checkbox, `<link rel="stylesheet"
+  href="/platinum/checkbox.css">` with `<label class="check"><input
+  type="checkbox"> Words</label>`; the pop-up menu button, `<link rel="stylesheet"
   href="/platinum/popup.css">` (Weather's units menu), with the
   markup `<span class="popup"><select>…</select><span class="well"><i><b></b></i></span></span>`
   and a width from the app; and the pixel-sampled OS 9 scroll bar,

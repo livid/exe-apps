@@ -6,6 +6,7 @@
 <link rel="stylesheet" href="/platinum/combo.css">
 <link rel="stylesheet" href="/platinum/scrollbar.css">
 <link rel="stylesheet" href="/platinum/controls.css">
+<link rel="stylesheet" href="/platinum/menu.css">
 <style>
 /* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
 :root {
@@ -97,24 +98,13 @@ body:not(.on-board) #bar.t4 #del, #bar.t4 #new { display: inline-flex; align-ite
   width: 30px; padding: 0; }
 #bar.t4 #del .lbl, #bar.t4 #new .lbl { display: none; }
 #bar.t4 #del .gl, #bar.t4 #new .gl { display: block; }
-/* Send's menu, the desktop's contextual one (Projects' block): it hangs
-   2px under the button, kept inside the window */
-.dropdown { position: fixed; z-index: 30; min-width: 170px; background: var(--g300);
-  border: 1px solid var(--black); padding: 2px 1px;
-  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 var(--g500), 2px 2px 0 rgba(38,38,38,.85); }
-.dd-item { padding: 3px 22px 3px 18px; line-height: 18px; white-space: nowrap; }
-.dd-item:hover { background: var(--hl); color: #fff; }
-.dd-item.dis { color: #888; }
-.dd-item.dis:hover { background: none; color: #888; }
+/* Send's menu, the boards' and a sheet's are the shared Platinum menu
+   (/platinum/menu.css and menu.js, linked, never copied): it hangs 2px
+   under its button, kept inside the window; a groove between groups, the
+   check mark of the board that is up, a long name cut short, and taller
+   rows under a finger */
 body.mobile .dd-item { padding: 7px 22px 7px 18px; }
-/* the boards' menu and a sheet's: a groove between groups, the check mark
-   of the board that is up 5px in, a long name cut short */
-.dd-sep { height: 2px; margin: 3px 2px; border-top: 1px solid var(--g600); border-bottom: 1px solid #fff; }
-.dd-item { position: relative; }
 .dd-item .nm { display: block; max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
-.dd-item .ck { position: absolute; left: 5px; top: 50%; margin-top: -4px; width: 10px; height: 8px; fill: currentColor;
-  shape-rendering: crispEdges; }
-@media (min-resolution: 1.01dppx) and (max-resolution: 1.99dppx) { .dd-item .ck { shape-rendering: geometricPrecision; } }
 /* the sheet whose menu is up stays dark, as a Finder icon does */
 .card.menu { filter: brightness(.82); }
 /* a dialog: New Board, Rename Board, and the question before a board or a
@@ -385,6 +375,7 @@ body.mobile #status { padding-right: 8px; }
   <path fill="#aaa" d="M4 10h1v1H4zM6 12h1v1H6zM8 14h1v1H8z"/>
 </svg>
 
+<script src="/platinum/menu.js"></script>
 <script>
 "use strict";
 const $ = s => document.querySelector(s);
@@ -950,65 +941,46 @@ function askAgents() {
       if (r.ok && !+r.headers.get("X-Exe-Kept")) {
         agents = seenAgents((await r.json()).agents);
         try { localStorage.setItem(AGENTS_KEY, JSON.stringify(agents)); } catch (e) {}
-        if (!menuEl) setSend();
+        if (!menu.isOpen) setSend();
       }
     } catch (e) {}
     asking = null;
   })();
 }
-// One menu at a time, the desktop's contextual block: Send's, the boards'
-// and a sheet's. `items` are {name, pick} — with `check` for its mark,
-// `why` for one that is dimmed and says so — and "-" for a groove. It
-// stands at `at` ({left, top}, and `min` for its least width), kept inside
-// the window; `btn`, the button it hangs from, is pressed in while it is
-// up. An item is chosen where a press is let go: a click, or — `drag`, the
-// combo button's arrow — the press that opened the menu, dragged to an
-// item. A menu that came up under a held pointer (a right-click, a long
-// press) waits for a press of its own.
-const CHECK = '<svg class="ck" viewBox="0 0 10 8" aria-hidden="true"><path d="M9 0h1v2H9zM8 1h1v2H8zM7 2h1v2H7zM6 3h1v2H6zM5 4h1v2H5zM4 5h1v2H4zM3 6h1v2H3zM0 3h1v2H0zM1 4h1v2H1zM2 5h1v2H2z"/></svg>';
-let menuEl = null, menuBtn = null, menuCard = null, menuSkip = null;
-function closeMenu() {
-  if (!menuEl) return;
-  menuEl.remove();
-  menuEl = null;
-  if (menuBtn) { menuBtn.classList.remove("open"); menuBtn.setAttribute("aria-expanded", "false"); }
+// One menu at a time, the shared Platinum menu (/platinum/menu.js): Send's,
+// the boards' and a sheet's. `items` are {name, pick} — with `check` for
+// its mark, `why` for one that is dimmed and says so — and "-" for a
+// groove. It stands at `at` ({left, top}, and `min` for its least width),
+// kept inside the window; `btn`, the button it hangs from, is pressed in
+// while it is up. An item is chosen where a press is let go: a click, or —
+// `drag`, the combo button's arrow — the press that opened the menu,
+// dragged to an item. A menu that came up under a held pointer (a
+// right-click, a long press) waits for a press of its own. The arrow keys
+// and Return work it too, and a press anywhere else, Escape or the window
+// losing the keyboard puts it away.
+const menuBox = document.createElement("div");
+menuBox.className = "dropdown"; menuBox.id = "menu"; menuBox.hidden = true;
+menuBox.setAttribute("role", "menu");
+document.body.append(menuBox);
+let menuBtn = null, menuCard = null;
+const menu = platinumMenu(menuBox, { closed() {
+  if (menuBtn) menuBtn.classList.remove("open");
+  if (menuBtn) menuBtn.setAttribute("aria-expanded", "false");
   if (menuCard) menuCard.classList.remove("menu");
   menuBtn = menuCard = null;
   setSend(); // an answer that came while it was up
-}
+} });
+function closeMenu() { menu.close(); }
 function showMenu(items, at, { btn = null, card = null, drag = false } = {}) {
   closeMenu();
-  const m = document.createElement("div");
-  m.className = "dropdown"; m.id = "menu";
-  m.setAttribute("role", "menu");
-  for (const it of items) {
-    const d = document.createElement("div");
-    if (it === "-") { d.className = "dd-sep"; m.append(d); continue; }
-    d.className = "dd-item" + (it.why ? " dis" : "");
-    d.innerHTML = (it.check ? CHECK : "") + '<span class="nm"></span>';
-    d.lastChild.textContent = it.name;
-    d.setAttribute("role", "menuitem");
-    if (it.why) { d.title = it.why === true ? "" : it.why; d.setAttribute("aria-disabled", "true"); }
-    else d._pick = it.pick;
-    m.append(d);
-  }
-  let armed = drag;
-  m.addEventListener("pointerdown", () => { armed = true; });
-  m.addEventListener("pointerup", e => {
-    const d = e.target.closest(".dd-item");
-    if (!armed || e.button || !d || !d._pick) return;
-    const pick = d._pick;
-    closeMenu();
-    pick();
-  });
-  m.addEventListener("mousedown", e => e.preventDefault()); // the caret stays in the note
-  m.addEventListener("contextmenu", e => e.preventDefault());
-  document.body.append(m);
-  if (at.min) m.style.minWidth = Math.max(170, Math.ceil(at.min)) + "px";
-  const r = m.getBoundingClientRect();
-  m.style.left = Math.max(4, Math.min(at.left, innerWidth - r.width - 4)) + "px";
-  m.style.top = Math.max(4, Math.min(at.top, innerHeight - r.height - 4)) + "px";
-  menuEl = m; menuBtn = btn; menuCard = card;
+  menuBox.replaceChildren(...items.map(it => {
+    if (it === "-") return platinumMenu.row(it);
+    const nm = document.createElement("span");
+    nm.className = "nm"; nm.textContent = it.name;
+    return platinumMenu.row({ label: nm, act: it.pick, check: it.check, dis: !!it.why, title: it.why === true ? "" : it.why });
+  }));
+  menu.at(at.left, at.top, { min: at.min ? Math.max(170, at.min) : 0, anchor: btn, drag });
+  menuBtn = btn; menuCard = card;
   if (btn) { btn.classList.add("open"); btn.setAttribute("aria-expanded", "true"); }
   if (card) card.classList.add("menu");
 }
@@ -1038,19 +1010,11 @@ function sendTo(app, n = cur()) {
   if (!a.ask) m.dir = a.dir; // a desk that does not ask where: the agents' own folder
   parent.postMessage(m, location.origin);
 }
-// a press on the button while its menu is up puts the menu away (the
-// press closes it, and the click that follows must not open it again);
-// so do a press anywhere else, Escape, and the window losing the keyboard
+// a click on the button while its menu is up puts the menu away; so do a
+// press anywhere else, Escape and the window losing the keyboard (the
+// shared menu's), and the window changing size
 sendBtn.addEventListener("mousedown", e => e.preventDefault());
-sendBtn.onclick = () => { if (menuSkip === sendBtn) menuSkip = null; else openMenu(); };
-document.addEventListener("pointerdown", e => {
-  menuSkip = null;
-  if (!menuEl || e.target.closest("#menu")) return;
-  if (menuBtn && menuBtn.contains(e.target)) menuSkip = menuBtn;
-  closeMenu();
-}, true);
-document.addEventListener("keydown", e => { if (e.key === "Escape") closeMenu(); });
-addEventListener("blur", closeMenu);
+sendBtn.onclick = () => { if (menu.isOpen && menuBtn === sendBtn) closeMenu(); else openMenu(); };
 addEventListener("resize", closeMenu);
 setSend();
 askAgents();
@@ -1591,7 +1555,7 @@ boardMenuBtn.addEventListener("pointerdown", e => {
   if (e.button) return;
   // a finger's press is held by the button: let it go to the menu's items
   try { boardMenuBtn.releasePointerCapture(e.pointerId); } catch (x) {}
-  if (menuSkip === boardMenuBtn) { menuSkip = null; return; }
+  if (menu.isOpen && menuBtn === boardMenuBtn) { closeMenu(); return; }
   openBoardMenu();
 });
 // by the keyboard: Space or Return on the arrow part, Down Arrow on either part
@@ -1682,7 +1646,7 @@ async function askDeleteBoard() {
 let heldCard = null; // the sheet a held finger opened the menu on: the click that follows is not for it
 function cardMenu(c, x, y) {
   const n = doc.notes.find(n => n.id === c.dataset.id && !n.deleted);
-  if (!n || (menuEl && menuCard === c)) return;
+  if (!n || (menu.isOpen && menuCard === c)) return;
   const no = offline ? "exe does not answer" : "";
   const items = IN_DESK ? sendItems(n) : [];
   if (items.length) items.push("-");
