@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>Todo</title>
 <link rel="stylesheet" href="/platinum/scrollbar.css">
+<link rel="stylesheet" href="/platinum/controls.css">
 <style>
 /* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
 :root {
@@ -18,31 +19,12 @@ body { margin: 0; font: 12px/1.45 var(--font); color: var(--black); background: 
   user-select: none; cursor: default; overflow: hidden; display: flex; flex-direction: column; }
 
 #bar { display: flex; gap: 8px; padding: 10px 10px 8px; align-items: center; }
-/* same 20px outer height as the push button (1px border + 2px pad + 14px
-   line), so the field and Add sit flush like Help Center's search row */
-input[type=text] { flex: 1; min-width: 0; background: #fff; color: var(--black);
-  border: 1px solid var(--black); border-radius: 0; padding: 2px 5px; font: inherit; font-size: 12px;
-  height: 20px; line-height: 14px;
-  box-shadow: -1px -1px 0 var(--g600), -1px 0 0 var(--g600), 0 -1px 0 var(--g600),
-    1px 1px 0 #fff, 1px 0 0 #fff, 0 1px 0 #fff; }
-input[type=text]:focus { outline: 2px solid #9999fe; outline-offset: 0; }
-
-button { font: inherit; cursor: default; }
-button.btn, button.ghost { background: var(--g300); color: var(--black);
-  border: 1px solid var(--black); border-radius: 3px;
-  padding: 2px 13px; font-size: 12px; line-height: 14px; font-weight: bold; height: 20px;
-  box-shadow: inset 1px 1px 0 var(--g300), inset -1px -1px 0 #777,
-    inset 2px 2px 0 #fff, inset -2px -2px 0 #aaa; }
-/* OS 9 rings only the default button — the one Return triggers. Enter in
-   the field adds, so Add wears the ring (same treatment as the desktop's
-   dialog defaults); all other content buttons stay plain. */
-button.btn { outline: 2px solid var(--black); outline-offset: 1px; border-radius: 4px; }
-button.btn:active, button.ghost:active { background: #666; color: #fff;
-  box-shadow: inset 1px 1px 0 #444, inset -1px -1px 0 #888,
-    inset 2px 2px 0 #555, inset -2px -2px 0 #777; }
-button.btn:disabled, button.ghost:disabled { color: #777; border-color: #888;
-  background: var(--g300); box-shadow: none; outline-color: #888; }
-button.ghost.sm { padding: 1px 8px; font-size: 10px; height: auto; }
+/* the push button and the field are /platinum/controls.css, linked above:
+   both 20px outside, so the field and Add sit flush like Help Center's
+   search row. OS 9 rings only the default button, the one Return
+   triggers: Enter in the field adds, so Add is .default; every other
+   button stays plain. */
+input[type=text] { flex: 1; min-width: 0; }
 
 /* OS 9 document window, like Help Center: below the toolbar the content
    runs flush to the host frame on the left, right and bottom, with only a
@@ -95,7 +77,7 @@ body.mobile #list { overflow-x: hidden; }
 
 <div id="bar">
   <input type="text" id="new" placeholder="New to-do…" autocomplete="off">
-  <button class="btn" id="add">Add</button>
+  <button class="ghost default" id="add">Add</button>
 </div>
 <div id="list"></div>
 <!-- grow box sampled pixel-for-pixel from Mac OS 9 (Infinite Mac):

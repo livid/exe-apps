@@ -5,6 +5,7 @@
 <title>Notes</title>
 <link rel="stylesheet" href="/platinum/combo.css">
 <link rel="stylesheet" href="/platinum/scrollbar.css">
+<link rel="stylesheet" href="/platinum/controls.css">
 <style>
 /* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
 :root {
@@ -34,23 +35,9 @@ html, body { height: 100%; }
 body { margin: 0; font: 12px/1.45 var(--font); color: var(--black); background: var(--g200);
   user-select: none; cursor: default; overflow: hidden; display: flex; flex-direction: column; }
 
-button { font: inherit; cursor: default; }
-button.ghost { background: var(--g300); color: var(--black);
-  border: 1px solid var(--black); border-radius: 3px;
-  padding: 2px 13px; font-size: 12px; line-height: 14px; font-weight: bold; height: 20px;
-  flex: none; white-space: nowrap;
-  box-shadow: inset 1px 1px 0 var(--g300), inset -1px -1px 0 #777,
-    inset 2px 2px 0 #fff, inset -2px -2px 0 #aaa; }
-/* .open: Send wears the pressed look while its menu is up, as the Hub
-   app's buttons do while their layer is */
-button.ghost:active, button.ghost.open { background: #666; color: #fff;
-  box-shadow: inset 1px 1px 0 #444, inset -1px -1px 0 #888,
-    inset 2px 2px 0 #555, inset -2px -2px 0 #777; }
-button.ghost:disabled { color: #777; border-color: #888; background: var(--g300); box-shadow: none; }
-button.ghost.danger { color: #7a1010; }
-button.ghost.danger:disabled { color: #777; }
-button.ghost.armed { background: var(--red); color: #fff;
-  box-shadow: inset 1px 1px 0 #e88, inset -1px -1px 0 #911; }
+/* the push button and the field are /platinum/controls.css, linked above.
+   Send is .open, the pressed look, while its menu is up, as the Hub app's
+   buttons are while their layer is */
 
 /* the toolbar, like Todo's: Corkboard at the left; Send (where there is
    an agent to send to), Delete and New Note at the right */
@@ -65,8 +52,6 @@ button.ghost.armed { background: var(--red); color: #fff;
 .seg button:first-child { border-radius: 3px 0 0 3px; }
 .seg button:last-child { border-radius: 0 3px 3px 0; border-right-width: 1px; }
 #size button { padding: 2px 8px; min-width: 24px; }
-button.ghost.on { background: #888; color: #fff;
-  box-shadow: inset 1px 1px 0 #666, inset -1px -1px 0 #aaa, inset 2px 2px 0 #777, inset -2px -2px 0 #999; }
 body.on-board #size, body.on-board #face, body.on-board #del { display: none; }
 /* where the words will not fit, the toolbar gives way a step at a time
    (fitBar): the faces show as a sample "Aa" each in itself; then Corkboard
@@ -142,14 +127,9 @@ body.mobile .dd-item { padding: 7px 22px 7px 18px; }
 .dlg { width: 100%; max-width: 292px; background: var(--g300); border: 1px solid var(--black); padding: 12px;
   box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 var(--g600), 2px 2px 0 var(--black); }
 .dlg p { margin: 0; line-height: 16px; overflow-wrap: anywhere; }
-.dlg input { display: block; width: calc(100% - 2px); height: 20px; margin: 9px 1px 1px; padding: 2px 5px; background: #fff;
-  color: #000; border: 1px solid var(--black); border-radius: 0; font: 12px/14px var(--font); user-select: text;
-  box-shadow: -1px -1px 0 #999, 1px 1px 0 #fff; }
-.dlg input:focus { outline: 2px solid #9999fe; outline-offset: 0; }
+.dlg input { display: block; width: calc(100% - 2px); margin: 9px 1px 1px; }
 .dlg .row { display: flex; justify-content: flex-end; gap: 12px; margin-top: 14px; }
 .dlg .row button { width: 58px; padding-left: 0; padding-right: 0; }
-button.ghost.def { outline: 2px solid var(--black); outline-offset: 1px; border-radius: 4px; }
-
 
 /* two views in one place under the toolbar's line: the pad (one note) and
    the corkboard (every note). The one not shown is visibility: hidden, so
@@ -1634,7 +1614,7 @@ function ask({ text, value = null, ok = "OK" }) {
     veil.id = "veil";
     veil.innerHTML = '<div class="dlg" role="dialog" aria-modal="true"><p></p>' +
       (value === null ? "" : '<input type="text" maxlength="40" spellcheck="false" autocomplete="off">') +
-      '<div class="row"><button class="ghost" type="button">Cancel</button><button class="ghost def" type="button"></button></div></div>';
+      '<div class="row"><button class="ghost" type="button">Cancel</button><button class="ghost default" type="button"></button></div></div>';
     const p = veil.querySelector("p"), field = veil.querySelector("input"), [no, yes] = veil.querySelectorAll("button");
     p.textContent = text; yes.textContent = ok;
     const name = () => field ? field.value.trim().replace(/\s+/g, " ") : "";

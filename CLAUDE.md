@@ -64,10 +64,13 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
 ## Conventions (see Tides/index.html for a worked example)
 
 - **Look**: Mac OS 9 Platinum — the full guide (numbers, colours, rules) is
-  `/www/exe/docs/platinum.md`. Copy the CSS blocks from an existing app —
-  root color vars, beveled buttons, sunken text fields. Two blocks are the
-  exception, shared stylesheets the daemon serves, linked in the head and
-  never copied: the pop-up menu button, `<link rel="stylesheet"
+  `/www/exe/docs/platinum.md`. Copy the root color vars from an existing
+  app. The controls are shared stylesheets the daemon serves, linked in
+  the head and never copied: the beveled push button (`button.ghost`,
+  with `.default`, `.on`, `.sm`, `.danger`, `.armed`, `.open`) and the
+  sunken text field, `<link rel="stylesheet"
+  href="/platinum/controls.css">`, after which the app says only what is
+  its own (a width, a place in a row); the pop-up menu button, `<link rel="stylesheet"
   href="/platinum/popup.css">` (Weather's units menu), with the
   markup `<span class="popup"><select>…</select><span class="well"><i><b></b></i></span></span>`
   and a width from the app; and the pixel-sampled OS 9 scroll bar,
