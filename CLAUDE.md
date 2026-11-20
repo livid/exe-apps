@@ -78,7 +78,13 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   walks, picks and closes (its head is the reference; Notes is the
   worked example); a checkbox, `<link rel="stylesheet"
   href="/platinum/checkbox.css">` with `<label class="check"><input
-  type="checkbox"> Words</label>`; the pop-up menu button, `<link rel="stylesheet"
+  type="checkbox"> Words</label>`; a dialog, `<link rel="stylesheet"
+  href="/platinum/dialog.css">` and `<script
+  src="/platinum/dialog.js"></script>`, with `<div class="veil"><div
+  class="dlg" role="dialog" aria-modal="true"><h2>Title</h2> … <div
+  class="btns">Cancel, then the default</div></div></div>` and `.on` on
+  the veil to show it (the script keeps Tab inside; Return and Escape
+  are the app's; Paint is the worked example); the pop-up menu button, `<link rel="stylesheet"
   href="/platinum/popup.css">` (Weather's units menu), with the
   markup `<span class="popup"><select>…</select><span class="well"><i><b></b></i></span></span>`
   and a width from the app; and the pixel-sampled OS 9 scroll bar,

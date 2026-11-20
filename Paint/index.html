@@ -5,6 +5,7 @@
 <title>Paint</title>
 <link rel="stylesheet" href="/platinum/scrollbar.css">
 <link rel="stylesheet" href="/platinum/controls.css">
+<link rel="stylesheet" href="/platinum/dialog.css">
 <style>
 /* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
 :root {
@@ -30,29 +31,23 @@ input[type=text] { width: 56px; }
 #dims { margin-left: auto; font-size: 11px; color: #555; }
 #saved { margin-left: 8px; font-size: 11px; color: #555; }
 
-/* dialogs, Platinum-style: the HIG's 12px from every edge, 20px buttons
-   58px wide and 12px apart, the default one rightmost */
-.dlg-wrap { position: fixed; inset: 0; z-index: 10; display: flex;
-  align-items: center; justify-content: center; }
-.dlg-wrap[hidden] { display: none; }
-.dlg { background: var(--g300); border: 1px solid var(--black); padding: 12px;
-  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #999, 2px 2px 0 rgba(0,0,0,.35);
-  min-width: 220px; max-width: calc(100vw - 24px); }
-.dlg .dlg-title { font-weight: bold; margin-bottom: 10px; }
+/* dialogs are the shared veil and panel (/platinum/dialog.css and
+   dialog.js, linked, never copied): the HIG's 12px from every edge, 20px
+   buttons 58px wide and 12px apart, the default one rightmost. Canvas
+   Size is as wide as its rows. */
+.dlg { width: auto; min-width: 220px; }
 .dlg .dlg-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .dlg .dlg-row[hidden] { display: none; }
 .dlg:focus { outline: none; }
 .dlg .dlg-row label { width: 44px; }
 .dlg .dlg-note { font-size: 10px; color: #555; margin: 4px 0 10px; }
-.dlg .dlg-btns { display: flex; justify-content: flex-end; gap: 12px; margin-top: 12px; }
-.dlg .dlg-btns .ghost { min-width: 58px; }
 .dlg .dlg-err { font-size: 10px; color: #7a1010; margin-top: 4px; min-height: 14px; }
 
 /* Save / Load: the Workspace's Paint folder as a sunken Finder list (the
    Notes listbox block); 8 rows of 18px, filled in place once the folder
    answers so nothing moves */
 #fdlg { width: 326px; }
-#fdlg .dlg-title { margin-bottom: 2px; }
+#fdlg h2 { margin-bottom: 2px; }
 #fdlg .dlg-note { margin: 0 0 8px; }
 #fdlg .dlg-row label { width: 54px; }
 #fdlg input[type=text] { width: auto; flex: 1; min-width: 0; }
@@ -161,13 +156,13 @@ body.mobile #grow { display: none; }
   <div id="pats"></div>
 </div>
 
-<div id="dlg-wrap" class="dlg-wrap" hidden>
+<div id="dlg-wrap" class="veil">
   <div id="dlg" class="dlg">
-    <div class="dlg-title">Canvas Size</div>
+    <h2>Canvas Size</h2>
     <div class="dlg-row"><label for="dlg-w">Width:</label><input type="text" id="dlg-w" autocomplete="off"> pixels</div>
     <div class="dlg-row"><label for="dlg-h">Height:</label><input type="text" id="dlg-h" autocomplete="off"> pixels</div>
     <div class="dlg-note">64–1152 × 64–1440. The page keeps its top-left corner; shrinking crops the rest (undoable).</div>
-    <div class="dlg-btns">
+    <div class="btns">
       <button class="ghost" id="dlg-cancel">Cancel</button>
       <button class="ghost default" id="dlg-ok">OK</button>
     </div>
@@ -175,14 +170,14 @@ body.mobile #grow { display: none; }
 </div>
 
 <!-- Save… / Load…: paintings as PNGs in the Workspace's Paint folder -->
-<div id="fdlg-wrap" class="dlg-wrap" hidden>
+<div id="fdlg-wrap" class="veil">
   <div id="fdlg" class="dlg" tabindex="-1">
-    <div class="dlg-title" id="fdlg-title">Save Painting</div>
+    <h2 id="fdlg-title">Save Painting</h2>
     <div class="dlg-note">Workspace:Paint</div>
     <div class="listbox" id="flist"></div>
     <div class="dlg-row" id="fdlg-namerow"><label for="fdlg-name">Save as:</label><input type="text" id="fdlg-name" autocomplete="off" spellcheck="false"></div>
     <div class="dlg-err" id="fdlg-err"></div>
-    <div class="dlg-btns">
+    <div class="btns">
       <button class="ghost" id="fdlg-cancel">Cancel</button>
       <button class="ghost default" id="fdlg-ok">Save</button>
     </div>
@@ -199,6 +194,7 @@ body.mobile #grow { display: none; }
   <path fill="#aaa" d="M4 10h1v1H4zM6 12h1v1H6zM8 14h1v1H8z"/>
 </svg>
 
+<script src="/platinum/dialog.js"></script>
 <script>
 "use strict";
 const $ = s => document.querySelector(s);
@@ -502,10 +498,10 @@ function resizeDoc(nw, nh) {
 $("#resize").addEventListener("click", () => {
   commitText();
   dlgW.value = W; dlgH.value = H;
-  dlgWrap.hidden = false;
+  dlgWrap.classList.add("on");
   dlgW.focus(); dlgW.select();
 });
-function closeDlg() { dlgWrap.hidden = true; }
+function closeDlg() { dlgWrap.classList.remove("on"); }
 function applyResize() {
   let nw = Math.round(parseFloat(dlgW.value)), nh = Math.round(parseFloat(dlgH.value));
   if (!Number.isFinite(nw)) nw = W;
@@ -620,12 +616,12 @@ async function openFileDlg(mode) {
   fname.value = docName;
   flist.replaceChildren(); // the box keeps its size; rows fill it in place
   syncOk();
-  fdlgWrap.hidden = false;
+  fdlgWrap.classList.add("on");
   // keys (Return, Escape, arrows) must land inside the dialog
   if (mode === "save") { fname.focus(); selectStem(); } else $("#fdlg").focus();
   try { fentries = await listPaintings(); }
   catch (err) { ferr.textContent = "Couldn't list the folder: " + err.message; }
-  if (fdlgWrap.hidden || fmode !== mode) return; // closed meanwhile
+  if (!fdlgWrap.classList.contains("on") || fmode !== mode) return; // closed meanwhile
   renderList();
   if (mode === "save") {
     if (!fname.value) { fname.value = freeName(); selectStem(); }
@@ -634,7 +630,7 @@ async function openFileDlg(mode) {
   } else if (docName && fentries.some(e => e.name === docName)) selectRow(docName);
   syncOk();
 }
-function closeFileDlg() { fdlgWrap.hidden = true; fmode = null; }
+function closeFileDlg() { fdlgWrap.classList.remove("on"); fmode = null; }
 
 async function saveToWorkspace(name) {
   dropSelection(true); commitText();

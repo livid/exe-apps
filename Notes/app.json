@@ -2,5 +2,5 @@
   "title": "Notes",
   "icon": "icon.svg",
   "window": { "width": 440, "height": 480, "grow": true },
-  "offline": { "keep": ["/platinum/combo.css", "/platinum/controls.css", "/platinum/menu.css", "/platinum/menu.js", "/platinum/scrollbar.css", "/v1/apps/Notes/data/notes.json", "/v1/apps/Notes/data/settings.json", "/v1/apps/Notes/data/boards.json"] }
+  "offline": { "keep": ["/platinum/combo.css", "/platinum/controls.css", "/platinum/dialog.css", "/platinum/dialog.js", "/platinum/menu.css", "/platinum/menu.js", "/platinum/scrollbar.css", "/v1/apps/Notes/data/notes.json", "/v1/apps/Notes/data/settings.json", "/v1/apps/Notes/data/boards.json"] }
 }

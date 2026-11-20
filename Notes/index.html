@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="/platinum/scrollbar.css">
 <link rel="stylesheet" href="/platinum/controls.css">
 <link rel="stylesheet" href="/platinum/menu.css">
+<link rel="stylesheet" href="/platinum/dialog.css">
 <style>
 /* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
 :root {
@@ -108,18 +109,16 @@ body.mobile .dd-item { padding: 7px 22px 7px 18px; }
 /* the sheet whose menu is up stays dark, as a Finder icon does */
 .card.menu { filter: brightness(.82); }
 /* a dialog: New Board, Rename Board, and the question before a board or a
-   note goes. The window's own modal box, laid out by the dialog rules:
-   12px inside its edges, a sunken 20px field, the buttons 58px wide and
-   12px apart at the lower right, the Return default in its ring. Nothing
-   under it takes a press while it is up. */
-#veil { position: fixed; inset: 0; z-index: 40; display: flex; align-items: flex-start; justify-content: center;
-  padding: 56px 12px 12px; }
-.dlg { width: 100%; max-width: 292px; background: var(--g300); border: 1px solid var(--black); padding: 12px;
-  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 var(--g600), 2px 2px 0 var(--black); }
+   note goes. The shared veil and panel (/platinum/dialog.css and
+   dialog.js, linked, never copied): 12px inside its edges, a sunken 20px
+   field, the buttons 58px wide and 12px apart at the lower right, the
+   Return default in its ring. Nothing under it takes a press while it is
+   up. Notes' own: it hangs 56px down, under the toolbar and clear of a
+   phone's keys, and is 292px wide. */
+#veil { padding-top: 56px; }
+.dlg { width: 292px; margin: 0 auto auto; }
 .dlg p { margin: 0; line-height: 16px; overflow-wrap: anywhere; }
 .dlg input { display: block; width: calc(100% - 2px); margin: 9px 1px 1px; }
-.dlg .row { display: flex; justify-content: flex-end; gap: 12px; margin-top: 14px; }
-.dlg .row button { width: 58px; padding-left: 0; padding-right: 0; }
 
 /* two views in one place under the toolbar's line: the pad (one note) and
    the corkboard (every note). The one not shown is visibility: hidden, so
@@ -375,6 +374,7 @@ body.mobile #status { padding-right: 8px; }
   <path fill="#aaa" d="M4 10h1v1H4zM6 12h1v1H6zM8 14h1v1H8z"/>
 </svg>
 
+<script src="/platinum/dialog.js"></script>
 <script src="/platinum/menu.js"></script>
 <script>
 "use strict";
@@ -1575,10 +1575,10 @@ function ask({ text, value = null, ok = "OK" }) {
   if (old) old.remove();
   return new Promise(done => {
     const veil = document.createElement("div");
-    veil.id = "veil";
+    veil.id = "veil"; veil.className = "veil on";
     veil.innerHTML = '<div class="dlg" role="dialog" aria-modal="true"><p></p>' +
       (value === null ? "" : '<input type="text" maxlength="40" spellcheck="false" autocomplete="off">') +
-      '<div class="row"><button class="ghost" type="button">Cancel</button><button class="ghost default" type="button"></button></div></div>';
+      '<div class="btns"><button class="ghost" type="button">Cancel</button><button class="ghost default" type="button"></button></div></div>';
     const p = veil.querySelector("p"), field = veil.querySelector("input"), [no, yes] = veil.querySelectorAll("button");
     p.textContent = text; yes.textContent = ok;
     const name = () => field ? field.value.trim().replace(/\s+/g, " ") : "";
