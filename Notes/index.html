@@ -3,26 +3,21 @@
 <head>
 <meta charset="utf-8">
 <title>Notes</title>
+<link rel="stylesheet" href="/platinum/tokens.css">
 <link rel="stylesheet" href="/platinum/combo.css">
 <link rel="stylesheet" href="/platinum/scrollbar.css">
 <link rel="stylesheet" href="/platinum/controls.css">
 <link rel="stylesheet" href="/platinum/menu.css">
 <link rel="stylesheet" href="/platinum/dialog.css">
 <style>
-/* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
+/* the Platinum colours and faces are /platinum/tokens.css, linked above */
 :root {
-  --black: #262626;
-  --g200: #eee; --g300: #ddd; --g400: #ccc; --g500: #bbb; --g600: #999;
-  --hl: #333399; --red: #cc3333;
-  --font: "Charcoal", "Chicago", "Geneva", "Lucida Grande", "Lucida Sans", Geneva, Verdana, sans-serif;
   /* the page is written in Geneva 12 on 16px lines, as Note Pad's was */
   --page: "Geneva", "Lucida Grande", "Lucida Sans", Verdana, sans-serif;
   /* the serif a viewer may choose instead: Charter, Matthew Carter's book
      face (large x-height, sturdy serifs, built into macOS and iOS), then
      Georgia, his screen serif (Windows), then what the system has */
   --serif: Charter, "Bitstream Charter", "Charis SIL", Georgia, "Iowan Old Style", Cambria, "Times New Roman", serif;
-  /* the desktop's monospace stack */
-  --mono: "Monaco", ui-monospace, SFMono-Regular, Menlo, monospace;
   /* the face notes are read in, set by the script */
   --read: var(--page);
   /* paper grain, laid over a sheet's colour: SVG fractal noise, so it is

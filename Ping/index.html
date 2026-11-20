@@ -3,16 +3,11 @@
 <head>
 <meta charset="utf-8">
 <title>Ping</title>
+<link rel="stylesheet" href="/platinum/tokens.css">
 <link rel="stylesheet" href="/platinum/scrollbar.css">
 <link rel="stylesheet" href="/platinum/controls.css">
 <style>
-/* Platinum values match the exe desktop (macthemes.garden pixel bevels) */
-:root {
-  --black: #262626;
-  --g200: #eee; --g300: #ddd; --g400: #ccc; --g500: #bbb; --g600: #999;
-  --hl: #333399; --red: #cc3333;
-  --font: "Charcoal", "Chicago", "Geneva", "Lucida Grande", "Lucida Sans", Geneva, Verdana, sans-serif;
-}
+/* the Platinum colours and faces are /platinum/tokens.css, linked above */
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body { margin: 0; font: 12px/1.45 var(--font); color: var(--black); background: var(--g200);
@@ -45,7 +40,7 @@ body { margin: 0; font: 12px/1.45 var(--font); color: var(--black); background: 
 .empty, .notice { padding: 14px 10px; color: #777; }
 .notice { color: var(--black); border-bottom: 1px solid #efefef; }
 .notice b { display: block; margin-bottom: 4px; }
-.notice code { font: 11px/16px Monaco, "SF Mono", Menlo, monospace; user-select: text; }
+.notice code { font: 11px/16px var(--mono); user-select: text; }
 
 /* A graph is rrdtool's picture at the size asked, so its box has that size
    before the picture comes. It is as wide as the window, a phone's too;

@@ -64,9 +64,12 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
 ## Conventions (see Tides/index.html for a worked example)
 
 - **Look**: Mac OS 9 Platinum — the full guide (numbers, colours, rules) is
-  `/www/exe/docs/platinum.md`. Copy the root color vars from an existing
-  app. The controls are shared stylesheets the daemon serves, linked in
-  the head and never copied: the beveled push button (`button.ghost`,
+  `/www/exe/docs/platinum.md`. The colours, the faces and the controls
+  are shared stylesheets the daemon serves, linked in the head and never
+  copied: the root values (`--black`, `--g200`…`--g800`, `--hl`, `--red`,
+  `--green`, `--font`, `--mono`), `<link rel="stylesheet"
+  href="/platinum/tokens.css">`, linked first, so that an app's `:root`
+  holds only what is its own; the beveled push button (`button.ghost`,
   with `.default`, `.on`, `.sm`, `.danger`, `.armed`, `.open`) and the
   sunken text field, `<link rel="stylesheet"
   href="/platinum/controls.css">`, after which the app says only what is
