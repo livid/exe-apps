@@ -3506,18 +3506,24 @@ async function playSound() {
   const t = composer(sound);
   if (!t) { fadeOut(voice, 2); voice = null; return; }
   if (voice && voice.id === t.id) return;
-  let buf = loopBuf && loopBuf.id === t.id && loopBuf.rate === ac.sampleRate ? loopBuf.buffer : null;
+  // a loop is made at the context's rate, but never above 48 kHz: at 96
+  // it would take twice the time and memory for nothing a loop needs, and
+  // the browser plays a 48 kHz buffer at any rate
+  const rate = Math.min(ac.sampleRate, 48000);
+  let buf = loopBuf && loopBuf.id === t.id && loopBuf.rate === rate ? loopBuf.buffer : null;
   if (!buf) {
     loopBuf = null; // the last loop goes before the next is made
     waiting = t.id; syncTunes();
-    try { buf = (await renderSoundtrack(t, ac.sampleRate)).buffer; }
+    try { buf = (await renderSoundtrack(t, rate)).buffer; }
     catch (e) { console.error("notes: soundtrack " + t.id + " failed:", e); }
     if (mine !== soundSeq) return; // chosen again meanwhile, or full screen ended
     waiting = ""; syncTunes();
     if (!buf) return;
-    loopBuf = { id: t.id, rate: ac.sampleRate, buffer: buf };
+    loopBuf = { id: t.id, rate, buffer: buf };
   }
   if (!inFocus() || sound !== t.id) return;
+  // asleep after a quick way out and back in: a context once started by a press may be woken again
+  if (ac.state !== "running") ac.resume().catch(() => {});
   fadeOut(voice, 2);
   const src = ac.createBufferSource(), gain = ac.createGain();
   src.buffer = buf; src.loop = true;
@@ -3536,7 +3542,8 @@ function stopSound(now) {
   }
   voice = null; loopBuf = null; waiting = "";
   syncTunes();
-  if (ac && ac.state === "running") setTimeout(() => { if (!voice && ac.state === "running") ac.suspend().catch(() => {}); }, now ? 0 : 1200);
+  // the context sleeps once the fade is done, unless full screen is up again meanwhile
+  if (ac && ac.state === "running") setTimeout(() => { if (!voice && !inFocus() && ac.state === "running") ac.suspend().catch(() => {}); }, now ? 0 : 1200);
 }
 // the row: Silence, then each soundtrack's glyph
 const tunesEl = $("#tunes");

@@ -480,11 +480,14 @@ days.
   press and a square's), so the choice is this device's
   (`exe-notes-sound:<App>`), never the synced settings': a choice on
   another desk must never start sound here. A choice renders its loop at
-  the context's rate (the square's glyph faint meanwhile, `.wait`), then
-  plays it looping, faded in over 3 s and the last out over 2 s; leaving
-  full screen, `{exe:"hide"}` and pagehide stop it and let the loop go
-  (two minutes of audio is 46 MB; Hearth holds about 165 MB while it
-  renders). No volume of its own: the system's. Nobody here has heard
+  the context's rate, never above 48 kHz (a 96 kHz machine plays the 48
+  kHz loop; all eight repeat exactly at 96, 48, 44.1, 24 and 22.05 kHz),
+  the square's glyph faint meanwhile (`.wait`), then plays it looping,
+  faded in over 3 s and the last out over 2 s; leaving full screen,
+  `{exe:"hide"}` and pagehide stop it and let the loop go (two minutes of
+  audio is 46 MB; Hearth holds about 165 MB while it renders), and the
+  context sleeps after the fade unless full screen is up again (a quick
+  way out and back in once left a slow loop on a sleeping context). No volume of its own: the system's. Nobody here has heard
   the eight: they were judged by measurement and spectrogram. Checks:
   `~/tools/playwright/exe-notes/sound.js`. **Stickies** (2026-10-14): the pushpin at the sheet's foot, left
   of the colours, sticks the open note to the desk — the note gets
