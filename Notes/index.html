@@ -237,6 +237,24 @@ body.on-board #pad, body:not(.on-board) #board { visibility: hidden; }
   #corner { background-image: var(--flap-vec); }
 }
 body.solo #corner { visibility: hidden; }
+/* Under the CDE look a white sheet is the text area's colour (the skin
+   makes white paper --cta), and the skin's colour map would give the page
+   under the fold and the page edges the window's colour and its lines the
+   window's shadow. They stay paper: a shade under the sheet, as #eee is
+   under white (the sheet with 6.7% black over it), and the pad's dark
+   lines, in blacks the map does not know, so they keep the day */
+:root[data-skin="cde"] #corner:is(.tint-white, :not([class*="tint-"])) {
+  background-color: var(--cta);
+  background-image: var(--flap-px), linear-gradient(rgba(0,0,0,.067), rgba(0,0,0,.067)); }
+@media (min-resolution: 1.01dppx) and (max-resolution: 1.99dppx) {
+  :root[data-skin="cde"] #corner:is(.tint-white, :not([class*="tint-"])) { background-image: var(--flap-vec), linear-gradient(rgba(0,0,0,.067), rgba(0,0,0,.067)); }
+}
+:root[data-skin="cde"] #corner { border-top-color: rgba(0,0,0,.85); }
+:root[data-skin="cde"] #corner::after { border-right-color: rgba(0,0,0,.85); }
+:root[data-skin="cde"] #edges { background: linear-gradient(rgba(0,0,0,.067), rgba(0,0,0,.067)) var(--cta); border-top-color: rgba(0,0,0,.85); }
+:root[data-skin="cde"] #edges::before, :root[data-skin="cde"] #edges::after { border-top-color: rgba(0,0,0,.73); }
+/* and the date beside the dog-ear keeps its secondary grey (#777 on paper) */
+:root[data-skin="cde"] #when, :root[data-skin="cde"] #msg.off { color: rgba(0,0,0,.53); }
 
 /* ---- the corkboard: every note pinned up, a sheet torn off the pad.
    Mac OS 9 shipped no cork among its desktop patterns, so this one is made
