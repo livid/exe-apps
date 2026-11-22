@@ -399,8 +399,10 @@ body.focus #bd { display: block; }
    painter; the chosen one ringed 2px in the highlight blue, as the note's
    colour squares are, every line a border on a box of its own. It comes
    and goes with the toolbar. */
-#dock { position: fixed; right: 16px; bottom: 16px; z-index: 5; display: none; gap: 4px; transition: opacity .2s; }
+#dock { position: fixed; right: 16px; bottom: 16px; z-index: 5; display: none; flex-direction: column; align-items: flex-end;
+  gap: 4px; transition: opacity .2s; }
 body.focus #dock { display: flex; }
+#dock .row { display: flex; gap: 4px; }
 body.focus.quiet #dock { opacity: 0; pointer-events: none; transition: opacity .8s; }
 #dock button { display: block; width: 36px; height: 24px; padding: 0; margin: 0;
   border: 2px solid transparent; border-radius: 0; background: none; }
@@ -409,6 +411,14 @@ body.focus.quiet #dock { opacity: 0; pointer-events: none; transition: opacity .
 #dock .paper { background: var(--grain) #fff; }
 #dock button:disabled { opacity: .4; }
 @media (prefers-reduced-motion: reduce) { #dock, body.focus.quiet #dock { transition: none; } }
+/* the soundtracks: the row above the pictures, the same squares, each
+   with its sound's 12px glyph in ink on white paper (Silence first, a
+   speaker with a cross); a glyph is faint while its loop is being made */
+#dock .tune { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 32px; height: 20px;
+  border: 1px solid var(--black); background: #fff; color: var(--black); }
+#dock .tune svg { display: block; fill: currentColor; shape-rendering: crispEdges; }
+@media (min-resolution: 1.01dppx) and (max-resolution: 1.99dppx) { #dock .tune svg { shape-rendering: geometricPrecision; } }
+#dock .wait .tune svg { opacity: .35; }
 
 </style>
 </head>
@@ -444,8 +454,8 @@ body.focus.quiet #dock { opacity: 0; pointer-events: none; transition: opacity .
   <div id="status"><span id="st-count"></span><span id="st-msg"></span></div>
 </div>
 </div>
-<!-- full screen's backgrounds, chosen here -->
-<div id="dock" role="radiogroup" aria-label="Background"></div>
+<!-- full screen's soundtracks and backgrounds, chosen here -->
+<div id="dock"><div class="row" id="tunes" role="radiogroup" aria-label="Soundtrack"></div><div class="row" id="pics" role="radiogroup" aria-label="Background"></div></div>
 <!-- grow box sampled pixel-for-pixel from Mac OS 9 (Infinite Mac) -->
 <svg id="grow" width="15" height="15" viewBox="0 0 15 15" shape-rendering="crispEdges">
   <rect width="15" height="15" fill="#ccc"/>
@@ -1597,6 +1607,1027 @@ BACKDROPS.push({
   },
 });
 </script>
+<script>
+"use strict";
+// ---- Full Screen's soundtracks: the composers' engine ----
+// Each soundtrack is a composer, SOUNDTRACKS.push({id, name, seconds,
+// tail, glyph, compose(ctx, out, o)}), in a script of its own below: it
+// builds one piece in Web Audio that repeats exactly every `seconds`. This
+// renders it offline into a loop and levels it. The composers were made to
+// one brief and checked by one checker (the seam, the loudness and its
+// steadiness, the spectrum, the time a render takes):
+// ~/tools/playwright/exe-notes/soundtracks/ holds both.
+//
+// A composer writes a piece that repeats exactly every `seconds`: every
+// event is placed through o.each (which repeats it each loop), every bed is
+// a noise buffer exactly one loop long (o.noise, o.bed), every steady
+// oscillator has a frequency from o.f (a whole number of cycles per loop).
+// The engine renders a warm-up first, long enough for every reverb and
+// envelope to settle, then one loop; since the piece repeats exactly, the
+// loop's end runs into its start with no seam. It then levels the loop to
+// one loudness for all soundtracks.
+(function () {
+  window.SOUNDTRACKS = window.SOUNDTRACKS || [];
+  const WARM = 10;     // seconds rendered before the loop, at least
+  const TARGET = -28;  // the loop's loudness, LUFS (BS.1770: K-weighted, gated)
+  const CEIL = 0.794;  // its highest sample, -2 dBFS
+  function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function rand(seed) {
+    let a = hash(String(seed));
+    return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  }
+  function helpers(ctx, st, P, warm) {
+    const rate = ctx.sampleRate, end = ctx.length / rate, r = rand(st.id);
+    const o = { rand: r, seconds: P, rate };
+    // fn(time) for every time loop-time t (0 <= t < P) sounds in this render:
+    // once a loop, and in the warm-up before it
+    o.each = (t, fn) => { for (let k = -Math.ceil((warm + P) / P); ; k++) { const at = warm + t + k * P; if (at >= end) break; if (at >= 0) fn(at); } };
+    // a frequency near hz that has a whole number of cycles in one loop
+    o.f = hz => Math.max(1, Math.round(hz * P)) / P;
+    // noise exactly one loop long, seamless when it loops: white, pink or
+    // brown, the last two high-passed at 40 Hz, 24 dB an octave (pink noise
+    // keeps much of its energy below hearing otherwise), peaking at 1
+    const nr = rand(st.id + ":noise");
+    o.noise = (color = "pink", channels = 2) => {
+      const n = Math.round(P * rate), buf = ctx.createBuffer(channels, n, rate);
+      // two 2nd-order high-passes at 40 Hz (RBJ), their coefficients for this rate
+      const w = 2 * Math.PI * 40 / rate, al = Math.sin(w) / (2 * Math.SQRT1_2), cw = Math.cos(w), a0 = 1 + al;
+      const hb0 = (1 + cw) / 2 / a0, hb1 = -(1 + cw) / a0, hb2 = hb0, ha1 = -2 * cw / a0, ha2 = (1 - al) / a0;
+      for (let c = 0; c < channels; c++) {
+        const d = buf.getChannelData(c);
+        for (let i = 0; i < n; i++) d[i] = nr() * 2 - 1;
+        if (color !== "white") {
+          // the filters run round the loop twice, so their state at the end is their state at the start
+          let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, y = 0, x1 = 0, x2 = 0, y1 = 0, y2 = 0, u1 = 0, u2 = 0, z1 = 0, z2 = 0;
+          const src = Float32Array.from(d);
+          for (let pass = 0; pass < 2; pass++) for (let i = 0; i < n; i++) {
+            const wn = src[i]; let v;
+            if (color === "brown") { y = 0.998 * y + wn * 0.05; v = y; }
+            else {
+              b0 = 0.99886 * b0 + wn * 0.0555179; b1 = 0.99332 * b1 + wn * 0.0750759; b2 = 0.969 * b2 + wn * 0.153852;
+              b3 = 0.8665 * b3 + wn * 0.3104856; b4 = 0.55 * b4 + wn * 0.5329522; b5 = -0.7616 * b5 - wn * 0.016898;
+              v = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + wn * 0.5362) * 0.11; b6 = wn * 0.115926;
+            }
+            const h = hb0 * v + hb1 * x1 + hb2 * x2 - ha1 * y1 - ha2 * y2;
+            x2 = x1; x1 = v; y2 = y1; y1 = h;
+            const g = hb0 * h + hb1 * u1 + hb2 * u2 - ha1 * z1 - ha2 * z2;
+            u2 = u1; u1 = h; z2 = z1; z1 = g;
+            if (pass) d[i] = g;
+          }
+        }
+        let m = 0; for (let i = 0; i < n; i++) m += d[i]; m /= n; let pk = 0;
+        for (let i = 0; i < n; i++) { d[i] -= m; pk = Math.max(pk, Math.abs(d[i])); }
+        if (pk) for (let i = 0; i < n; i++) d[i] /= pk;
+      }
+      return buf;
+    };
+    // a buffer that loops, playing into `dest`, in step with the loop
+    o.bed = (buf, dest) => {
+      const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.connect(dest);
+      s.start(0, ((-warm % P) + P) % P);
+      return s;
+    };
+    // a reverb built from delay lines, Freeverb's way: per channel eight
+    // damped feedback combs in parallel, then four allpasses, the right
+    // channel's a little longer for width. It falls 60 dB in `seconds`;
+    // `bright` 0..1 sets how high its damping starts, `predelay` the gap
+    // before it. (A ConvolverNode would be simpler, but WebKit, Safari's
+    // engine, does not render one the same twice offline: the loop's seam
+    // would show. Delay lines repeat exactly in every engine; each is a
+    // whole number of samples, so no engine's interpolation colours it.)
+    // It is used as one node: src.connect(v); v.connect(dest).
+    o.reverb = (seconds = 3, { bright = 0.5, predelay = 0.015 } = {}) => {
+      const input = ctx.createGain(), output = ctx.createGain(), pre = ctx.createDelay(1);
+      pre.delayTime.value = Math.max(0, predelay);
+      const split = ctx.createChannelSplitter(2), merge = ctx.createChannelMerger(2);
+      input.connect(pre); pre.connect(split);
+      const fc = 1200 + Math.max(0, Math.min(1, bright)) * 9000, rt = Math.max(0.2, seconds);
+      for (let ch = 0; ch < 2; ch++) {
+        const sp = ch ? 23 : 0, feed = ctx.createGain(), sum = ctx.createGain();
+        feed.gain.value = 0.085; split.connect(feed, ch);
+        for (const d of [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617]) {
+          const len = Math.round((d + sp) * rate / 44100) / rate, s = ctx.createGain(), dl = ctx.createDelay(1), lp = ctx.createBiquadFilter(), fb = ctx.createGain();
+          dl.delayTime.value = len; lp.type = "lowpass"; lp.frequency.value = fc; lp.Q.value = -3.0103;
+          fb.gain.value = Math.pow(10, -3 * len / rt);
+          feed.connect(s); s.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(s); dl.connect(sum);
+        }
+        let node = sum;
+        for (const d of [556, 441, 341, 225]) {
+          const len = Math.round((d + sp) * rate / 44100) / rate, v = ctx.createGain(), dl = ctx.createDelay(1), fb = ctx.createGain(), neg = ctx.createGain(), y = ctx.createGain();
+          dl.delayTime.value = len; fb.gain.value = 0.5; neg.gain.value = -0.5;
+          node.connect(v); v.connect(dl); dl.connect(fb); fb.connect(v); v.connect(neg); neg.connect(y); dl.connect(y);
+          node = y;
+        }
+        node.connect(merge, 0, ch);
+      }
+      merge.connect(output);
+      input.connect = (...a) => output.connect(...a);
+      input.disconnect = (...a) => output.disconnect(...a);
+      return input;
+    };
+    // an empty buffer to fill sample by sample
+    o.buffer = (seconds, channels = 2) => ctx.createBuffer(channels, Math.max(1, Math.round(seconds * rate)), rate);
+    return o;
+  }
+  // the integrated loudness of an AudioBuffer, LUFS, as BS.1770 has it:
+  // K-weighted, in 400 ms blocks every 100 ms, gated at -70 LUFS and then
+  // at 10 LU under the blocks that pass (so a piece with gaps is measured
+  // by what sounds, as ffmpeg's ebur128 measures it)
+  async function loudness(buf) {
+    const c = new OfflineAudioContext(buf.numberOfChannels, buf.length, buf.sampleRate);
+    const s = c.createBufferSource(); s.buffer = buf;
+    const hs = c.createBiquadFilter(); hs.type = "highshelf"; hs.frequency.value = 1681.97; hs.gain.value = 4;
+    const hp = c.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 38.13; hp.Q.value = -6;
+    s.connect(hs); hs.connect(hp); hp.connect(c.destination); s.start();
+    const k = await c.startRendering(), rate = k.sampleRate, n = k.length, hop = Math.round(rate / 10), win = 4 * hop;
+    // squares summed per 100 ms, then 400 ms blocks of four
+    const steps = Math.floor(n / hop), sq = new Float64Array(steps);
+    for (let ch = 0; ch < k.numberOfChannels; ch++) { const d = k.getChannelData(ch); for (let j = 0; j < steps; j++) { let m = 0; for (let i = j * hop, e = i + hop; i < e; i++) m += d[i] * d[i]; sq[j] += m; } }
+    const blocks = [];
+    for (let j = 0; j + 4 <= steps; j++) blocks.push((sq[j] + sq[j + 1] + sq[j + 2] + sq[j + 3]) / win);
+    const L = z => -0.691 + 10 * Math.log10(z);
+    const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
+    const abs = blocks.filter(z => z > 0 && L(z) > -70);
+    if (!abs.length) return -120;
+    const rel = L(mean(abs)) - 10, kept = abs.filter(z => L(z) > rel);
+    return L(mean(kept));
+  }
+  // Render soundtrack `st` at `rate` into a loop (`periods` loops long; the
+  // checker asks for two to see that they match). Resolves to {buffer,
+  // lufs (before levelling), gain, peak (after)}.
+  async function renderSoundtrack(st, rate, periods = 1) {
+    const P = st.seconds, warm = Math.max(WARM, st.tail || 0);
+    const ctx = new OfflineAudioContext(2, Math.round((warm + P * periods) * rate), rate);
+    const out = ctx.createGain(); out.connect(ctx.destination);
+    const t0 = performance.now();
+    st.compose(ctx, out, helpers(ctx, st, P, warm));
+    const composeMs = performance.now() - t0; // on the page's own thread: the page waits this long
+    const all = await ctx.startRendering();
+    const from = Math.round(warm * rate), N = Math.round(P * rate) * periods;
+    const loop = new AudioBuffer({ numberOfChannels: 2, length: N, sampleRate: rate });
+    for (let ch = 0; ch < 2; ch++) loop.copyToChannel(all.getChannelData(ch).subarray(from, from + N), ch);
+    const lufs = await loudness(loop);
+    let peak = 0;
+    for (let ch = 0; ch < 2; ch++) { const d = loop.getChannelData(ch); for (let i = 0; i < N; i++) { const a = Math.abs(d[i]); if (a > peak) peak = a; } }
+    let gain = lufs > -100 ? Math.pow(10, (TARGET - lufs) / 20) : 0;
+    if (peak * gain > CEIL) gain = CEIL / peak;
+    for (let ch = 0; ch < 2; ch++) { const d = loop.getChannelData(ch); for (let i = 0; i < N; i++) d[i] *= gain; }
+    return { buffer: loop, lufs, gain, peak: peak * gain, target: TARGET, composeMs };
+  }
+  window.renderSoundtrack = renderSoundtrack;
+  window.soundtrackLoudness = loudness;
+})();
+</script>
+<script>
+"use strict";
+// Rain (rain)
+// Rain: steady rain heard from indoors. A wide, soft hiss (pink noise, band-
+// limited, as the walls and the glass would leave it), hundreds of tiny
+// drops a second on the street and the roof, a few close, soft taps on the
+// window pane and a faint gutter trickle, all drops in one loop-long buffer
+// filled once. Statistically even: no swells, no drop louder than the rest
+// at one place.
+SOUNDTRACKS.push({
+  id: "rain",
+  name: "Rain",
+  seconds: 90,
+  tail: 1,
+  glyph: "M5 1h2v2H5zM4 3h4v2H4zM3 5h6v1H3zM3 6h1v1H3zM5 6h4v1H5zM2 7h2v2H2zM5 7h5v2H5zM2 9h8v1H2zM3 10h6v1H3zM4 11h4v1H4z",
+  compose(ctx, out, o) {
+    // levels: hiss, roar, far patter, near patter, pane, gutter
+    const P = o.seconds, R = o.rate, rnd = o.rand, M = [0.47, 0.36, 3.1, 3.1, 1.7, 1];
+    // a low- or high-pass of linear Q (Web Audio takes their Q in dB)
+    const bq = (type, f, q) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = 20 * Math.log10(q); return b; };
+    const gain = (v, mono) => { const g = ctx.createGain(); g.gain.value = v; if (mono) { g.channelCount = 1; g.channelCountMode = "explicit"; } return g; };
+    // a -> b -> ... -> last; returns the first
+    const chain = (...n) => { for (let i = 0; i + 1 < n.length; i++) n[i].connect(n[i + 1]); return n[0]; };
+
+    // everything is heard through the window: rolled off above ~6 kHz
+    const bus = gain(1);
+    chain(bus, bq("lowpass", 5500, 0.707), bq("lowpass", 7000, 0.707), out);
+
+    // the hiss of rain on the roof and the street: wide pink noise, some of
+    // it summed to the middle so the two sides never cancel
+    const pink = o.noise("pink");
+    const hissLp = bq("lowpass", 2600, 0.6);
+    o.bed(pink, chain(bq("highpass", 320, 0.707), hissLp));
+    hissLp.connect(gain(M[0])).connect(bus);
+    hissLp.connect(gain(M[0] * 0.3, true)).connect(bus);
+    // the low drumming of it on the roof, in the middle
+    o.bed(pink, chain(gain(M[1], true), bq("lowpass", 200, 0.707), bq("highpass", 85, 0.707), bus));
+
+    // the drops: damped sines added into one stereo buffer one loop long
+    const db = o.buffer(P, 2), N = db.length, L = db.getChannelData(0), Rc = db.getChannelData(1);
+    const add = (t, amp, f, tau, pan, att, rise = 0) => {
+      // a sine of f Hz (rising by `rise` over its life), falling by e in tau s
+      const w = 2 * Math.PI * f / R, n = Math.ceil(tau * R * 5), r = Math.exp(-1 / (tau * R)), qa = Math.exp(-1 / (att * R));
+      const dw = w * rise / n, a = (pan + 1) * Math.PI / 4, gl = amp * Math.cos(a), gr = amp * Math.sin(a);
+      let j = Math.floor(t * R) % N, zr = 1, zi = 0, cr = Math.cos(w), ci = Math.sin(w), e = 1, env = 1;
+      const dr = Math.cos(dw), di = Math.sin(dw);
+      for (let k = 0; k < n; k++) {
+        const v = zi * env * (1 - e);
+        L[j] += v * gl; Rc[j] += v * gr;
+        if (++j >= N) j = 0;
+        e *= qa; env *= r;
+        let x = zr * cr - zi * ci; zi = zr * ci + zi * cr; zr = x;
+        if (rise) { x = cr * dr - ci * di; ci = cr * di + ci * dr; cr = x; }
+      }
+    };
+    // far patter on the street: dense, dull, very wide
+    for (let k = 0, n = Math.round(P * 300); k < n; k++) {
+      const s = rnd();
+      add(rnd() * P, M[2] * (0.05 + 0.08 * s) * (0.5 + rnd()), 1700 * Math.pow(0.4, s) * (0.85 + 0.3 * rnd()),
+        0.0004 + 0.0008 * rnd(), rnd() * 2 - 1, 0.0001);
+    }
+    // nearer patter on the roof and the sill: fewer, a little brighter
+    for (let k = 0, n = Math.round(P * 140); k < n; k++) {
+      const s = rnd();
+      add(rnd() * P, M[3] * (0.05 + 0.1 * s) * (0.5 + rnd()), 3200 * Math.pow(0.35, s) * (0.85 + 0.3 * rnd()),
+        0.0004 + 0.001 * s * rnd() + 0.0002 * rnd(), rnd() * 1.6 - 0.8, 0.00005);
+    }
+    // close soft drops on the pane: a dull tap and a faint tick, then the
+    // room answering it (a few early reflections, duller, from both sides)
+    for (let k = 0, n = Math.round(P * 8); k < n; k++) {
+      const t = rnd() * P, amp = M[4] * 0.45 * Math.pow(10, -rnd() * 0.6), pan = (rnd() * 2 - 1) * 0.7;
+      const f = 380 + 520 * rnd(), tau = 0.002 + 0.0025 * rnd();
+      add(t, amp, f, tau, pan, 0.0003);
+      add(t, amp * 0.35, 1500 + 1200 * rnd(), 0.0005 + 0.0004 * rnd(), pan, 0.00008);
+      for (let i = 0, d = 0.006; i < 6; i++) {
+        d += 0.004 + 0.006 * rnd();
+        add(t + d, amp * 0.45 * Math.pow(0.72, i), f * (0.75 + 0.15 * rnd()), tau * 1.1, (i & 1 ? 0.8 : -0.8) * (0.4 + 0.6 * rnd()), 0.0012);
+      }
+    }
+    // a gutter trickling off to one side: small bubbles, each rising a little
+    for (let k = 0, n = Math.round(P * 24); k < n; k++) {
+      add(rnd() * P, M[5] * 0.12 * (0.4 + rnd()), 520 + 420 * rnd(), 0.005 + 0.006 * rnd(), 0.35 + 0.35 * rnd(), 0.001, 0.15 + 0.2 * rnd());
+    }
+    // high-pass the drops at 250 Hz (their thumps and DC), round the loop
+    // twice so the filter's state at the end is its state at the start
+    {
+      const w = 2 * Math.PI * 250 / R, al = Math.sin(w) / (2 * 0.7), cw = Math.cos(w), a0 = 1 + al;
+      const b0 = (1 + cw) / 2 / a0, b1 = -(1 + cw) / a0, a1 = -2 * cw / a0, a2 = (1 - al) / a0, pre = Math.min(N, Math.round(R * 0.25));
+      for (const d of [L, Rc]) {
+        let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+        for (let i = N - pre; i < N; i++) { const x = d[i], y = b0 * x + b1 * x1 + b0 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = x; y2 = y1; y1 = y; }
+        for (let i = 0; i < N; i++) { const x = d[i], y = b0 * x + b1 * x1 + b0 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = x; y2 = y1; y1 = y; d[i] = y; }
+      }
+    }
+    o.bed(db, bus);
+  },
+});
+</script>
+<script>
+"use strict";
+// Shore (shore)
+// Shore: slow swells breaking softly on a sand beach, heard from a little
+// way up it. Each wave swells in low, breaks into a soft wash, foams up the
+// sand and draws back fizzing; under them a distant, steady sea. All of it
+// is one white-noise buffer, one loop long: the bed plays it in step,
+// every wave reads it from a place of its own, and biquads and gain curves
+// shape it. No reverb: a beach is open air.
+SOUNDTRACKS.push({
+  id: "shore",
+  name: "Shore",
+  seconds: 96, // a whole number of 128-sample blocks at 44.1 and 48 kHz: k-rate sweeps fall the same in every loop
+  tail: 14,
+  glyph: "M6 1h3v1H6zM4 2h6v1H4zM3 3h4v1H3zM9 3h2v1H9zM2 4h4v1H2zM10 4h1v1h-1zM2 5h3v1H2zM1 6h4v1H1zM1 7h5v1H1zM0 8h7v1H0zM0 9h9v1H0zM0 10h12v1H0z",
+  compose(ctx, out, o) {
+    const P = o.seconds, R = o.rand;
+    const sea = o.noise("white", 2);
+    // filter sweeps and pans are k-rate: slow moves, a fraction of the cost
+    const bq = (type, hz, q = -3) => { const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = hz; f.Q.value = q; f.frequency.automationRate = "k-rate"; return f; };
+    const amp = v => { const g = ctx.createGain(); g.gain.value = v; return g; };
+    const chain = (...n) => { for (let i = 0; i + 1 < n.length; i++) n[i].connect(n[i + 1]); return n[0]; };
+    const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+    const q20 = x => Math.round(x * 20) / 20;
+
+    // the steady sea underneath: a distant roar, wide (the two channels are
+    // two noises), breathing slowly on two LFOs that each fit the loop
+    const bed = amp(0.6);
+    o.bed(sea, chain(bq("lowpass", 520), bq("highpass", 68), bed, out));
+    for (const [hz, d] of [[1 / 32, 0.08], [1 / 13.7, 0.06]]) {
+      const l = ctx.createOscillator(); l.frequency.value = o.f(hz);
+      chain(l, amp(d), bed.gain); l.start(0);
+    }
+
+    const D = 14; // every wave, from its first swell to the last fizz
+    // a curve of n points over D s
+    const curve = (f, n = 160) => Float32Array.from({ length: n }, (_, i) => f(i / (n - 1) * D));
+    // a swell: 1 at tp, -40 dB r s before it (Gaussian) and fl s after it;
+    // k over 1 holds the top longer before it falls
+    const bell = (tp, r, fl, k = 1.3) => t => 10 ** ((t < tp ? -40 * ((tp - t) / r) ** 2 : -40 * ((t - tp) / fl) ** k) / 20);
+    const edge = t => clamp(Math.min(t / 0.8, (D - t) / 1.5), 0, 1);
+
+    // a layer of a wave, from one channel of the wave's noise, panned
+    // (or, with no pan, in the middle)
+    const layer = (at, sp, ch, nodes, level, shape, pan, sweeps) => {
+      const g = amp(0);
+      sp.connect(nodes[0], ch); chain(...nodes, g);
+      if (pan) { const p = ctx.createStereoPanner(); p.pan.automationRate = "k-rate"; chain(g, p, out); p.pan.setValueCurveAtTime(curve(pan, 40), at, D); }
+      else g.connect(out);
+      g.gain.setValueCurveAtTime(curve(t => level * edge(t) * shape(t)), at, D);
+      for (const [param, f] of sweeps) param.setValueCurveAtTime(curve(f, 80), at, D);
+    };
+
+    // the waves: one every 9 to 14 s, all of a size
+    const N = 8, gaps = [];
+    for (let i = 0; i < N; i++) gaps.push(9.6 + 3.8 * R());
+    const fix = (P - gaps.reduce((a, b) => a + b, 0)) / N;
+    let t0 = 0.5;
+    for (let i = 0; i < N; i++) {
+      // on a whole 20th of a second, plus a quarter sample: every engine
+      // starts the noise on the same sample in every loop
+      const tw = q20(t0) + 5e-6; t0 += gaps[i] + fix;
+      const tp = 3.4 + 0.8 * R(), pan = 0.6 * (R() - 0.5), dir = R() < 0.5 ? -1 : 1;
+      const x0 = q20(R() * (P - 1)), b = 0.92 + 0.16 * R(), w = 0.9 + 0.25 * R();
+      // w: how far up the sand this one runs
+      const swell = bell(tp, 4.5, 5), wash = bell(tp + 0.6, 2.3, 10 * w, 1.8), foam = bell(tp + 1.4, 2, 8 * w, 1.7), back = bell(tp + 4.5 + w, 3, 5);
+      const open = bell(tp + 0.6, 2.3, 9 * w, 1.4);
+      // the wave runs along the beach as it breaks, then draws back
+      const peel = s => t => clamp(pan + s * dir * clamp((t - tp - 1) / 8, -0.25, 0.25), -0.9, 0.9);
+      o.each(tw, at => {
+        const src = ctx.createBufferSource(); src.buffer = sea; src.loop = true;
+        const sp = ctx.createChannelSplitter(2); src.connect(sp);
+        // the seething of the water: a slow random flutter on its level
+        const flutter = bq("lowpass", 28); sp.connect(flutter, 1);
+        const seethe = d => { const g = amp(1); chain(flutter, amp(d), g.gain); return g; };
+        // the swell, low: 80 Hz to 500
+        const l1 = bq("lowpass", 200);
+        layer(at, sp, 0, [l1, bq("highpass", 70)], 0.8, swell, null, [[l1.frequency, t => 120 * (4.2 * b) ** swell(t)]]);
+        // the break and its wash, the body of the wave: 200 Hz to 2 kHz,
+        // opening as it breaks, closing slowly as the water spreads
+        const l3 = bq("lowpass", 600), fw = t => 480 * (3.6 * b) ** clamp(open(t) * 1.1, 0, 1);
+        layer(at, sp, 1, [bq("highpass", 200), l3, seethe(11)], 0.6, wash, peel(0.8), [[l3.frequency, fw]]);
+        // the foam: a soft hiss up to about 4 kHz
+        layer(at, sp, 0, [bq("highpass", 1000), bq("lowpass", 3600), seethe(13)], 0.24, foam, peel(1.1), []);
+        // the backwash, fizzing back over the sand as it darkens
+        const l4 = bq("lowpass", 2000);
+        layer(at, sp, 1, [bq("highpass", 480), l4], 0.2, back, peel(-0.8),
+          [[l4.frequency, t => 750 + 1650 * clamp((tp + 10.5 - t) / 6, 0, 1)]]);
+        src.start(at, x0); src.stop(at + D);
+      });
+    }
+  },
+});
+</script>
+<script>
+"use strict";
+// Brook (brook)
+// Brook: a small forest brook over stones. Thousands of small bubbles (a
+// sine whose pitch rises as it rings down, as a real air bubble does) in
+// loose bursts from several spots across the stereo field, a few soft
+// splashes, over a quiet pink rush, in a little dark space. No birds.
+SOUNDTRACKS.push({
+  id: "brook",
+  name: "Brook",
+  seconds: 72,
+  tail: 4,
+  glyph: "M1 1h2v1H1zM7 1h2v1H7zM0 2h1v1H0zM3 2h1v1H3zM6 2h1v1H6zM9 2h1v1H9zM4 3h2v1H4zM10 3h2v1H10zM1 5h2v1H1zM7 5h2v1H7zM0 6h1v1H0zM3 6h1v1H3zM6 6h1v1H6zM9 6h1v1H9zM4 7h2v1H4zM10 7h2v1H10zM1 9h2v1H1zM7 9h2v1H7zM0 10h1v1H0zM3 10h1v1H3zM6 10h1v1H6zM9 10h1v1H9zM4 11h2v1H4zM10 11h2v1H10z",
+  compose(ctx, out, o) {
+    const P = o.seconds, SR = o.rate, N = Math.round(P * SR), r = o.rand, TAU = 2 * Math.PI;
+    const filt = (type, f, q) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; };
+    const gain = v => { const g = ctx.createGain(); g.gain.value = v; return g; };
+    const chain = (...n) => { for (let i = 1; i < n.length; i++) n[i - 1].connect(n[i]); return n[n.length - 1]; };
+    // a smooth random curve, about -1..1, repeating every loop
+    const drift = (lo, hi, m = 4) => {
+      const h = [];
+      for (let i = 0; i < m; i++) h.push([TAU * Math.max(1, Math.round(P / (lo + r() * (hi - lo)))) / P, r() * TAU]);
+      return t => { let s = 0; for (const [w, p] of h) s += Math.sin(w * t + p); return s / Math.sqrt(m / 2) / 1.6; };
+    };
+
+    // the space: a short, dark outdoor reverb, fed through a low-pass
+    const verb = filt("lowpass", 1400, -3.01);
+    chain(verb, o.reverb(0.9, { bright: 0.1, predelay: 0.02 }), gain(0.6), out);
+
+    // the rush: pink noise, its channels partly shared so it holds in mono,
+    // breathing slowly
+    const rush = gain(0.11), sp = ctx.createChannelSplitter(2), mg = ctx.createChannelMerger(2);
+    for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) { const g = gain(a === b ? 1 : 0.35); sp.connect(g, a); g.connect(mg, 0, b); }
+    chain(mg, filt("highpass", 170, -3.01), filt("lowpass", 1700, -3.01), filt("lowpass", 3000, -3.01), rush);
+    rush.connect(out); chain(rush, gain(0.3), verb);
+    o.bed(o.noise("pink"), sp);
+    for (const [hz, dep] of [[1 / 11, 0.009], [1 / 7.3, 0.006]]) {
+      const l = ctx.createOscillator(); l.frequency.value = o.f(hz); l.start(0); chain(l, gain(dep), rush.gain);
+    }
+
+    // the water, written straight into one loop-long buffer
+    const wb = o.buffer(P), BL = wb.getChannelData(0), BR = wb.getChannelData(1);
+    const TL = 4096, ST = new Float32Array(TL), NT = new Float32Array(1 << 14);
+    for (let i = 0; i < TL; i++) ST[i] = Math.sin(TAU * i / TL);
+    for (let i = 0; i < NT.length; i++) NT[i] = r() * 2 - 1;
+    const panL = p => Math.cos((p + 1) * Math.PI / 4), panR = p => Math.sin((p + 1) * Math.PI / 4);
+    // a bubble: f0 rising as it rings down (van den Doel's model, rung longer)
+    const bubble = (t, f0, amp, pan, m, rise) => {
+      const d = (0.13 * f0 + 0.0072 * f0 ** 1.5) * m, len = Math.ceil(5.8 / d * SR), att = Math.ceil(SR * (0.0005 + 0.7 / f0));
+      const gl = panL(pan), gr = panR(pan), q = Math.exp(-d / SR);
+      let inc = f0 / SR, ph = 0, e = amp, k = Math.floor(t * SR) % N;
+      const dinc = inc * rise * d / SR, fo = len - Math.ceil(len / 5);
+      for (let j = 0; j < len; j++) {
+        let v = e * ST[(ph * TL) | 0];
+        if (j < att) { const u = j / att; v *= u * u * (3 - 2 * u); }
+        else if (j > fo) { const u = (len - j) / (len - fo); v *= u * u * (3 - 2 * u); }
+        BL[k] += v * gl; BR[k] += v * gr;
+        ph += inc; inc += dinc; if (ph >= 1) ph -= 1;
+        e *= q; if (++k === N) k = 0;
+      }
+    };
+    // a splash: a soft puff of noise, low-passed, through a gentle resonance
+    const splash = (t, fc, amp, pan, dur) => {
+      const len = Math.ceil(dur * SR), w = 2 * Math.sin(Math.PI * fc / SR), c = 1 - Math.exp(-TAU * 1800 / SR), gl = panL(pan), gr = panR(pan);
+      let lo = 0, bp = 0, x = 0, y = 0, n = Math.floor(r() * NT.length), k = Math.floor(t * SR) % N;
+      for (let j = 0; j < len; j++) {
+        const u = j / len, env = amp * (u < 0.3 ? 0.5 - 0.5 * Math.cos(Math.PI * u / 0.3) : 0.5 + 0.5 * Math.cos(Math.PI * (u - 0.3) / 0.7));
+        x += c * (NT[n] * env - x); y += c * (x - y); lo += w * bp; bp += w * (y - lo - bp);
+        if (++n === NT.length) n = 0;
+        BL[k] += bp * gl; BR[k] += bp * gr;
+        if (++k === N) k = 0;
+      }
+    };
+    // spots in the brook: each its own place, pitch and pace
+    const S = 6, cs = [];
+    for (let i = 0; i < S; i++) cs.push(420 * Math.pow(1900 / 420, i / (S - 1)));
+    for (let i = S - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [cs[i], cs[j]] = [cs[j], cs[i]]; }
+    for (let s = 0; s < S; s++) {
+      const pan = -0.7 + 1.4 * (s + 0.2 + 0.6 * r()) / S, fc = cs[s], dens = drift(4, 19), loud = drift(6, 23), rate = 4;
+      for (let n = 0; n < P * rate; n++) {
+        let t = (n + 0.1 + 0.8 * r()) / rate;
+        if (r() > 0.72 + 0.25 * dens(t)) continue;
+        const fb = fc * Math.pow(2, (r() + r() + r() - 1.5) * 0.9), cnt = 1 + Math.floor(r() * r() * 4.5);
+        for (let b = 0; b < cnt; b++) {
+          let f0 = fb * Math.pow(2, (r() - 0.5) * 0.6);
+          f0 = f0 < 300 ? 90000 / f0 : f0 > 2400 ? 5760000 / f0 : f0; // folded back into 300..2400 Hz, never piled on one pitch
+          const amp = (0.6 + 0.4 * r()) * Math.pow(f0 / 700, 0.3) * (1 + 0.2 * loud(t));
+          bubble(t, f0, amp, Math.max(-0.9, Math.min(0.9, pan + (r() - 0.5) * 0.25)), 0.35 + 0.35 * r(), 0.06 + 0.2 * r());
+          t += 0.005 + 0.035 * r() * r();
+        }
+      }
+    }
+    for (let t = r() * 0.2; t < P; t += 0.06 + 0.3 * r())
+      splash(t, 600 * Math.pow(2, r() * 1.5), 0.4 + 0.2 * r(), (r() - 0.5) * 1.4, 0.04 + 0.07 * r());
+    const whp = filt("highpass", 220, -3.01), wg = chain(whp, filt("lowpass", 4200, -3.01), gain(0.22));
+    wg.connect(out); chain(wg, gain(0.6), verb);
+    o.bed(wb, whp);
+  },
+});
+</script>
+<script>
+"use strict";
+// Hearth (hearth)
+// Hearth: a wood fire in a quiet room. A low roar of brown noise whose
+// gain follows a control buffer one loop long: slow random breathing, a
+// flare now and then, and a quick flicker (all drawn in JS: biquads at a
+// few hertz round off and drift). A faint hiss, a room tone, and small
+// crackles, soft pops and the settle of a log drawn sample by sample into
+// a second loop-long buffer, each with the room's first reflections (an
+// event near the end wraps to the start, so the loop has no seam).
+SOUNDTRACKS.push({
+  id: "hearth",
+  name: "Hearth",
+  seconds: 96,
+  tail: 8,
+  glyph: "M6 0h1v1H6zM5 1h2v1H5zM4 2h2v1H4zM3 3h3v1H3zM9 3h1v1H9zM3 4h4v1H3zM9 4h2v2H9zM2 5h5v1H2zM2 6h9v1H2zM1 7h4v1H1zM6 7h4v1H6zM1 8h3v1H1zM7 8h3v1H7zM2 9h7v1H2zM1 11h10v1H1z",  // a flame on a log
+  compose(ctx, out, o) {
+    const P = o.seconds, R = o.rate, n = Math.round(P * R), r = o.rand, PI = Math.PI;
+    const G = (v, ...to) => { const g = ctx.createGain(); g.gain.value = v; for (const d of to) g.connect(d); return g; };
+    const F = (type, f, q = -3.01) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; };
+    const link = (...a) => a.reduce((x, y) => (x.connect(y), y));
+
+    // when the fire breathes harder: flares, and two log settles that set one off
+    const settles = [0.31, 0.79].map(x => (x + (r() - 0.5) * 0.06) * P);
+    const flares = [];
+    for (let k = 0; k < 7; k++) flares.push({ t: (k + 0.2 + r() * 0.6) * P / 7, h: 0.4 + r() * 0.5 });
+    for (const t of settles) flares.push({ t: t + 0.3, h: 0.6 });
+    const flareAt = t => { let m = 0; for (const f of flares) { const dt = ((t - f.t) % P + P) % P; if (dt < 13) m = Math.max(m, f.h * Math.exp(-dt / 3)); } return m; };
+
+    // the control buffer: per channel a sum of smooth random curves through
+    // knots `step` seconds apart (Catmull-Rom, round the loop), and the flares
+    const cb = o.buffer(P, 2);
+    const curve = (d, step, amp) => {
+      const K = Math.round(P / step), v = [];
+      for (let k = 0; k < K; k++) v.push((r() + r() + r() - 1.5) * amp);
+      for (let k = 0; k < K; k++) {
+        const p0 = v[(k + K - 1) % K], p1 = v[k], p2 = v[(k + 1) % K], p3 = v[(k + 2) % K], c1 = (p2 - p0) / 2, c2 = p0 - 2.5 * p1 + 2 * p2 - p3 / 2, c3 = (p3 - p0) / 2 + 1.5 * (p1 - p2);
+        const a = Math.round(k * n / K), b = Math.round((k + 1) * n / K);
+        for (let i = a; i < b; i++) { const u = (i - a) / (b - a); d[i] += p1 + u * (c1 + u * (c2 + u * c3)); }
+      }
+    };
+    for (let c = 0; c < 2; c++) {
+      const d = cb.getChannelData(c);
+      // ch 0, the low roar: slow and shallow; ch 1, the flames: quicker, deeper, flickering
+      curve(d, c ? 1.7 : 4.5, c ? 0.45 : 0.3);
+      curve(d, c ? 0.08 : 0.25, c ? 0.36 : 0.14);
+      for (const f of flares) {
+        const i0 = Math.round(f.t * R), up = Math.round(1.2 * R), len = 13 * R, dk = Math.exp(-1 / (3 * R)), h = f.h * (c ? 0.55 : 0.3); let e = 1;
+        for (let j = 0; j < len; j++) d[(i0 + j) % n] += h * (j < up ? (1 - Math.cos(PI * j / up)) / 2 : (e *= dk));
+      }
+      // a soft floor so a gain never reaches zero
+      for (let i = 0; i < n; i++) if (d[i] < -0.6) d[i] = -0.6 - 0.3 * (1 - Math.exp((d[i] + 0.6) / 0.3));
+    }
+    const cs = ctx.createChannelSplitter(2); o.bed(cb, cs);
+
+    // noise: one brown loop, turned a quarter, a half and three quarters of
+    // the way round for three more channels (each independent of the others)
+    const bm = o.noise("brown", 1).getChannelData(0), brown = o.buffer(P, 2), b2 = o.buffer(P, 2);
+    [brown, b2].forEach((b, z) => { for (let c = 0; c < 2; c++) { const d = b.getChannelData(c), k = Math.round(n * (2 * z + c) / 4); d.set(bm.subarray(k)); d.set(bm.subarray(0, k), n - k); } });
+    const bIn = G(1), b2In = G(1); o.bed(brown, bIn); o.bed(b2, b2In);
+
+    // the fire: stereo, and a mono share of it so it sits in front
+    const fire = G(1); fire.connect(G(0.6, out));
+    const mono = G(0.8, out); mono.channelCount = 1; mono.channelCountMode = "explicit"; fire.connect(mono);
+    // the low roar, its rumble under 75 Hz taken out
+    const lowV = G(1); link(bIn, F("lowpass", 420, -6), F("highpass", 75), lowV, G(1, fire));
+    cs.connect(G(1, lowV.gain), 0);
+    // the flames, higher, lapping more
+    const midV = G(1); link(bIn, F("highpass", 220), F("lowpass", 900, -4.4), midV, G(1.5, fire));
+    cs.connect(G(1, midV.gain), 1);
+    // a faint hiss of gas, in bursts with the flames
+    const hissV = G(0.55); link(b2In, F("bandpass", 1500, 0.8), hissV, G(0.1, fire));
+    cs.connect(G(0.6, hissV.gain), 1);
+    // the room's own tone, steady
+    link(b2In, F("highpass", 120), G(0.11, out));
+
+    // crackles, pops and settles, drawn into one buffer one loop long
+    const ev = o.buffer(P, 2), EL = ev.getChannelData(0), ER = ev.getChannelData(1);
+    let s = 0x9e3779b9; const nz = () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 2147483648 - 1; };
+    // one tick: a resonance at f dying in about 7 tau, with a little noise
+    const raw = (t, a, f, tau, pan, nq = 0.4) => {
+      const i0 = Math.round(t * R), len = Math.ceil(7 * tau * R), w = 2 * PI * f / R, d = Math.exp(-1 / (tau * R)), dn = Math.exp(-2.5 / (tau * R)), q = (Math.max(-1, Math.min(1, pan)) + 1) * PI / 4, gl = a * Math.cos(q), gr = a * Math.sin(q);
+      let e = 1, en = nq;
+      for (let j = 0; j < len; j++) { const v = e * Math.sin(w * j) + en * nz(), k = (i0 + j) % n; EL[k] += gl * v; ER[k] += gr * v; e *= d; en *= dn; }
+    };
+    // and its first reflections off the room: later, softer, duller, from elsewhere
+    const tick = (t, a, f, tau, pan, nq) => {
+      raw(t, a, f, tau, pan, nq);
+      for (const [dt, g, ps] of [[0.009, 0.3, -0.6], [0.017, 0.22, 0.7], [0.031, 0.14, -0.2], [0.047, 0.08, 0.4]]) raw(t + dt, a * g, f * 0.8, tau * 1.6, pan + ps, nq);
+    };
+    // crackles: one to a few ticks each, more of them when the fire flares
+    for (let t = r() * 0.5; t < P;) {
+      const A = 1.5 * Math.pow(10, -r() * 0.6), f0 = 900 * Math.pow(3.2, r()), low = r() < 0.3, m = Math.min(5, 1 + Math.floor(-Math.log(1 - r()) * 0.8)), pan = (r() - 0.5) * 1.2;
+      for (let j = 0, u = t; j < m; j++, u += 0.004 - Math.log(1 - r()) * 0.012) tick(u, A * (0.6 + 0.4 * r()), (low ? 0.45 : 1) * f0 * (0.85 + 0.3 * r()), (low ? 1.8 : 0.7 + r()) * 1e-3, pan + (r() - 0.5) * 0.2);
+      t += 0.08 - Math.log(1 - r()) / (1.6 * (1 + 1.5 * flareAt(t)));
+    }
+    // soft pops, evenly spread: a lower knock with a little body, a tick or two after
+    for (let k = 0; k < 8; k++) {
+      const t = (k + 0.15 + r() * 0.7) * P / 8, pan = r() - 0.5;
+      tick(t, 0.8 + r() * 0.15, 450 + r() * 350, 0.003, pan, 1);
+      raw(t, 0.3, 150 + r() * 60, 0.012, pan, 0);
+      for (let j = 0; j < 2; j++) tick(t + 0.03 + r() * 0.2, 0.3 + 0.2 * r(), 1200 + r() * 1500, 1e-3, pan + (r() - 0.5) * 0.3);
+    }
+    // a log settles: a soft thud, a short dull shuffle of wood, a few embers after
+    settles.forEach((t, z) => {
+      tick(t, 0.25, z ? 170 : 145, 0.025, 0, 0.8);
+      const i0 = Math.round(t * R), L = Math.round((z ? 0.4 : 0.55) * R), c1 = 1 - Math.exp(-2 * PI * 350 / R); let y = 0, y2 = 0;
+      for (let j = 0; j < L; j++) { y += (nz() - y) * c1; y2 += (y - y2) * c1; const v = Math.sin(PI * j / L) ** 2 * 0.6 * y2, k = (i0 + j) % n; EL[k] += v; ER[k] += v; }
+      for (let j = 0, m = z ? 3 : 5; j < m; j++) { const u = 0.1 + r() * 1.1; tick(t + u, (0.3 + 0.3 * r()) * (1 - u / 1.5), 1300 + r() * 1700, 7e-4 + r() * 6e-4, (r() - 0.5) * 0.8); }
+    });
+    const eIn = G(1); o.bed(ev, eIn);
+    link(eIn, F("highpass", 120), F("lowpass", 4000, -6), G(2.5, out));
+  },
+});
+</script>
+<script>
+"use strict";
+// Wind (wind)
+// Wind: soft wind over an open snowfield, heard from a sheltered place.
+// One gust curve, placed once in loop time and wrapped round the loop,
+// drives everything: a band of pink noise whose centre sweeps from about
+// 160 Hz to 1.5 kHz, its level, and soft whistles near a gust's top.
+// Under it a steady low breath that never stops; very rarely a faint,
+// distant glass chime, stirred by a gust.
+SOUNDTRACKS.push({
+  id: "wind",
+  name: "Wind",
+  seconds: 96,
+  tail: 18,
+  glyph: "M7 0h2v1h-2zM6 1h1v1h-1zM9 1h1v2h-1zM0 3h9v1h-9zM2 6h10v1h-10zM0 9h6v1h-6zM6 10h1v1h-1zM3 11h3v1h-3z",
+  compose(ctx, out, o) {
+    const P = o.seconds, R = o.rate, r = o.rand, TAU = 2 * Math.PI;
+    // the gusts: seven a loop, 10 to 18 s apart (gaps drawn, then scaled to
+    // fill the loop), each rising for 4 to 7 s, holding a moment and
+    // falling for 6 to 10 s, none much stronger than the rest
+    const N = 7, gap = [], gusts = [];
+    for (let k = 0; k < N; k++) gap.push(0.7 + 0.6 * r());
+    const sum = gap.reduce((x, y) => x + y);
+    for (let k = 0, t = r() * P / N; k < N; t += gap[k++] * P / sum) gusts.push({ t, up: 4 + r() * 3, hold: r() * 2.5, down: 6 + r() * 4, a: 0.72 + r() * 0.28 });
+    // the curve at 50 points a second, wrapped round the loop, on a slow
+    // swell of one and three cycles a loop so no two gusts reach the same
+    const K = 50, M = P * K, g = new Float32Array(M), fl = new Float32Array(M), ph = r() * TAU;
+    for (let j = 0; j < M; j++) {
+      const t = j / K; let v = 0.12 * Math.sin(TAU * t / P + ph) + 0.07 * Math.sin(3 * TAU * t / P + 2 * ph);
+      for (const G of gusts) {
+        let x = t - G.t; x -= P * Math.round(x / P);
+        if (x > -G.up && x < 0) v += G.a * (0.5 - 0.5 * Math.cos(Math.PI * (x + G.up) / G.up));
+        else if (x >= 0 && x < G.hold) v += G.a;
+        else if (x >= G.hold && x < G.hold + G.down) v += G.a * (0.5 + 0.5 * Math.cos(Math.PI * (x - G.hold) / G.down));
+      }
+      g[j] = v;
+    }
+    let lo = Infinity, hi = -Infinity;
+    for (let j = 0; j < M; j++) { lo = Math.min(lo, g[j]); hi = Math.max(hi, g[j]); }
+    for (let j = 0; j < M; j++) g[j] = (g[j] - lo) / (hi - lo);
+    // flutter: random knots two a second, joined smoothly round the loop,
+    // stronger in a gust than in a lull
+    const F = P * 2, kn = [];
+    for (let i = 0; i < F; i++) kn.push(r() * 2 - 1);
+    for (let j = 0; j < M; j++) {
+      const u = j * 2 / K, i = Math.floor(u), f = u - i;
+      const p0 = kn[(i + F - 1) % F], p1 = kn[i % F], p2 = kn[(i + 1) % F], p3 = kn[(i + 2) % F];
+      fl[j] = 0.5 * (2 * p1 + (p2 - p0) * f + (2 * p0 - 5 * p1 + 4 * p2 - p3) * f * f + (3 * p1 - p0 - 3 * p2 + p3) * f * f * f) * (0.35 + 0.65 * g[j]);
+    }
+    // both at the full rate, in a buffer one loop long that loops in step
+    const cb = o.buffer(P, 2), n = cb.length;
+    for (const [c, s] of [[0, g], [1, fl]]) {
+      const d = cb.getChannelData(c);
+      for (let i = 0; i < n; i++) { const u = i * K / R, j = Math.floor(u), f = u - j, a = s[j % M]; d[i] = a + (s[(j + 1) % M] - a) * f; }
+    }
+    const cs = ctx.createChannelSplitter(2); o.bed(cb, cs);
+    const GU = ctx.createGain(), FL = ctx.createGain(); cs.connect(GU, 0); cs.connect(FL, 1);
+    const to = (src, param, k) => { const m = ctx.createGain(); m.gain.value = k; src.connect(m); m.connect(param); };
+    const bq = (type, f, q) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; };
+    // a swept filter's coefficients once a block, not once a sample: the
+    // sweeps are slow, and it keeps the render light
+    const kr = p => { try { if ("automationRate" in p) p.automationRate = "k-rate"; } catch (e) { } return p; };
+    const amp = v => { const a = ctx.createGain(); a.gain.value = v; return a; };
+    // the noise: one pink buffer, its channels crossed so the sides share a
+    // little (wide, but safe in mono)
+    const sp = ctx.createChannelSplitter(2), nz = ctx.createChannelMerger(2);
+    o.bed(o.noise("pink"), sp);
+    const cA = Math.cos(0.24), sA = Math.sin(0.24);
+    for (const [i, j, k] of [[0, 0, cA], [1, 0, sA], [0, 1, sA], [1, 1, cA]]) { const m = amp(k); sp.connect(m, i); m.connect(nz, 0, j); }
+    // everything heard through a wall: nothing much above 2.2 kHz, and no
+    // rumble under the breath
+    const bus = amp(1), lp = bq("lowpass", 2200, 0.6), hp = bq("highpass", 70, -3);
+    bus.connect(lp); lp.connect(hp); hp.connect(out);
+    // the breath: low, steady, barely moving
+    const br = bq("lowpass", 340, 0.5), brh = bq("highpass", 90, -3), brg = amp(0.22);
+    nz.connect(br); br.connect(brh); brh.connect(brg); brg.connect(bus); to(GU, brg.gain, 0.05);
+    // two bands: the gust is in their centres, which rise together (one
+    // from 170 Hz to 1.4 kHz, the other from 200 to 530 Hz so the low
+    // middle never empties), and only a little in their level
+    for (const [f, q, cents, base, rise] of [[170, 0.9, 3600, 0.34, 0.5], [200, 0.8, 1700, 0.3, 0.12]]) {
+      const bo = bq("bandpass", f, q), bog = amp(base);
+      nz.connect(bo); bo.connect(bog); bog.connect(bus);
+      to(GU, kr(bo.detune), cents); to(FL, bo.detune, cents * 0.08); to(GU, bog.gain, rise); to(FL, bog.gain, rise * 0.12);
+    }
+    // the whistles: two soft resonances that open only near a gust's top
+    // and glide with it (a soft knee: nothing under 0.4 of the way up)
+    const ws = ctx.createWaveShaper(), curve = new Float32Array(257);
+    for (let i = 0; i < 257; i++) { const x = i / 128 - 1; curve[i] = x > 0.4 ? ((x - 0.4) / 0.6) ** 2 : 0; }
+    ws.curve = curve; GU.connect(ws);
+    for (const [f, q, k, d] of [[470, 13, 1.1, 1250], [655, 15, 0.8, 1150]]) {
+      const w = bq("bandpass", f, q), wg = amp(0);
+      nz.connect(w); w.connect(wg); wg.connect(bus);
+      to(GU, kr(w.detune), d); to(FL, w.detune, 140); to(ws, wg.gain, k);
+    }
+    // the chimes: two single soft notes a loop, far off, unevenly apart,
+    // each as a gust falls away. No reverb node: each note is its own room,
+    // the note itself (a slow onset, a long fall, its glass overtone at
+    // 2.756 dying first) and four later, softer, slightly detuned copies
+    // spread left and right, whose beating is the shimmer of a far hall
+    const cl = bq("lowpass", 3000, 0.5); cl.connect(out);
+    const CH = 0.065, notes = [1174.7, 1396.9], lvl = [1, 0.6];
+    const parts = [[0, 1, 1, 0.045, 1.4, 0], [0, 1.0006, 0.5, 0.045, 1.2, 0], [0, 2.756, 0.1, 0.03, 0.5, 0],
+      [0.07, 0.9997, 0.45, 0.12, 1.8, -0.6], [0.13, 1.0004, 0.38, 0.18, 2, 0.6], [0.21, 0.9994, 0.3, 0.25, 2.2, -0.3], [0.32, 1.0008, 0.24, 0.35, 2.4, 0.35]];
+    [1, 4].forEach((gi, i) => {
+      const G = gusts[gi], t0 = ((G.t + G.hold + G.down * 0.5 + r() * 0.6) % P + P) % P, f = notes[i], a = CH * lvl[i] * (0.9 + 0.1 * r());
+      o.each(t0, at => {
+        for (const [dt, m, k, att, tau, pan] of parts) {
+          const os = ctx.createOscillator(), e = ctx.createGain(), pn = ctx.createStereoPanner(), s = at + dt;
+          os.frequency.value = f * m; pn.pan.value = pan;
+          e.gain.setValueAtTime(0, s); e.gain.linearRampToValueAtTime(a * k, s + att); e.gain.setTargetAtTime(0, s + att, tau);
+          os.connect(e); e.connect(pn); pn.connect(cl); os.start(s); os.stop(s + att + tau * 7);
+        }
+      });
+    });
+  },
+});
+</script>
+<script>
+"use strict";
+// Drift (drift)
+// Drift: a slow, warm pad. Six open chords in D (added ninths, open fifths)
+// hold about 20 s each and cross-fade over 6 to 8 s, every note at a moment
+// of its own, so the harmony shifts like a cloud. A note is a soft wave with
+// a copy of its upper harmonics detuned by 1/6 to 1/9 Hz, up on the left and
+// down on the right: they shimmer while the fundamental stays still. A
+// slowly moving low-pass and a room of eight echoes make it warm and wide.
+SOUNDTRACKS.push({
+  id: "drift",
+  name: "Drift",
+  seconds: 120,
+  tail: 30,
+  glyph: "M5 3h3v1H5zM2 4h2v1H2zM5 4h4v1H5zM1 5h9v1H1zM1 6h10v2H1zM2 8h8v1H2z",
+  compose(ctx, out, o) {
+    const P = o.seconds, r = o.rand, F = o.f, rate = o.rate;
+    // the chords: seconds each, MIDI notes low to high. The bass moves by
+    // thirds, fourths and sixths (D B G E A F#), never by a step, and no two
+    // notes under A3 a step apart ever sound together, even mid-fade.
+    const CH = [
+      [20.5, [38, 50, 54, 61, 64]],   // D maj9:  D2 D3 F#3 C#4 E4
+      [19.5, [47, 54, 57, 64, 71]],   // B m11:   B2 F#3 A3 E4 B4
+      [20, [43, 50, 59, 66, 69]],     // G maj9:  G2 D3 B3 F#4 A4
+      [19.5, [40, 55, 59, 62, 66]],   // E m9:    E2 G3 B3 D4 F#4
+      [20.5, [45, 52, 59, 64, 71]],   // A sus2:  A2 E3 B3 E4 B4
+      [20, [42, 57, 61, 64, 71]],     // F#m11:   F#2 A3 C#4 E4 B4
+    ];
+
+    // one cycle of the wave (falling harmonics, the odd ones a little
+    // stronger) and of its upper harmonics alone
+    const TL = 2048, T1 = new Float32Array(TL + 1), T2 = new Float32Array(TL + 1);
+    for (let j = 0; j <= TL; j++) for (let n = 1; n < 16; n++) {
+      const s = Math.sin(2 * Math.PI * n * j / TL) * Math.pow(n, -1.7) * (n % 2 ? 1 : 0.7);
+      T1[j] += s; if (n > 1) T2[j] += 0.6 * s;
+    }
+    // each pitch as a stereo buffer L = 6 to 9 s long that loops seamlessly:
+    // the wave on both sides, the harmonics 1/L Hz up on the left and down
+    // on the right (whole numbers of cycles in L, counted exactly in
+    // integers); L differs from pitch to pitch, so no two shimmer in step.
+    // The bass sits in the middle, the notes above it a little to one side,
+    // each chord about balanced.
+    const PAN = { 50: -.4, 52: -.1, 54: .4, 55: -.35, 57: -.45, 59: .1, 61: .1, 62: .45, 66: -.3, 69: .5, 71: .3 };
+    const tones = new Map();
+    const tone = m => {
+      if (tones.has(m)) return tones.get(m);
+      const L = 6 + m % 4, b = o.buffer(L), N = b.length, l = b.getChannelData(0), rr = b.getChannelData(1), k = TL / N;
+      const C = Math.round(440 * Math.pow(2, (m - 69) / 12) * L), q = ((PAN[m] || 0) + 1) * Math.PI / 4;
+      const gl = Math.SQRT2 * Math.cos(q), gr = Math.SQRT2 * Math.sin(q);
+      let a = 0, u = 0, w = 0;
+      for (let i = 0; i < N; i++) {
+        let x = a * k, j = x | 0, c = T1[j] + (T1[j + 1] - T1[j]) * (x - j);
+        x = u * k; j = x | 0; l[i] = gl * (c + T2[j] + (T2[j + 1] - T2[j]) * (x - j));
+        x = w * k; j = x | 0; rr[i] = gr * (c + T2[j] + (T2[j + 1] - T2[j]) * (x - j));
+        a += C; if (a >= N) a -= N; u += C + 1; if (u >= N) u -= N; w += C - 1; if (w >= N) w -= N;
+      }
+      tones.set(m, b); return b;
+    };
+
+    // the bus, low-passed with a slow sweep (two LFOs, whole cycles a loop)
+    const bus = ctx.createGain(); bus.gain.value = 0.2;
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 820; lp.Q.value = 0;
+    try { lp.frequency.automationRate = "k-rate"; } catch (e) {}
+    bus.connect(lp);
+    for (const [per, depth] of [[60, 240], [23, 110]]) {
+      const lf = ctx.createOscillator(); lf.frequency.value = F(1 / per);
+      const d = ctx.createGain(); d.gain.value = depth; lf.connect(d); d.connect(lp.frequency); lf.start(0);
+    }
+    lp.connect(out);
+    // a room with no feedback, so every engine renders it the same every
+    // time: eight echoes from 40 ms to 1.1 s, swelling in and dying away,
+    // left and right in turn; the send is high-passed, the bass stays dry
+    const hin = ctx.createBiquadFilter(); hin.type = "highpass"; hin.frequency.value = 220; hin.Q.value = -3;
+    hin.channelCount = 1; hin.channelCountMode = "explicit";
+    const room = ctx.createChannelMerger(2), wet = ctx.createGain(); wet.gain.value = 0.45;
+    lp.connect(hin); room.connect(wet); wet.connect(out);
+    for (let k = 0; k < 8; k++) {
+      const t = 0.04 * Math.pow(1.6, k) * (0.92 + 0.16 * r()), d = ctx.createDelay(2), g = ctx.createGain();
+      d.delayTime.value = Math.round(t * rate) / rate;
+      g.gain.value = (k % 3 ? 1 : -1) * (1 - Math.exp(-t / 0.08)) * Math.pow(10, -t / 1.2);
+      hin.connect(d); d.connect(g); g.connect(room, 0, k % 2);
+    }
+
+    // the fades: equal-power (sin, cos) between different notes, which add
+    // in power; sin² and cos² for a note held from one chord into the next,
+    // whose two voices play the same buffer in phase and so add in amplitude
+    const curve = (a, fall, held) => { const c = new Float32Array(33);
+      for (let j = 0; j < 33; j++) c[j] = a * Math.pow((fall ? Math.cos : Math.sin)(Math.PI / 2 * j / 32), held ? 2 : 1); return c; };
+    // every chord about as loud as the next. A note fades in across its
+    // chord's start and out across its end, at a moment of its own; one held
+    // into the next chord hands over in phase across 7 s centred on the
+    // change, so it simply holds. The bass hands over instead: the old one is
+    // almost gone when the new one rises, so no two bass notes thicken into a
+    // low third. The longest note, 28.5 s, and its last echo end within the
+    // 30 s tail. The pass starts at G maj9, which holds nothing from B m11.
+    const T = [], PN = Math.round(P * rate); let acc = 0; for (const [len] of CH) { T.push(acc); acc += len; }
+    let prev = new Map();
+    for (let n = 0; n < CH.length; n++) {
+      const i = (n + 2) % CH.length, [len, ns] = CH[i], next = CH[(i + 1) % CH.length][1], now = new Map();
+      const v = ns.map(m => m < 48 ? 0.6 : m < 60 ? 0.95 : m < 66 ? 0.85 : 0.55);
+      const k = Math.sqrt(3 / v.reduce((s, x) => s + x * x, 0));
+      ns.forEach((m, j) => {
+        const lo = j === 0, pin = prev.get(m), pout = next.includes(m);
+        const lead = pin ? 3.5 : lo ? 0.5 : 3 + r(), lag = pout ? 3.5 : lo ? 0.5 : 3 + r(), dur = lead + len + lag;
+        const A = lo ? 4.5 : 2 * lead, R = lo ? 4.5 : 2 * lag, buf = tone(m), N = buf.length;
+        const up = curve(v[j] * k, 0, !!pin), down = curve(v[j] * k, 1, pout);
+        // start and buffer offset in whole samples; a held note picks up
+        // exactly where its voice in the chord before has got to
+        const st = Math.round(((T[i] - lead) % P + P) % P * rate);
+        const off = pin ? (pin.off + (st - pin.st + PN) % PN) % N : Math.floor(N * r());
+        now.set(m, { st, off });
+        o.each(st / rate, at => {
+          const g = ctx.createGain(); g.gain.value = 0; g.connect(bus);
+          try { g.gain.automationRate = "k-rate"; } catch (e) {}
+          g.gain.setValueCurveAtTime(up, at, A); g.gain.setValueCurveAtTime(down, at + dur - R, R);
+          const x = ctx.createBufferSource(); x.buffer = buf; x.loop = true;
+          x.connect(g); x.start(at, off / rate); x.stop(at + dur);
+        });
+      });
+      prev = now;
+    }
+  },
+});
+</script>
+<script>
+"use strict";
+// Keys (keys)
+// Keys: sparse, soft notes on a felt piano in a warm room. Each pitch is
+// built once, additively, into a stereo buffer: slightly stretched
+// partials, a felt roll-off, a two-stage decay, a faint second string
+// beating against the first, a soft thump, a small room's first
+// reflections and its bloom (the low partials again on either side,
+// rising late and dying slowly: a room made of the notes' own tones, so
+// it repeats exactly in every engine and costs nothing to render). One
+// note or a rolled dyad every 3 to 7 s from a pentatonic set, over a
+// quiet bed of warm room tone.
+SOUNDTRACKS.push({
+  id: "keys",
+  name: "Keys",
+  seconds: 120,
+  tail: 15,
+  glyph: "M0 1h12v1H0zM0 10h12v1H0zM0 2h1v8H0zM11 2h1v8h-1zM4 7h1v3H4zM7 7h1v3H7zM3 2h2v5H3zM7 2h2v5H7z",
+  compose(ctx, out, o) {
+    const R = o.rate, P = o.seconds, rnd = o.rand, PI = Math.PI;
+    const biq = (type, f) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = -3.01; return b; };
+    const gain = v => { const g = ctx.createGain(); g.gain.value = v; return g; };
+
+    // room tone: noise filtered to a warm hush, the right side the left
+    // half a loop later, breathing slowly
+    const nz = o.noise("white", 1), n = nz.length, h = n >> 1, z0 = nz.getChannelData(0);
+    const room = o.buffer(P);
+    room.copyToChannel(z0, 0); room.copyToChannel(z0.subarray(h), 1, 0); room.copyToChannel(z0.subarray(0, h), 1, n - h);
+    const hp = biq("highpass", 120), lp = biq("lowpass", 700), lp2 = biq("lowpass", 1400), rg = gain(0.13);
+    hp.connect(lp); lp.connect(lp2); lp2.connect(rg); rg.connect(out);
+    o.bed(room, hp);
+    const lfo = ctx.createOscillator(); lfo.frequency.value = o.f(1 / 40);
+    const depth = gain(0.025); lfo.connect(depth); depth.connect(rg.gain); lfo.start(0);
+
+    // one piano note per pitch, stereo, LEN s; its partials are summed at
+    // half the rate (all lie under 3.6 kHz) and drawn out to the full rate
+    const LEN = 14, N = Math.round(LEN * R), H = R / 2, M = (N >> 1) + 2, cache = {}, W = 0.2, T2 = 7, WET = 0.55;
+    function make(m) {
+      const f0 = 440 * Math.pow(2, (m - 69) / 12), buf = o.buffer(LEN, 2), L = buf.getChannelData(0), Rr = buf.getChannelData(1);
+      const D = new Float32Array(M), A = new Float32Array(M), B = new Float32Array(M);
+      const pan = Math.max(-0.45, Math.min(0.45, (m - 62) / 26)), pl = Math.cos((pan + 1) * PI / 4), pr = Math.sin((pan + 1) * PI / 4);
+      // a partial into d: a sine at f from phase ph, its envelope
+      // a*(W*b*e^-t/t1 + (1-W)*e^-t/t2 - ...e^-t/tr) (b: a brighter onset;
+      // tr: the room's late rise)
+      const add = (d, f, ph, a, t1, t2, tr, b = 1) => {
+        const w = 2 * PI * f / H, c = 2 * Math.cos(w), k1 = Math.exp(-1 / (t1 * H)), k2 = Math.exp(-1 / (t2 * H)), kr = tr ? Math.exp(-1 / (tr * H)) : 0;
+        let y1 = Math.sin(ph - w), y2 = Math.sin(ph - 2 * w), e1 = a * W * b, e2 = a * (1 - W), er = tr ? e1 + e2 : 0;
+        for (let i = 0; i < M; i++) {
+          const y = c * y1 - y2; y2 = y1; y1 = y;
+          d[i] += y * (e1 + e2 - er); e1 *= k1; e2 *= k2; er *= kr;
+          if ((i & 1023) === 0 && e1 + e2 < 2e-4) break;
+        }
+      };
+      for (let k = 1; k <= 12; k++) {
+        const fn = k * f0 * Math.sqrt(1 + 0.0003 * k * k);
+        if (fn > 3600) break;
+        // struck near an eighth of the string, felt muffling the highs
+        const a = Math.abs(Math.sin(PI * k / 7.6)) / Math.pow(k, 1.4) / Math.sqrt(1 + Math.pow(fn / 850, 4));
+        const t2 = T2 / (1 + fn / 1100), t1 = t2 / 7;
+        add(D, fn, 0, a, t1, t2, 0, 1 + fn * fn / 3.2e6);
+        // a second string, a little sharp, beating slowly against the first
+        if (k <= 2) add(D, fn * (1.0004 + 0.0004 * rnd()), 0, a * 0.25, t1, t2 * 0.8, 0);
+        // the room: the low partials again, late and slow, turned apart on
+        // each side (a fixed turn, so the note never swells and sinks)
+        if (k <= 3) { const q = PI * (0.18 + 0.14 * rnd()); add(A, fn, q, a * WET, t1 * 1.6, t2 * 1.15, 0.09); add(B, fn, -q, a * WET, t1 * 1.6, t2 * 1.15, 0.09); }
+      }
+      // the felt's soft thump: low noise, 80 to 300 Hz, a few ms
+      let za = 0, zc = 0, zb = 0, u = m * 7919; const ka = 1 - Math.exp(-2 * PI * 300 / H), kb = 1 - Math.exp(-2 * PI * 80 / H), T = Math.round(0.08 * H);
+      for (let i = 0; i < T; i++) { u = (Math.imul(u, 1664525) + 1013904223) >>> 0; const x = u / 2147483648 - 1; za += (x - za) * ka; zc += (za - zc) * ka; zb += (zc - zb) * kb; D[i] += (zc - zb) * 0.2 * Math.exp(-i / (0.014 * H)); }
+      // a small room's first reflections, two on each side
+      for (const [dt, gg, X] of [[0.0093, 0.16, A], [0.0128, 0.14, B], [0.0171, 0.11, B], [0.0237, 0.08, A]]) {
+        const k = Math.round(dt * H);
+        for (let i = M - 1; i >= k; i--) X[i] += gg * D[i - k];
+      }
+      // to the full rate, the dry note panned; a soft attack, a long fade
+      // at the end; measure the first second
+      const at = Math.round(0.018 * R), rel = Math.round(3 * R);
+      let e = 0;
+      for (let i = 0; i < N; i++) {
+        const j = i >> 1, odd = i & 1;
+        const d = odd ? (D[j] + D[j + 1]) * 0.5 : D[j], l0 = odd ? (A[j] + A[j + 1]) * 0.5 : A[j], r0 = odd ? (B[j] + B[j + 1]) * 0.5 : B[j];
+        let g = 1;
+        if (i < at) g = 0.5 - 0.5 * Math.cos(PI * i / at);
+        else if (i > N - rel) g = 0.5 - 0.5 * Math.cos(PI * (N - i) / rel);
+        const l = (l0 + d * pl) * g, r = (r0 + d * pr) * g;
+        L[i] = l; Rr[i] = r;
+        if (i < R) e += l * l + r * r;
+      }
+      return { buf, s: 0.3 / Math.sqrt(e / R) };
+    }
+    const tone = m => cache[m] || (cache[m] = make(m));
+
+    // when: 24 onsets a loop, gaps of 3.2 to 6.6 s, uneven
+    const cnt = 24; let g;
+    do {
+      g = []; let S = 0;
+      for (let i = 0; i < cnt; i++) { g.push(3.3 + rnd() * 4.4); S += g[i]; }
+      g = g.map(x => x * P / S);
+    } while (Math.min(...g) < 3.2 || Math.max(...g) > 6.6);
+    // what: C major pentatonic, G3 to E5; dyads of thirds, fourths, fifths, sixths
+    const pool = [55, 57, 60, 62, 64, 67, 69, 72, 74, 76], PC = [0, 2, 4, 7, 9], pairs = [];
+    for (const lo of [55, 57, 60, 62, 64]) for (const iv of [3, 4, 5, 7, 9]) if (PC.includes((lo + iv) % 12) && lo + iv <= 72) pairs.push([lo, lo + iv]);
+    // the whole sequence first (synthesis draws on rnd too, after it)
+    const recent = [], uses = {}, ev = [];
+    let t = rnd() * 2, duo = false;
+    for (let i = 0; i < cnt; i++) {
+      const prev = recent[recent.length - 1], top = ns => ns[ns.length - 1];
+      const ok = ns => ns.every(m => !recent.includes(m)) && (uses[top(ns)] || 0) < 3 && (prev === undefined || Math.abs(top(ns) - prev) >= 3 && Math.abs(top(ns) - prev) <= 12);
+      const one = pool.map(m => [m]);
+      let c = (rnd() < (duo ? 0 : 0.4) ? pairs : one).filter(ok);
+      if (!c.length) c = one.filter(ns => !recent.includes(ns[0]));
+      const ns = c[Math.floor(rnd() * c.length)];
+      recent.push(...ns); while (recent.length > 4) recent.shift();
+      duo = ns.length > 1; uses[top(ns)] = (uses[top(ns)] || 0) + 1;
+      const v = 0.9 + 0.2 * rnd(), roll = 0.05 + 0.09 * rnd();
+      ns.forEach((m, j) => ev.push([t + j * roll, m, v * (duo ? (j ? 0.6 : 0.8) : 1)]));
+      t += g[i];
+    }
+    for (const [t, m, v] of ev) play(t, m, v);
+    function play(t, m, v) {
+      const { buf, s } = tone(m);
+      o.each(t, at => {
+        const src = ctx.createBufferSource(); src.buffer = buf;
+        const gg = gain(v * s); src.connect(gg); gg.connect(out); src.start(Math.round(at * R) / R);
+      });
+    }
+  },
+});
+</script>
+<script>
+"use strict";
+// Bowls (bowls)
+// Bowls: singing bowls over a low drone. A deep D drone (root, fifth and
+// octave, each a pair of sines a hair apart that beat slowly, so the drone
+// breathes) runs throughout. Six times a loop a bowl sounds: struck
+// softly with a felt mallet, or rubbed until it sings. A bowl is four
+// inharmonic partials (about 1 : 2.7 : 5.1 : 8.2), each a close pair of
+// sines that beat slowly, the higher ones quieter and dying sooner; the
+// two of a pair sit a little apart, so each bowl turns slowly in place.
+// No echoes or hall: on pure tones their combs make some pitches louder
+// than others by several dB, and the long rings are the room.
+SOUNDTRACKS.push({
+  id: "bowls",
+  name: "Bowls",
+  seconds: 120,
+  tail: 23,            // the longest ring is 22 s
+  // a bowl seen a little from above: its rim, its opening, its body
+  glyph: "M3 3h6v1H3zM1 4h2v1H1zM9 4h2v1H9zM1 5h10v2H1zM2 7h8v1H2zM3 8h6v1H3z",
+  compose(ctx, out, o) {
+    const R = o.rand, P = o.seconds;
+    const gain = (v, to) => { const g = ctx.createGain(); g.gain.value = v; if (to) g.connect(to); return g; };
+    const panner = (v, to) => { const p = ctx.createStereoPanner(); p.pan.value = v; p.connect(to); return p; };
+    // the drone: three voices, each two sines `beat` cycles a loop apart,
+    // the louder a little to one `side`, the softer to the other (root and
+    // fifth louder left, octave louder right: the two sides even). The softer
+    // one starts a moment late, which sets where in the loop its voice
+    // swells (`ph`, in beats): the swells are spread so that the voices
+    // never sink together and the drone swells in the gaps between bowls.
+    let w0 = 0; o.each(0, at => { w0 = at; });
+    const dl = panner(-0.2, out), dr = panner(0.2, out);
+    for (const [hz, amp, beat, ph, side] of [[73.42, 0.07, 9, 0.25, 0], [110, 0.05, 5, 0.75, 0], [146.83, 0.085, 6, 0.25, 1]])
+      [1, 0.3].forEach((w, k) => {
+        const f = o.f(hz) + k * beat / P, osc = ctx.createOscillator(); osc.frequency.value = f;
+        osc.connect(gain(amp * w, k === side ? dl : dr)); osc.start(k * ((((beat * w0 / P - ph) % 1) + 1) % 1) / f);
+      });
+    // three bowls, left, right and middle; a partial's pair beats `split`
+    // Hz, the louder half at `pans[0]`, the softer at `pans[1]`
+    const bowls = [[220, [1, 2.72, 5.12, 8.25], [-0.5, -0.2]], [293.66, [1, 2.69, 5.18, 8.16], [0.5, 0.2]], [329.63, [1, 2.74, 5.09, 8.3], [0, 0.2]]].map(([hz, r, pans]) => ({
+      hz, r, io: pans.map(v => panner(v, out)),
+      split: r.map((_, i) => (0.2 + 0.3 * R()) * [1, 1.8, 2.5, 3][i]),
+    }));
+    const LEN = 22;
+    // struck: a soft attack, a quick settle, then a long ring to -26 dB,
+    // then to nothing; rubbed: a slow swell, a held song till 9 s, the
+    // same ring (each partial's ring starts after the song ends).
+    // The softer of a pair starts `ph` of a cycle late, so a struck bowl
+    // does not begin on a beat's crest but swells into it
+    const ring = (b, at, vel, rub, ph) => {
+      (rub ? [1, 0.2, 0.05] : [1, 0.35, 0.12, 0.04]).forEach((amp, i) => {
+        const L = LEN * (rub ? [1, 0.85, 0.7] : [1, 0.68, 0.42, 0.24])[i], hz = b.hz * b.r[i];
+        [0, 1].forEach(k => {
+          const a = 0.165 * vel * amp * (k ? 0.4 : 1);
+          const osc = ctx.createOscillator(); osc.frequency.value = hz + (k ? 0.5 : -0.5) * b.split[i];
+          const g = ctx.createGain(), p = g.gain;
+          p.setValueAtTime(0, at);
+          if (rub) { p.linearRampToValueAtTime(a * 0.25, at + 2); p.linearRampToValueAtTime(a * 0.7, at + 5.5); p.linearRampToValueAtTime(a * 0.6, at + 9); }
+          else { p.linearRampToValueAtTime(a, at + 0.09 - 0.015 * i); p.exponentialRampToValueAtTime(a * [0.8, 0.6, 0.4, 0.3][i], at + 0.1 * L); }
+          p.exponentialRampToValueAtTime(a * (i ? 0.01 : 0.05), at + 0.85 * L);
+          p.linearRampToValueAtTime(0, at + L);
+          osc.connect(g); g.connect(b.io[k]); osc.start(at + k * ph[i] / hz); osc.stop(at + L + 0.05);
+        });
+      });
+    };
+    // six bowls a loop, 18 to 23 s apart: [loop time, bowl, rubbed]. A
+    // struck bowl's lowest pair starts on a beat's trough (ph 0.5)
+    [[1.5, 0, 0], [23, 1, 1], [41, 2, 0], [63.5, 1, 0], [82, 0, 1], [101, 2, 1]].forEach(([t, bi, rub]) => {
+      const vel = 0.92 + R() * 0.16, ph = [0.5, 0.25 + 0.25 * R(), 0.25 + 0.25 * R(), 0.25 + 0.25 * R()];
+      o.each(t, at => ring(bowls[bi], at, vel, rub, ph));
+    });
+  },
+});
+</script>
 <script src="/platinum/dialog.js"></script>
 <script src="/platinum/menu.js"></script>
 <script>
@@ -2288,7 +3319,7 @@ document.addEventListener("fullscreenchange", onFull);
 document.addEventListener("webkitfullscreenchange", onFull);
 // the press keeps the caret where it was, as Send's does
 fullBtn.addEventListener("mousedown", e => e.preventDefault());
-fullBtn.onclick = () => { if (fullEl()) leaveFull(); else enterFull(); };
+fullBtn.onclick = () => { if (fullEl()) leaveFull(); else { soundGesture(); enterFull(); } };
 // what was typed puts the toolbar away; a mouse moved a few pixels brings
 // it back (the page also hears a "move" as the text scrolls under a still
 // pointer: the first one after the toolbar went is where it stands), and
@@ -2368,7 +3399,7 @@ function showBackdrop(fade) {
 }
 // the row: the paper and each picture in miniature, painted by its painter
 function buildDock() {
-  dockEl = $("#dock");
+  dockEl = $("#pics");
   for (const id of BD_ORDER) {
     const bd = painter(id);
     if (id !== "paper" && !bd) continue;
@@ -2386,7 +3417,7 @@ function buildDock() {
     };
     dockEl.append(b);
   }
-  dockEl.addEventListener("focusin", wake);
+  $("#dock").addEventListener("focusin", wake);
 }
 let thumbsKey = "";
 function paintThumbs() {
@@ -2430,6 +3461,119 @@ document.documentElement.addEventListener("exe-scheme", () => {
   thumbsKey = "";
   if (inFocus()) { paintThumbs(); showBackdrop(false); }
 });
+
+// ---- Full Screen's soundtracks ----
+// OmmWriter's way: a loop to write to, chosen from the row above the
+// pictures (Silence first). Each is a composer (the scripts above),
+// rendered for this machine's sample rate when it is chosen or full
+// screen begins (a second or two, the square's glyph faint meanwhile),
+// then played looping, faded in over 3 s and out over 2 s. Only full
+// screen plays it, and only after a press on this desk: browsers start
+// sound only from one, and a choice made on another desk must never start
+// sound here. So the choice is this device's (localStorage), not the
+// synced settings'. Leaving full screen, the window put away and the page
+// going stop it and let the loop go (two minutes of audio is 46 MB).
+const ST_ORDER = ["silence", "rain", "shore", "brook", "hearth", "wind", "drift", "keys", "bowls"];
+const SILENCE_GLYPH = "M5 2h1v8H5zM4 3h1v6H4zM1 4h3v4H1zM8 4h1v1H8zM9 5h1v1H9zM10 4h1v1H10zM9 6h1v1H9zM8 7h1v1H8zM10 7h1v1h-1z";
+const SOUND_KEY = "exe-notes-sound:" + APP;
+const composer = id => SOUNDTRACKS.find(t => t.id === id) || null;
+let sound = "silence";
+try { const v = localStorage.getItem(SOUND_KEY); if (v && composer(v)) sound = v; } catch (e) {}
+let ac = null, voice = null, loopBuf = null, soundSeq = 0, waiting = ""; // waiting: the loop being made
+// the AudioContext, made or woken inside a press (a browser allows it then only)
+function soundGesture() {
+  if (sound === "silence") return null;
+  const C = window.AudioContext || window.webkitAudioContext;
+  if (!C) return null;
+  if (!ac) try { ac = new C(); } catch (e) { return null; }
+  if (ac.state !== "running") ac.resume().catch(() => {});
+  return ac;
+}
+function fadeOut(v, secs) {
+  if (!v) return;
+  const t = ac.currentTime;
+  v.gain.gain.cancelScheduledValues(t);
+  v.gain.gain.setValueAtTime(v.gain.gain.value, t);
+  v.gain.gain.linearRampToValueAtTime(0, t + secs);
+  try { v.src.stop(t + secs + 0.05); } catch (e) {}
+}
+// play the chosen loop, if full screen is up and the sound is awake
+async function playSound() {
+  const mine = ++soundSeq;
+  waiting = "";
+  syncTunes();
+  if (!inFocus() || !ac) return;
+  const t = composer(sound);
+  if (!t) { fadeOut(voice, 2); voice = null; return; }
+  if (voice && voice.id === t.id) return;
+  let buf = loopBuf && loopBuf.id === t.id && loopBuf.rate === ac.sampleRate ? loopBuf.buffer : null;
+  if (!buf) {
+    loopBuf = null; // the last loop goes before the next is made
+    waiting = t.id; syncTunes();
+    try { buf = (await renderSoundtrack(t, ac.sampleRate)).buffer; }
+    catch (e) { console.error("notes: soundtrack " + t.id + " failed:", e); }
+    if (mine !== soundSeq) return; // chosen again meanwhile, or full screen ended
+    waiting = ""; syncTunes();
+    if (!buf) return;
+    loopBuf = { id: t.id, rate: ac.sampleRate, buffer: buf };
+  }
+  if (!inFocus() || sound !== t.id) return;
+  fadeOut(voice, 2);
+  const src = ac.createBufferSource(), gain = ac.createGain();
+  src.buffer = buf; src.loop = true;
+  gain.gain.setValueAtTime(0, ac.currentTime);
+  gain.gain.linearRampToValueAtTime(1, ac.currentTime + 3);
+  src.connect(gain); gain.connect(ac.destination);
+  src.start();
+  voice = { id: t.id, src, gain };
+}
+// stop the sound: faded, or at once as the page goes; the loop let go
+function stopSound(now) {
+  ++soundSeq;
+  if (voice && ac) {
+    if (now) try { voice.src.stop(); } catch (e) {}
+    else fadeOut(voice, 1);
+  }
+  voice = null; loopBuf = null; waiting = "";
+  syncTunes();
+  if (ac && ac.state === "running") setTimeout(() => { if (!voice && ac.state === "running") ac.suspend().catch(() => {}); }, now ? 0 : 1200);
+}
+// the row: Silence, then each soundtrack's glyph
+const tunesEl = $("#tunes");
+for (const id of ST_ORDER) {
+  const t = composer(id);
+  if (id !== "silence" && !t) continue;
+  const b = document.createElement("button");
+  b.type = "button"; b.dataset.st = id;
+  b.title = t ? t.name : "Silence";
+  b.setAttribute("role", "radio");
+  const face = document.createElement("span"); face.className = "tune";
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("width", "12"); svg.setAttribute("height", "12"); svg.setAttribute("viewBox", "0 0 12 12"); svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", t ? t.glyph : SILENCE_GLYPH);
+  svg.append(path); face.append(svg); b.append(face);
+  b.addEventListener("mousedown", e => e.preventDefault()); // the caret stays in the note
+  b.onclick = () => {
+    sound = id;
+    try { localStorage.setItem(SOUND_KEY, id); } catch (e) {}
+    soundGesture();
+    playSound();
+  };
+  tunesEl.append(b);
+}
+function syncTunes() {
+  for (const b of tunesEl.children) {
+    const on = b.dataset.st === sound;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-checked", String(on));
+    b.classList.toggle("wait", b.dataset.st === waiting);
+  }
+}
+syncTunes();
+document.addEventListener("fullscreenchange", () => { if (inFocus()) playSound(); else stopSound(false); });
+document.addEventListener("webkitfullscreenchange", () => { if (inFocus()) playSound(); else stopSound(false); });
+addEventListener("pagehide", () => { stopSound(true); });
 
 // The open note's date at the sheet's foot beside the dog-ear: the longest
 // form that keeps 16px (the HIG's room between groups) from the page
@@ -3255,6 +4399,7 @@ window.addEventListener("message", e => {
   } else if (e.data.exe === "hide") {
     closeMenu();
     leaveFull();
+    stopSound(false);
   } else if (e.data.exe === "reveal") {
     // before the load settles the pages don't exist yet — remember the id
     // and let boot apply it (and ack) instead

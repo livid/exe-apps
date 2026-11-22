@@ -449,7 +449,44 @@ days.
   offline. The choice is the reader's on every desk: settings.json's
   `backdrop` beside `size` and `face` (`"paper"` or a painter's id; one
   this Notes does not know is kept and shown as paper). Checks:
-  `~/tools/playwright/exe-notes/chooser.js`. **Stickies** (2026-10-14): the pushpin at the sheet's foot, left
+  `~/tools/playwright/exe-notes/chooser.js`. The chooser is two rows now:
+  the soundtracks' over the pictures' (`#tunes` over `#pics` in `#dock`).
+  **Soundtracks** (2026-11-22, Livid's ask: eight loops great for focus
+  writing, selectable in full screen, as OmmWriter has): Silence, then
+  Rain, Shore, Brook, Hearth, Wind, Drift, Keys and Bowls (five places,
+  three kinds of quiet music), each composed by its own agent to one brief
+  (`~/tools/playwright/exe-notes/soundtracks/BRIEF.md`). A loop is a
+  composer, `SOUNDTRACKS.push({id, name, seconds, tail, glyph,
+  compose(ctx, out, o)})`, in a script of its own before the app's: it
+  builds a piece in Web Audio, into an OfflineAudioContext, that repeats
+  exactly every `seconds` (every event placed through `o.each`, every bed
+  a noise buffer one loop long, `o.noise` / `o.bed`, every steady
+  oscillator at `o.f(hz)`, a whole number of cycles a loop). The engine
+  (`renderSoundtrack`, the script before them) renders a warm-up and then
+  one loop, so the loop's end runs into its start with no seam, and levels
+  it to -28 LUFS (BS.1770, gated, as ffmpeg measures) with peaks at -2
+  dBFS at most. No ConvolverNode: WebKit does not render one the same
+  twice offline (a seam in Safari); `o.reverb` is a delay-line reverb, and
+  only Brook uses it (its feedback runs in another order on each Chromium
+  render, and it rings on tones: the tonal loops build their rooms into
+  their notes). Every composer passes `soundtracks/check.js`: two loops
+  identical at 48 and 44.1 kHz and in WebKit, the render within 3 s here
+  (Rain 0.9 s to Shore 2.1 s; WebKit up to 4.7 s), ffmpeg's -28 LUFS and a
+  loudness range of 8 LU or less, no rumble or fizz; its spectrogram, seam
+  and MP3 are in `composers/<id>/out/`; a composer changed here is changed
+  there too and checked again. The player: only full screen plays, and
+  only after a press on this desk (a browser starts sound only from one;
+  `soundGesture()` makes or wakes the AudioContext inside the Full Screen
+  press and a square's), so the choice is this device's
+  (`exe-notes-sound:<App>`), never the synced settings': a choice on
+  another desk must never start sound here. A choice renders its loop at
+  the context's rate (the square's glyph faint meanwhile, `.wait`), then
+  plays it looping, faded in over 3 s and the last out over 2 s; leaving
+  full screen, `{exe:"hide"}` and pagehide stop it and let the loop go
+  (two minutes of audio is 46 MB; Hearth holds about 165 MB while it
+  renders). No volume of its own: the system's. Nobody here has heard
+  the eight: they were judged by measurement and spectrogram. Checks:
+  `~/tools/playwright/exe-notes/sound.js`. **Stickies** (2026-10-14): the pushpin at the sheet's foot, left
   of the colours, sticks the open note to the desk — the note gets
   `place: {x, y, w, h, shaded?}` (desk pixels: the window's corner and
   width, the sheet's height) and `placed`, a stamp of its own — and the
