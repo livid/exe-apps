@@ -392,7 +392,31 @@ days.
   first paint, and asked again at open, at `{exe:"show"}` and at each
   menu. Dimmed on a blank sheet and offline; an item is dimmed, with the
   reason as its title, without tmux and for a note past 64 KiB. Checks:
-  `~/tools/playwright/exe-notes/send.js`. **Stickies** (2026-10-14): the pushpin at the sheet's foot, left
+  `~/tools/playwright/exe-notes/send.js`. **Full Screen** (2026-11-22,
+  Livid's ask: writing with nothing else in sight, as OmmWriter has it):
+  with a note open the toolbar has a glyph button, four corners, alone in
+  the room between the faces and Send and centred in it (it sits inside
+  `#bar-gap`, so it costs the bar 30px and no gaps). A press gives the
+  page's own document the screen (`requestFullscreen` on the root, as City
+  does; the desk's frame allows it), and all of it follows
+  `fullscreenchange`, never the press, for Esc ends it in the browser:
+  `body.focus` lays the note's paper and grain over the whole screen, the
+  writing a column about 66ch of the chosen face and size wide, set
+  `max(88px, 18vh)` down, its last line able to scroll up a third of the
+  screen; the foot, the dog-ear, the colours, the pushpin, the scroll bar
+  and the grow box are put away (`#msg` stays), and the toolbar lies over
+  the paper's top. Typing (`input`) adds `quiet`, which fades the toolbar
+  out; a mouse moved more than 3px (the first move after is taken as where
+  it stands: the page hears a "move" as the text scrolls under a still
+  pointer), a finger, any press and the keyboard reaching the toolbar
+  bring it back. The button is pressed in (`.on`, "Exit Full Screen")
+  while it lasts. It, Esc, the corkboard (`setView`), a Send (the desk's
+  New Session dialog would be behind the note) and `{exe:"hide"}` hand the
+  screen back; turning a page, New Note and Delete keep it. No button on a
+  phone (its bar has no room left, and an iPhone gives a page no screen),
+  in a Sticky, or where `fullscreenEnabled` is false; `fitBar`'s last step
+  (t5) puts it away in a window under about 320px. Not tried on an iPad.
+  Checks: `~/tools/playwright/exe-notes/full.js`. **Stickies** (2026-10-14): the pushpin at the sheet's foot, left
   of the colours, sticks the open note to the desk — the note gets
   `place: {x, y, w, h, shaded?}` (desk pixels: the window's corner and
   width, the sheet's height) and `placed`, a stamp of its own — and the

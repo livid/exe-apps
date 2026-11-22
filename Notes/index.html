@@ -37,9 +37,10 @@ body { margin: 0; font: 12px/1.45 var(--font); color: var(--black); background: 
    buttons are while their layer is */
 
 /* the toolbar, like Todo's: Corkboard at the left; Send (where there is
-   an agent to send to), Delete and New Note at the right */
+   an agent to send to), Delete and New Note at the right; with a note
+   open, Full Screen alone in the room between, in its middle */
 #bar { display: flex; gap: 8px; padding: 10px 10px 8px; align-items: center; }
-#bar-gap { flex: 1; }
+#bar-gap { flex: 1; display: flex; justify-content: center; }
 /* reading a note: − + for the text's size and Sans Serif | Serif | Mono for its
    face, joined push buttons as Tides' range is (one seam, one line), the
    chosen face pressed in (.on). On the board they are put away, and so
@@ -53,7 +54,8 @@ body.on-board #size, body.on-board #face, body.on-board #del { display: none; }
 /* where the words will not fit, the toolbar gives way a step at a time
    (fitBar): the faces show as a sample "Aa" each in itself; then Corkboard
    shrinks to its pushpin; then every button's sides and the gaps come in;
-   and in a window too narrow even so, Delete and New Note are glyphs */
+   in a window too narrow even so, Delete and New Note are glyphs; and
+   last, Full Screen goes */
 /* Corkboard is a combo button (/platinum/combo.css, the shared block):
    its body puts the board up and down, pressed in (.open) while the board
    is up, and names the board that is up; its arrow part has the boards'
@@ -88,12 +90,21 @@ button.ghost .gl { display: none; flex: none; fill: currentColor; shape-renderin
 #send { display: inline-flex; align-items: center; justify-content: center; width: 30px; padding: 0; }
 #send .gl { display: block; }
 #send[hidden], body.on-board #send { display: none; }
+/* Full Screen — four corners going out to the screen's — is only ever
+   its glyph too, and only with a note open; pressed in (.on) while the
+   note fills the screen. On a phone, where the page cannot have the
+   screen and in a Sticky there is no button. */
+#full { display: inline-flex; align-items: center; justify-content: center; width: 30px; padding: 0; }
+#full .gl { display: block; }
+#full[hidden], body.on-board #full { display: none; }
 /* the last step, a window too narrow even so (t4): Delete is its trash
    can and New Note its sheet with a plus, 30px buttons as Send is */
 body:not(.on-board) #bar.t4 #del, #bar.t4 #new { display: inline-flex; align-items: center; justify-content: center;
   width: 30px; padding: 0; }
 #bar.t4 #del .lbl, #bar.t4 #new .lbl { display: none; }
 #bar.t4 #del .gl, #bar.t4 #new .gl { display: block; }
+/* and narrower still (t5), Full Screen leaves the bar */
+#bar.t5 #full { display: none; }
 /* Send's menu, the boards' and a sheet's are the shared Platinum menu
    (/platinum/menu.css and menu.js, linked, never copied): it hangs 2px
    under its button, kept inside the window; a groove between groups, the
@@ -347,6 +358,27 @@ body.mobile #cork { scrollbar-width: none; }
 body.mobile #cork::-webkit-scrollbar { display: none; }
 body.mobile #status { padding-right: 8px; }
 
+/* ---- Full Screen: the open note alone on the screen, for writing with
+   nothing else in sight, as OmmWriter has it (Livid's ask). The page's
+   own document has the screen (the desk's frame allows it); the note's
+   paper fills it under its grain, and the writing is a column in the
+   middle, about 66 characters of the chosen face and size wide, set well
+   down from the top and able to scroll its last line up a third of the
+   screen. The dog-ear, the page number, the date, the colours, the
+   pushpin, the scroll bar and the grow box are put away; a save that
+   failed still says so. The toolbar lies over the paper's top, and typing
+   puts it away: it fades out, and comes back when the pointer moves or a
+   finger touches the screen. ---- */
+body.focus #bar { position: absolute; top: 0; left: 0; right: 0; z-index: 5;
+  background-color: inherit; border-bottom: 1px solid var(--black); transition: opacity .2s; }
+body.focus.quiet #bar { opacity: 0; pointer-events: none; transition: opacity .8s; }
+body.focus #main { border-top: 0; }
+body.focus #ed { height: 100%; padding: max(88px, 18vh) max(24px, calc((100% - 66ch) / 2)) 33vh;
+  scroll-padding-bottom: 33vh; scrollbar-width: none; }
+body.focus #ed::-webkit-scrollbar { display: none; }
+body.focus :is(#foot, #num, #tints, #stick, #when, #corner, #edges, #grow) { display: none; }
+@media (prefers-reduced-motion: reduce) { body.focus #bar, body.focus.quiet #bar { transition: none; } }
+
 </style>
 </head>
 <body>
@@ -355,7 +387,7 @@ body.mobile #status { padding-right: 8px; }
   <span class="combo dis" id="boardCombo"><button class="cb-body" id="boardBtn" title="Corkboard" disabled><i class="pin red"></i><span class="lbl">Corkboard</span></button><button class="cb-arrow" id="boardMenuBtn" title="Boards" aria-label="Boards" aria-haspopup="menu" aria-expanded="false" disabled></button></span>
   <span class="seg" id="size"><button class="ghost" id="smaller" title="Smaller text">&minus;</button><button class="ghost" id="bigger" title="Larger text">+</button></span>
   <span class="seg" id="face"><button class="ghost" data-face="sans" title="Sans Serif"><span class="w">Sans Serif</span><span class="s">Aa</span></button><button class="ghost" data-face="serif" title="Serif"><span class="w">Serif</span><span class="s">Aa</span></button><button class="ghost" data-face="mono" title="Mono"><span class="w">Mono</span><span class="s">Aa</span></button></span>
-  <span id="bar-gap"></span>
+  <span id="bar-gap"><button class="ghost" id="full" title="Full Screen" aria-label="Full Screen" aria-pressed="false" disabled><svg class="gl" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M0 0h4v2H2v2H0zM8 0h4v4h-2V2H8zM0 8h2v2h2v2H0zM10 8h2v4H8v-2h2z"/></svg></button></span>
   <button class="ghost" id="send" title="Send to…" aria-label="Send to…" aria-haspopup="menu" hidden disabled><svg class="gl" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M5 0h2v1H5zM4 1h4v1H4zM3 2h6v1H3zM2 3h8v1H2zM5 4h2v4H5zM0 5h2v5H0zM10 5h2v5H10zM0 10h12v2H0z"/></svg></button>
   <button class="ghost danger" id="del" title="Delete" disabled><svg class="gl" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 0h4v1H4zM0 1h12v2H0zM1 3h1v8H1zM4 3h1v8H4zM7 3h1v8H7zM10 3h1v8H10zM1 11h10v1H1z"/></svg><span class="lbl">Delete</span></button>
   <button class="ghost" id="new" title="New Note" disabled><svg class="gl" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M0 0h9v1H0zM0 1h1v10H0zM8 1h2v1H8zM8 2h1v1H8zM10 2h1v1H10zM8 3h4v1H8zM11 4h1v7H11zM5 4h2v2H5zM3 6h6v2H3zM5 8h2v2H5zM0 11h12v1H0z"/></svg><span class="lbl">New Note</span></button>
@@ -549,7 +581,7 @@ let told = new Map();
 const toldBy = notes => new Map([...notes].map(n => [String(n.id), { u: +n.updated || 0, p: +n.placed || 0 }]));
 const ed = $("#ed"), num = $("#num"), msg = $("#msg"), stMsg = $("#st-msg");
 const boardCombo = $("#boardCombo"), boardMenuBtn = $("#boardMenuBtn");
-const delBtn = $("#del"), newBtn = $("#new"), boardBtn = $("#boardBtn"), tintsBox = $("#tints"), stickBtn = $("#stick");
+const delBtn = $("#del"), newBtn = $("#new"), boardBtn = $("#boardBtn"), tintsBox = $("#tints"), stickBtn = $("#stick"), fullBtn = $("#full");
 const cork = $("#cork"), cards = $("#cards"), stCount = $("#st-count");
 // which view is up — the pad (one note) or the corkboard (all of them) — is
 // per-viewer UI state like the open page
@@ -760,6 +792,7 @@ function render() {
   stickBtn.disabled = !loaded || onBoard || !n || n === draft || !!offline;
   stickBtn.classList.toggle("on", !!(n && n.place));
   stickBtn.title = n && n.place ? "Take off Desk" : "Stick to Desk";
+  fullBtn.disabled = !loaded;
   setSend();
   document.body.classList.toggle("solo", p.length < 2);
   applySheet();
@@ -883,8 +916,9 @@ const typeReady = loadType();
 // The toolbar gives way a step at a time where its words will not fit:
 // the faces as "Aa" samples (t1), then Corkboard as its pushpin (t2),
 // then the buttons' sides and the gaps between them in (t3), then Delete
-// and New Note as their glyphs (t4, a 320px phone with Send on the bar)
-// — the fewest steps that fit.
+// and New Note as their glyphs (t4, a 320px phone with Send on the bar),
+// then Full Screen goes (t5, a window under about 320px) — the fewest
+// steps that fit.
 const bar = $("#bar");
 // Opened as its own page from exe's alert on a phone, with no desk round
 // it and, in an installed app, no browser either: Back leads to exe,
@@ -898,8 +932,8 @@ if (FROM_ALERT && MOBILE && window.parent === window) {
   bar.prepend(b);
 }
 function fitBar() {
-  bar.classList.remove("t1", "t2", "t3", "t4");
-  for (const step of ["t1", "t2", "t3", "t4"]) {
+  bar.classList.remove("t1", "t2", "t3", "t4", "t5");
+  for (const step of ["t1", "t2", "t3", "t4", "t5"]) {
     if (bar.scrollWidth <= bar.clientWidth) return;
     bar.classList.add(step);
   }
@@ -1023,6 +1057,7 @@ function sendTo(app, n = cur()) {
   if (!IN_DESK || !a || !n || n === draft || !n.text.trim()) return;
   const m = { exe: "agent", app, prompt: n.text };
   if (!a.ask) m.dir = a.dir; // a desk that does not ask where: the agents' own folder
+  leaveFull(); // the desk's dialog asks where, and it is behind a note that has the screen
   parent.postMessage(m, location.origin);
 }
 // a click on the button while its menu is up puts the menu away; so do a
@@ -1033,6 +1068,67 @@ sendBtn.onclick = () => { if (menu.isOpen && menuBtn === sendBtn) closeMenu(); e
 addEventListener("resize", closeMenu);
 setSend();
 askAgents();
+
+// ---- Full Screen: the open note alone on the screen ----
+// For writing with nothing else in sight, as OmmWriter has it: the page's
+// own document has the screen (the desk's frame allows it, as City's
+// does), and body.focus lays the pad out for it. All of it follows the
+// browser's fullscreenchange, never the press: Esc ends it in the
+// browser, where the page may hear nothing. The note keeps the screen
+// while it is written, its pages turned, torn out or a new one laid on;
+// the corkboard, a Send and the window put away hand the screen back.
+// Typing puts the toolbar away, and the pointer moving brings it back.
+// A phone's window has the screen already, and its toolbar no room for a
+// fifth glyph (an iPhone's browser cannot give a page the screen at all).
+fullBtn.hidden = !!STICKY || MOBILE || !(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+function fullEl() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
+function enterFull() {
+  const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!req || fullEl()) return;
+  try { const p = req.call(el); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+}
+function leaveFull() {
+  const exit = document.exitFullscreen || document.webkitExitFullscreen;
+  if (!exit || !fullEl()) return;
+  try { const p = exit.call(document); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+}
+function onFull() {
+  const on = !!fullEl();
+  document.body.classList.toggle("focus", on);
+  if (!on) wake();
+  fullBtn.classList.toggle("on", on);
+  fullBtn.title = on ? "Exit Full Screen" : "Full Screen";
+  fullBtn.setAttribute("aria-label", fullBtn.title);
+  fullBtn.setAttribute("aria-pressed", String(on));
+  closeMenu();
+  disarm();
+  if (on && !MOBILE && !ed.disabled) ed.focus();
+}
+document.addEventListener("fullscreenchange", onFull);
+document.addEventListener("webkitfullscreenchange", onFull);
+// the press keeps the caret where it was, as Send's does
+fullBtn.addEventListener("mousedown", e => e.preventDefault());
+fullBtn.onclick = () => { if (fullEl()) leaveFull(); else enterFull(); };
+// what was typed puts the toolbar away; a mouse moved a few pixels brings
+// it back (the page also hears a "move" as the text scrolls under a still
+// pointer: the first one after the toolbar went is where it stands), and
+// so does a finger, a press anywhere and the keyboard reaching the toolbar
+let quietAt = null;
+function hush() {
+  if (!document.body.classList.contains("focus") || menu.isOpen) return;
+  document.body.classList.add("quiet");
+  quietAt = null;
+}
+function wake() { document.body.classList.remove("quiet"); }
+ed.addEventListener("input", hush);
+document.addEventListener("pointermove", e => {
+  if (!document.body.classList.contains("quiet")) return;
+  if (e.pointerType !== "mouse") { wake(); return; }
+  if (!quietAt) { quietAt = { x: e.clientX, y: e.clientY }; return; }
+  if (Math.abs(e.clientX - quietAt.x) + Math.abs(e.clientY - quietAt.y) > 3) wake();
+});
+document.addEventListener("pointerdown", wake, true);
+bar.addEventListener("focusin", wake);
 
 // The open note's date at the sheet's foot beside the dog-ear: the longest
 // form that keeps 16px (the HIG's room between groups) from the page
@@ -1142,6 +1238,7 @@ function revealCard() {
 }
 function setView(v) {
   if (STICKY) v = "pad";
+  if (v === "board") leaveFull(); // Full Screen is for the one note
   closeMenu();
   view = v;
   if (!STICKY) try { localStorage.setItem(VIEW_KEY, v); } catch (e) {}
@@ -1855,6 +1952,7 @@ window.addEventListener("message", e => {
     askAgents();
   } else if (e.data.exe === "hide") {
     closeMenu();
+    leaveFull();
   } else if (e.data.exe === "reveal") {
     // before the load settles the pages don't exist yet — remember the id
     // and let boot apply it (and ack) instead
