@@ -105,6 +105,11 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   On a phone the desktop adds `?mobile=1` and the window fills the screen:
   hide the grow tile there (and give the status line its 8px right padding
   back; Todo also drops the horizontal bar that only reserved the corner).
+  Under the CDE look (`data-skin="cde"` on the root, not on a phone) the
+  shared `/platinum/cde.css` makes the `#status` line 22px tall, so it
+  meets the frame's notches: an app that places anything by the status
+  line's height (`bottom: 15px`, `calc(100% - 15px)`) says 22px for CDE
+  beside it, as Notes' board and the Hub's Join panel do.
   A closed window is hidden, not destroyed: the desktop posts `{exe:"hide"}`
   to the app's iframe on close and `{exe:"show"}` when it is reopened. An
   app with loops, timers or a simulation pauses on hide (and flushes any

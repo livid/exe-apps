@@ -323,6 +323,8 @@ body.mobile #tints button i { width: 14px; height: 14px; }
    right, a phone's 152px), the page number centres in the room left of it */
 @media (max-width: 279px) { #num { right: 130px; } }
 @media (max-width: 323px) { body.mobile #num { right: 152px; } }
+/* the CDE look's status line is 22px (/platinum/cde.css) */
+:root[data-skin="cde"] body:not(.mobile) #cork { height: calc(100% - 22px); }
 body.mobile #cork { scrollbar-width: none; }
 body.mobile #cork::-webkit-scrollbar { display: none; }
 body.mobile #status { padding-right: 8px; }
