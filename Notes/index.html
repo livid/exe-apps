@@ -364,7 +364,8 @@ body.mobile #status { padding-right: 8px; }
    paper fills it under its grain, and the writing is a column in the
    middle, about 66 characters of the chosen face and size wide, set well
    down from the top and able to scroll its last line up a third of the
-   screen. The dog-ear, the page number, the date, the colours, the
+   screen; the caret keeps a line clear of the toolbar's foot as it goes
+   up. The dog-ear, the page number, the date, the colours, the
    pushpin, the scroll bar and the grow box are put away; a save that
    failed still says so. The toolbar lies over the paper's top, and typing
    puts it away: it fades out, and comes back when the pointer moves or a
@@ -374,7 +375,7 @@ body.focus #bar { position: absolute; top: 0; left: 0; right: 0; z-index: 5;
 body.focus.quiet #bar { opacity: 0; pointer-events: none; transition: opacity .8s; }
 body.focus #main { border-top: 0; }
 body.focus #ed { height: 100%; padding: max(88px, 18vh) max(24px, calc((100% - 66ch) / 2)) 33vh;
-  scroll-padding-bottom: 33vh; scrollbar-width: none; }
+  scroll-padding: 56px 0 33vh; scrollbar-width: none; }
 body.focus #ed::-webkit-scrollbar { display: none; }
 body.focus :is(#foot, #num, #tints, #stick, #when, #corner, #edges, #grow) { display: none; }
 @media (prefers-reduced-motion: reduce) { body.focus #bar, body.focus.quiet #bar { transition: none; } }

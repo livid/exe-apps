@@ -403,7 +403,7 @@ days.
   `body.focus` lays the note's paper and grain over the whole screen, the
   writing a column about 66ch of the chosen face and size wide, set
   `max(88px, 18vh)` down, its last line able to scroll up a third of the
-  screen; the foot, the dog-ear, the colours, the pushpin, the scroll bar
+  screen, the caret kept 56px from the top (the 39px toolbar and a line); the foot, the dog-ear, the colours, the pushpin, the scroll bar
   and the grow box are put away (`#msg` stays), and the toolbar lies over
   the paper's top. Typing (`input`) adds `quiet`, which fades the toolbar
   out; a mouse moved more than 3px (the first move after is taken as where
