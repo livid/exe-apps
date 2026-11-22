@@ -416,7 +416,40 @@ days.
   phone (its bar has no room left, and an iPhone gives a page no screen),
   in a Sticky, or where `fullscreenEnabled` is false; `fitBar`'s last step
   (t5) puts it away in a window under about 320px. Not tried on an iPad.
-  Checks: `~/tools/playwright/exe-notes/full.js`. **Stickies** (2026-10-14): the pushpin at the sheet's foot, left
+  Checks: `~/tools/playwright/exe-notes/full.js`. **Backgrounds** (2026-11-22,
+  Livid's ask: eight elegant backgrounds for full screen and a subtle way
+  to choose one, as OmmWriter has): behind the writing, the note's own
+  paper or one of eight pictures, Ink, Snowfield, Sea, Glade, Dunes,
+  Maple, Mist and Wash, each designed by its own agent to one brief
+  (`~/tools/playwright/exe-notes/backdrops/BRIEF.md`). A picture is a
+  painter, `BACKDROPS.push({id, name, res, grain, paint(ctx, w, h, o)})`,
+  in a script of its own before the app's: it draws in code, in CSS
+  pixels, light by day and dark by night (`o.dark`, from `exeDark()`), the
+  same composition both times from a random source seeded by its id
+  (`o.rand`, `o.noise`, `o.fbm`; `o.layer` for an off-screen canvas), at
+  `res` of the screen's resolution, with the paper's grain over it when it
+  says `grain`. The engine (`paintBackdrop`) is the script before them.
+  Every painter passes `backdrops/check.js`: against the note's ink
+  (`#000` by day, `#e2e2e2` by night) 7:1 in the middle 720px and 4.5:1 in
+  the middle 960px at six screen sizes, a paint in 150ms (250 past 4.2
+  million pixels), the same picture twice, no `Math.random`, clocks, DOM or
+  `ctx.filter`; a painter changed here is changed in
+  `backdrops/painters/<id>/` too and checked again. The picture lies in
+  `#bd` between the pad's paper and the field, which is clear in full
+  screen (the paper is the picture faded out): two canvases, a new choice
+  painted into the one behind and faded in over 360ms (none under reduced
+  motion), the old one then let go; both are let go (1 by 1) when full
+  screen ends, and painted again when the screen's size or the appearance
+  changes. The chooser is `#dock`, a row of nine squares 16px in from the
+  screen's bottom right, as the note's colour squares are (32 by 20, a 1px
+  line, the chosen one ringed 2px in `--hl`): the paper, wearing the open
+  note's colour, then each picture in miniature, painted by its own
+  painter at full resolution (`thumb`), its name as the tooltip. It comes
+  and goes with the toolbar; a press keeps the caret, and is dimmed
+  offline. The choice is the reader's on every desk: settings.json's
+  `backdrop` beside `size` and `face` (`"paper"` or a painter's id; one
+  this Notes does not know is kept and shown as paper). Checks:
+  `~/tools/playwright/exe-notes/chooser.js`. **Stickies** (2026-10-14): the pushpin at the sheet's foot, left
   of the colours, sticks the open note to the desk — the note gets
   `place: {x, y, w, h, shaded?}` (desk pixels: the window's corner and
   width, the sheet's height) and `placed`, a stamp of its own — and the

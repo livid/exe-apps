@@ -189,12 +189,12 @@ body.on-board #pad, body:not(.on-board) #board { visibility: hidden; }
    the page under the fold; written here, not by the script, so that the
    desk's night gives every colour its own dark paper. A square wears its
    tint inside Stickies' own edge colour for it (white: Note Pad's grey). */
-#pad.tint-yellow, .card.tint-yellow { background-color: #ffffcc; }
-#pad.tint-blue, .card.tint-blue { background-color: #ccffff; }
-#pad.tint-green, .card.tint-green { background-color: #ccffcc; }
-#pad.tint-pink, .card.tint-pink { background-color: #ffcccc; }
-#pad.tint-purple, .card.tint-purple { background-color: #ccccff; }
-#pad.tint-gray, .card.tint-gray { background-color: #eeeeee; }
+#pad.tint-yellow, .card.tint-yellow, #dock .paper.tint-yellow { background-color: #ffffcc; }
+#pad.tint-blue, .card.tint-blue, #dock .paper.tint-blue { background-color: #ccffff; }
+#pad.tint-green, .card.tint-green, #dock .paper.tint-green { background-color: #ccffcc; }
+#pad.tint-pink, .card.tint-pink, #dock .paper.tint-pink { background-color: #ffcccc; }
+#pad.tint-purple, .card.tint-purple, #dock .paper.tint-purple { background-color: #ccccff; }
+#pad.tint-gray, .card.tint-gray, #dock .paper.tint-gray { background-color: #eeeeee; }
 #tints .tint-white i { background: #ffffff; border-color: #999999; }
 #tints .tint-yellow i { background: #ffffcc; border-color: #ffcc00; }
 #tints .tint-blue i { background: #ccffff; border-color: #00ccff; }
@@ -379,6 +379,36 @@ body.focus #ed { height: 100%; padding: max(88px, 18vh) max(24px, calc((100% - 6
 body.focus #ed::-webkit-scrollbar { display: none; }
 body.focus :is(#foot, #num, #tints, #stick, #when, #corner, #edges, #grow) { display: none; }
 @media (prefers-reduced-motion: reduce) { body.focus #bar, body.focus.quiet #bar { transition: none; } }
+/* ---- Full Screen's backgrounds, as OmmWriter has them: the note's own
+   paper, or one of eight pictures painted in code (BACKDROPS, in the
+   script), each with a day and a night of its own. The picture lies
+   between the pad's paper and the writing, whose field is clear in full
+   screen; the paper is the picture faded out. ---- */
+body.focus #ed { background: transparent; }
+/* z-index 0: its canvases' own order stays inside it, under the writing */
+#bd { position: absolute; inset: 0; z-index: 0; display: none; pointer-events: none; }
+body.focus #bd { display: block; }
+#bd canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; opacity: 0; }
+#bd canvas.up { opacity: 1; z-index: 1; }
+/* a picture that asks for it gets the paper's grain over it, at the
+   screen's own resolution */
+#bd.grain::after { content: ""; box-sizing: border-box; position: absolute; inset: 0; z-index: 2;
+  background-image: var(--grain); }
+/* the chooser: a row of small squares at the screen's bottom right, the
+   paper first and then each picture in miniature, painted by its own
+   painter; the chosen one ringed 2px in the highlight blue, as the note's
+   colour squares are, every line a border on a box of its own. It comes
+   and goes with the toolbar. */
+#dock { position: fixed; right: 16px; bottom: 16px; z-index: 5; display: none; gap: 4px; transition: opacity .2s; }
+body.focus #dock { display: flex; }
+body.focus.quiet #dock { opacity: 0; pointer-events: none; transition: opacity .8s; }
+#dock button { display: block; width: 36px; height: 24px; padding: 0; margin: 0;
+  border: 2px solid transparent; border-radius: 0; background: none; }
+#dock button.on { border-color: var(--hl); }
+#dock canvas, #dock .paper { display: block; box-sizing: border-box; width: 32px; height: 20px; border: 1px solid var(--black); }
+#dock .paper { background: var(--grain) #fff; }
+#dock button:disabled { opacity: .4; }
+@media (prefers-reduced-motion: reduce) { #dock, body.focus.quiet #dock { transition: none; } }
 
 </style>
 </head>
@@ -397,6 +427,8 @@ body.focus :is(#foot, #num, #tints, #stick, #when, #corner, #edges, #grow) { dis
 <div id="pad">
   <!-- data-autosave: the note is saved as it is typed (and flushed on
        unload), so the desktop does not hold an update reload for it -->
+  <!-- full screen's background picture: two canvases, one fading in over the other -->
+  <div id="bd" aria-hidden="true"><canvas></canvas><canvas></canvas></div>
   <textarea id="ed" disabled spellcheck="false" data-autosave></textarea>
   <div id="foot"></div>
   <div id="num"></div>
@@ -412,6 +444,8 @@ body.focus :is(#foot, #num, #tints, #stick, #when, #corner, #edges, #grow) { dis
   <div id="status"><span id="st-count"></span><span id="st-msg"></span></div>
 </div>
 </div>
+<!-- full screen's backgrounds, chosen here -->
+<div id="dock" role="radiogroup" aria-label="Background"></div>
 <!-- grow box sampled pixel-for-pixel from Mac OS 9 (Infinite Mac) -->
 <svg id="grow" width="15" height="15" viewBox="0 0 15 15" shape-rendering="crispEdges">
   <rect width="15" height="15" fill="#ccc"/>
@@ -422,6 +456,1147 @@ body.focus :is(#foot, #num, #tints, #stick, #when, #corner, #edges, #grow) { dis
   <path fill="#aaa" d="M4 10h1v1H4zM6 12h1v1H6zM8 14h1v1H8z"/>
 </svg>
 
+<script>
+"use strict";
+// ---- Full Screen's backgrounds: the painters' engine ----
+// Each background is a painter, BACKDROPS.push({id, name, res, grain,
+// paint(ctx, w, h, o)}), in a script of its own below: it draws one picture
+// in code, light by day and dark by night (o.dark), the same composition
+// both times, for any screen size and as a 30 by 18 square. This paints it.
+// The painters were designed to one brief and checked by one checker (the
+// writing's contrast, the time a paint takes, the same picture twice):
+// ~/tools/playwright/exe-notes/backdrops/ holds both.
+(function () {
+  window.BACKDROPS = window.BACKDROPS || [];
+  // a seeded random source (mulberry32 over an FNV-1a hash of the seed text):
+  // the same picture on every desk, at every size, by day and by night
+  function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function rand(seed) {
+    let a = hash(String(seed));
+    return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  }
+  // 2D gradient noise, seeded by the backdrop's id: noise(x, y) is smooth,
+  // about -1..1, one feature per unit; fbm(x, y, octaves) adds finer ones
+  const noises = {};
+  function noiseFor(seed) {
+    if (noises[seed]) return noises[seed];
+    const r = rand(seed + ":noise"), perm = [], p = new Uint8Array(512), G = new Float32Array(512);
+    for (let i = 0; i < 256; i++) perm.push(i);
+    for (let i = 255; i > 0; i--) { const j = Math.floor(r() * (i + 1)), t = perm[i]; perm[i] = perm[j]; perm[j] = t; }
+    for (let i = 0; i < 512; i++) p[i] = perm[i & 255];
+    for (let i = 0; i < 256; i++) { const a = r() * Math.PI * 2; G[2 * i] = Math.cos(a); G[2 * i + 1] = Math.sin(a); }
+    const fade = t => t * t * t * (t * (t * 6 - 15) + 10);
+    const dot = (h, x, y) => G[2 * h] * x + G[2 * h + 1] * y;
+    function noise(x, y) {
+      const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, X = xi & 255, Y = yi & 255;
+      const aa = p[p[X] + Y], ab = p[p[X] + Y + 1], ba = p[p[X + 1] + Y], bb = p[p[X + 1] + Y + 1];
+      const u = fade(xf), v = fade(yf);
+      const a = dot(aa, xf, yf), b = dot(ba, xf - 1, yf), c = dot(ab, xf, yf - 1), d = dot(bb, xf - 1, yf - 1);
+      const x1 = a + u * (b - a), x2 = c + u * (d - c);
+      return (x1 + v * (x2 - x1)) * 1.414;
+    }
+    function fbm(x, y, oct = 4) { let s = 0, amp = 0.5, f = 1, n = 0; for (let i = 0; i < oct; i++) { s += amp * noise(x * f, y * f); n += amp; amp *= 0.5; f *= 2; } return s / n; }
+    return (noises[seed] = { noise, fbm });
+  }
+  // an off-screen canvas: cssW by cssH, its backing store `scale` pixels to
+  // a CSS pixel (the painter's own k when left out), its context scaled to
+  // match. drawImage(layer.canvas, x, y, cssW, cssH) puts it back.
+  function makeLayer(k) {
+    return (cssW, cssH, scale = k) => {
+      const pw = Math.max(1, Math.round(cssW * scale)), ph = Math.max(1, Math.round(cssH * scale));
+      const canvas = typeof OffscreenCanvas === "function" ? new OffscreenCanvas(pw, ph) : Object.assign(document.createElement("canvas"), { width: pw, height: ph });
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      return { canvas, ctx, pw, ph };
+    };
+  }
+  // Paint backdrop `bd` into `canvas` for a w by h CSS-pixel screen. The
+  // backing store is w*k by h*k, k = min(devicePixelRatio, 2) * (bd.res || 1)
+  // (a square in the chooser is painted at full resolution: thumb), and the
+  // context is scaled by k, so a painter draws in CSS pixels.
+  function paintBackdrop(canvas, bd, w, h, dark, dpr, thumb) {
+    const k = Math.min(dpr || window.devicePixelRatio || 1, 2) * (thumb ? 1 : (bd.res || 1));
+    canvas.width = Math.max(1, Math.round(w * k));
+    canvas.height = Math.max(1, Math.round(h * k));
+    const ctx = canvas.getContext("2d", { alpha: false });
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    const n = noiseFor(bd.id);
+    bd.paint(ctx, w, h, { dark: !!dark, rand: rand(bd.id), noise: n.noise, fbm: n.fbm, layer: makeLayer(k), k, thumb: !!thumb });
+  }
+  window.paintBackdrop = paintBackdrop;
+  window.backdropRand = rand;
+})();
+</script>
+<script>
+"use strict";
+// Ink (ink)
+// Ink: a shan shui in washes, the middle left to mist.
+BACKDROPS.push({
+  id: "ink", name: "Ink", res: 1, grain: true,
+  paint(C, w, h, o) {
+  const { dark, rand, noise, thumb } = o, M = Math, S = h / 900, R = (a, b) => a + (b - a) * rand();
+  const cl = v => v < 0 ? 0 : v > 1 ? 1 : v, sm = (a, b, t) => (t = cl((t - a) / (b - a)), t * t * (3 - 2 * t));
+  const P0 = dark ? [56, 53, 48] : [243, 239, 229], P1 = dark ? [44, 42, 37] : [227, 220, 205], I = dark ? [20, 19, 17] : [22, 21, 20], F0 = [88, 84, 77];
+  const Q = P1.map((c, i) => c - P0[i]), gy = c => .2126 * c[0] + .7152 * c[1] + .0722 * c[2], gi = gy(I), G0 = gy(P0), GQ = gy(Q), gf = gy(F0);
+  // column floor (night: fog ceiling); the square uses 1440's
+  const u = thumb ? w / 1440 : 1;
+  const lim = x => { const d = M.abs(x - w / 2) - (thumb ? 0 : 12); return dark ? 60 + 22 * sm(330 * u, 800 * u, d) : 156 - 32 * sm(360 * u, 420 * u, d) - 140 * sm(480 * u, 700 * u, d); };
+  const capD = (D, gp, gl, gt = gi) => { const m = (gp - gl) / (gp - gt); return m < 0 ? D : D / M.sqrt(M.sqrt(1 + (D / m) ** 4)) || 0; };
+  const vig = (x, y) => { const dx = (x - w / 2) / (.62 * w), dy = (y - (dark ? .6 : .5) * h) / (.85 * h); return cl((dx * dx + dy * dy - .08) / 1.1); };
+  const col = (D, x, y) => { if (dark) D **= .7; const v = vig(x, y), p = P0.map((c, i) => c + v * Q[i]), De = capD(D, gy(p), lim(x)); return `rgb(${p.map((c, i) => c + De * (I[i] - c) | 0)})`; };
+  // ranges, far to near: tone, base, mist, span, crag; peaks [x, top, l, r, round]
+  const E = x => x <= -1 ? w + (x + 1) * h : x * h, tb = thumb ? 1.3 : 1, xn = x => x > w / 2 ? x - w : x;
+  const L = [
+    [.2, 1.1, .36, .34, .8, [.2, .19, .26, .3], [.45, .36, .2, .26, .3], [-1.3, .32, .3, .3, .35]],
+    [.17, .85, .79, .06, .25],
+    [.36, 1.1, .5, .26, .8, [.07, .33, .22, .2], [.3, .47, .16, .28, .4], [-1.36, .52, .26, .24], [-1.08, .42, .22, .22, .25]],
+    [.58, 1.1, .62, .22, .9, [-.04, .43, .2, .22], [.22, .58, .15, .22, .3], [-1.16, .57, .17, .28]],
+    [.86, 1.1, .76, .17, 1, [.11, .69, .13, .2], [-1.02, .68, .12, .18]],
+    [1, 1.06, .95, .12, .6, [.02, .845, .4, .32]],
+  ].map(([t, b, m, s, c, ...p], n) => ({ t: t * tb, B: b * h, m, s: s * h, c, k: n * 17.3 + 4, z: n != 1, P: p.map(([x, t, a, b, r]) => [E(x), t * h, a * h, b * h, r || 0]) }));
+  for (let k = 0; k < 7; k++) { const c = (k + R(.2, .8)) / 7; L[1].P.push([c * w, (.775 + .012 * (1 - M.abs(2 * c - 1)) + R(0, .025)) * h, R(.14, .22) * h, R(.14, .26) * h, .3]); }
+  const ridge = (l, x) => { let e = 0, q = l.z ? xn(x) : x;
+    for (const [c, t, a, b, r] of l.P) { const v = M.abs(x - c) / (x < c ? a : b), s = 1 - v * v * (3 - 2 * v); if (v < 1) e = M.max(e, (l.B - t) * (s + r * (M.sqrt(1 - v * v) - s))); }
+    return e ? l.B - e * (1 + .14 * noise(q / (85 * S), l.k)) + S * l.c * (24 * M.abs(noise(q / (24 * S), l.k + 3)) - 8 + 5 * noise(q / (7 * S), l.k + 6)) * M.min(1, e / (90 * S)) : 9 * h; };
+  const mistY = (l, x) => (l.m + noise((l.z ? xn(x) : x) / (280 * S), l.k + 7) * .035) * h;
+  // a cloud belt
+  const belt = (x, y) => { x = xn(x); const q = (y - (.47 + .04 * noise(x / (300 * S), 2.5)) * h) / ((.035 + .025 * noise(x / (120 * S), 7.5)) * h) + .45 * noise(x / (45 * S), y / (22 * S)); return q * q < 1 ? .92 * (1 - q * q) ** 2 : 0; };
+
+  // washes, and fog by night
+  const sc = M.min(o.k, M.sqrt(2.4e5 / (w * h))), Ly = o.layer(w, h, sc), pw = Ly.pw, ph = Ly.ph, img = Ly.ctx.createImageData(pw, ph), px = img.data;
+  const nL = L.length, X = new Float32Array(pw), LIM = new Float32Array(pw), T = [], F = [], e = 1.4 * h / ph;
+  for (let i = 0; i < pw; i++) { X[i] = (i + .5) * w / pw; LIM[i] = lim(X[i]); }
+  L.forEach((l, n) => { T[n] = X.map(x => ridge(l, x)); F[n] = X.map(x => mistY(l, x)); });
+  for (let j = 0, k = 0; j < ph; j++) {
+    const y = (j + .5) * h / ph;
+    for (let i = 0; i < pw; i++, k += 4) {
+      const x = X[i], tx = noise(x / (9 * S), y / (30 * S)) * .4 + noise(x / (60 * S), y / (45 * S)) * .6;
+      let D = 0, G = 0, b = -1;
+      for (let n = 0; n < nL; n++) {
+        const d = y - T[n][i]; if (d < -70 * S) continue;
+        if (n < 3 && b < 0) b = belt(x, y);
+        const l = L[n], z = M.max(d, 0), f = (1 - sm(F[n][i], F[n][i] + l.s, y)) * (n < 3 ? 1 - b : 1), a = cl((d + e) / (2 * e)) * f;
+        const r = l.t * (.4 + .2 * tx + .4 * M.exp(-z / ((60 + 30 * tx) * S)) + .25 * M.exp(-z / (6 * S)));
+        D += a * ((r > 1 ? 1 : r) - D);
+        if (n < 3) G = M.max(G, sm(-70 * S, 70 * S, d) * b);
+      }
+      if (dark) D **= .7;
+      const v = vig(x, y), mo = noise(x / (170 * S), y / (120 * S)) * 4, gp = G0 + v * GQ + mo, g = dark ? capD(M.max(G, .7 * sm(.45 * h, .9 * h, y + .05 * h * noise(x / (300 * S), 3.3))) * .85, gp, LIM[i], gf) : 0, De = capD(D, gp + g * (gf - gp), LIM[i]);
+      for (let c = 0; c < 3; c++) { let p = P0[c] + v * Q[c] + mo; p += g * (F0[c] - p); px[k + c] = p + De * (I[c] - p); }
+      px[k + 3] = 255;
+    }
+  }
+  Ly.ctx.putImageData(img, 0, 0);
+  C.drawImage(Ly.canvas, 0, 0, w, h);
+
+  const st = M.max(.5, 2 * S), seen = (n, x, y) => { for (let m = n + 1; m < nL; m++) if (ridge(L[m], x) < y + 2 * S) return 0; return 1; };
+  const fadeAt = (n, x, y) => (1 - sm(mistY(L[n], x), mistY(L[n], x) + L[n].s * .6, y)) * (n < 3 ? 1 - belt(x, y) : 1);
+  const fill = (c, a) => { C.fillStyle = C.strokeStyle = c; C.globalAlpha = a; }, line = (a, b, c, d) => { C.beginPath(); C.moveTo(a, b); C.lineTo(c, d); C.stroke(); };
+  const ell = (x, y, a, b, r, e = 7) => { C.beginPath(); C.ellipse(x, y, a, b, r, e > 6 ? 0 : M.PI, e); C.fill(); };
+  for (const [n, lw, tn] of [[0, 1.2, .3], [2, 1.6, .55], [3, 2, .8], [4, 2.4, 1], [5, 2.2, 1]]) {
+    const up = [], dn = [], g = C.createLinearGradient(0, 0, w, 0);
+    for (let x = -st; x <= w + st; x += st) {
+      const y = ridge(L[n], x), d = y < h * 1.02 ? lw * S * seen(n, x, y) * fadeAt(n, x, y) * cl(.6 + noise(xn(x) / (50 * S), n * 5.3)) : 0;
+      up.push(x, y - .4 * d); dn.unshift(x, y + .6 * d);
+    }
+    for (let k = 0; k <= 32; k++) g.addColorStop(k / 32, col(tn, k * w / 32, h * .6));
+    C.beginPath(); const pts = up.concat(dn);
+    for (let k = 0; k < pts.length; k += 2) C.lineTo(pts[k], pts[k + 1]);
+    fill(g, 1); C.fill();
+  }
+  // moss dots
+  for (let c = 0; c < 18; c++) {
+    const n = [3, 4, 4, 5][c & 3], pk = L[n].P[M.floor(rand() * L[n].P.length)], x0 = pk[0] + R(-.6, .6) * (pk[2] + pk[3]) / 2, cnt = 3 + M.floor(rand() * 5);
+    for (let k = 0; k < cnt; k++) {
+      const x = x0 + R(-12, 12) * S, y = ridge(L[n], x) + R(0, 6) * S, r = R(.9, 2.1) * S, q = seen(n, x, y) * fadeAt(n, x, y), t = R(0, 3);
+      if (q > .3) { fill(col(1, x, y), .9 * q); ell(x, y, r * 1.4, r, t); }
+    }
+  }
+  // pines
+  const pine = (n, x, ht, lean) => {
+    const y = ridge(L[n], x) + 4 * S, tiers = 4 + M.floor(rand() * 3), at = f => [x + lean * ht * f * f, y - ht * f];
+    fill(col(1, x, y), 1); C.lineCap = "round";
+    for (let f = 0; f < .95; f += .1) { C.lineWidth = M.max(.5, ht * (.06 - .045 * f)); line(...at(f), ...at(f + .1)); }
+    for (let k = 0; k < tiers; k++) {
+      const f = .32 + .68 * k / (tiers - 1), [tx, ty] = at(f), reach = ht * (.42 - .24 * f), cx = tx + (k & 1 ? 1 : -1) * R(.3, 1) * (1 - f * .8) * reach * .8, cy = ty - ht * .03;
+      C.globalAlpha = 1; C.lineWidth = M.max(.4, ht * .02); line(tx, ty + ht * .03, cx, cy);
+      C.globalAlpha = .42;
+      for (let b = 0; b < 15; b++) { const rx = reach * R(.16, .34); ell(cx + R(-.7, .7) * reach * .75, cy - R(-.08, .3) * reach, rx, rx * R(.38, .6), R(-.25, .25)); }
+    }
+  };
+  for (const [n, x, ht, lean] of [[5, .05, .15, .1], [5, .11, .11, -.12], [5, .17, .085, .2], [5, .25, .06, .06], [4, .08, .08, -.2], [4, -1.06, .075, .35]]) pine(n, E(x), ht * h, lean);
+  // a far boat
+  const bx = M.max(.47 * h, w / 2 - 400 * u), by = .885 * h, bl = 50 * S;
+  fill(col(.8, bx + bl, by), 1); C.lineWidth = M.max(.5, 1.2 * S);
+  C.beginPath(); C.moveTo(bx - bl / 2, by - bl * .08); C.quadraticCurveTo(bx, by + bl * .2, bx + bl / 2, by - bl * .12); C.quadraticCurveTo(bx, by + bl * .05, bx - bl / 2, by - bl * .08); C.fill();
+  ell(bx - bl * .07, by - bl * .02, bl * .15, bl * .1, 0, 0);
+  line(bx + bl * .28, by - bl * .02, bx + bl * .6, by - bl * .55);
+  C.lineWidth = M.max(.4, .8 * S);
+  for (let k = 0; k < 4; k++) { const yy = by + (6 + 5 * k) * S, xx = bx + R(-.3, .3) * bl, ll = bl * R(.2, .5) * (1 - k * .15); C.globalAlpha = .35 - k * .07; line(xx - ll, yy, xx - ll * .1, yy); line(xx + ll * .15, yy, xx + ll, yy); }
+  // paper fibres
+  if (thumb) return;
+  C.lineWidth = .6; C.globalAlpha = 1;
+  for (let k = 0; k < 150; k++) {
+    const x = R(0, w), y = R(0, h), a = R(0, 6.3), ll = R(25, 90) * S, bend = R(-.18, .18) * ll, cx = M.cos(a), sy = M.sin(a), lt = rand() < .6;
+    C.strokeStyle = dark ? "rgba(255,248,235,.022)" : lt ? "rgba(255,255,255,.2)" : "rgba(120,105,85,.04)";
+    C.beginPath(); C.moveTo(x, y); C.quadraticCurveTo(x + cx * ll / 2 - sy * bend, y + sy * ll / 2 + cx * bend, x + cx * ll, y + sy * ll); C.stroke();
+  }
+  },
+});
+</script>
+<script>
+"use strict";
+// Snowfield (snow)
+// Snowfield: a wide winter field, a row of bare trees running off at the right,
+// an old fence at the left; the low sun (by night a dim moon) behind the trees.
+BACKDROPS.push({
+id: "snow", name: "Snowfield", res: 1, grain: true,
+paint(K, w, h, o) {
+  const N = o.dark, R = o.rand, fbm = o.fbm, M = Math, E = M.exp, S = M.sin, C = M.cos, X = M.max, Y = M.min, A = M.abs;
+  const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  const css = (c, a = 1) => `rgba(${c.map(v => v | 0)},${a})`;
+  const LIN = []; for (let i = 0; i < 256; i++) { const v = i / 255; LIN[i] = v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }
+  const lum = c => .2126 * LIN[c[0] | 0] + .7152 * LIN[c[1] | 0] + .0722 * LIN[c[2] | 0];
+  // the luminance the ink needs at x (by day a floor, by night a ceiling), ramped so no seam shows
+  const cw = o.thumb ? w / 4 : Y(w - 48, 720) / 2, bw = o.thumb ? w / 3 : Y(w - 48, 960) / 2;
+  const lim = x => {
+    const dx = A(x - w / 2), t = Y(1, X(0, dx - cw) / 48) + Y(1, X(0, dx - bw) / 48);
+    return N ? (t < 1 ? .056 + t * .058 : .114 + (t - 1) * .1) : (t < 1 ? .33 - t * .13 : .2 - (t - 1) * .1);
+  };
+  const WH = [246, 249, 251], LW = lum(WH);
+  const legal = (c, L) => { for (let i = 0, l; i < 6 && (N ? (l = lum(c)) > L : (l = lum(c)) < L); i++) c = N ? c.map(v => v * (L / l) ** .45) : mix(c, WH, Y(1, (L - l) / (LW - l) + .04)); return c; };
+  const fit = (c, x0, x1) => legal(c, lim(X(x0, Y(x1, w / 2))));
+  const P = N ? {
+    top: [10, 14, 21], low: [24, 30, 40], glow: [60, 68, 82], far: [33, 40, 53], near: [48, 57, 72], lit: [70, 79, 94], blue: [16, 22, 33],
+    haze: [26, 32, 43], wood: [15, 18, 23], tree: [10, 13, 18], wds: [19, 24, 32], moon: [98, 104, 114], sa: .5
+  } : {
+    top: [198, 215, 232], low: [236, 241, 245], glow: [253, 253, 251], far: [241, 244, 247], near: [234, 240, 246], lit: [255, 255, 254], blue: [182, 204, 225],
+    haze: [234, 239, 243], wood: [104, 100, 99], tree: [78, 88, 102], wds: [200, 209, 219], sa: .34
+  };
+  const hz = h * .66, G = h - hz, cx = w / 2, SX = w * .9, SY = h * .2, pr = (u, d) => [cx + G * u / d, hz + G / d], fog = d => 1 - E(-d * .045), U = Y(1, h / 600);
+
+  // structure, all from rand(): the row of trees, the fence
+  const T = [], F = [];
+  for (let d = 3; d < 30;) {
+    const dd = d + (R() - .5) * .4, th = .7 + R() * .9, H = th * G / dd, s = [], end = dd < 7 ? .02 : dd < 14 ? .04 : .07;
+    const x = w * .5 + w * .58 * 3 / d + (R() - .5) * G * .3 / dd, y = hz + G / dd;
+    const br = (x, y, a, r, lv) => {
+      const x2 = x + S(a) * r * H, y2 = y - C(a) * r * H;
+      s.push(lv, x, y, x2, y2);
+      if (r < end) return;
+      br(x2, y2, a * .85 + (R() - .5) * .3, r * (.7 + R() * .12), lv + 1);
+      for (let n = R() < .5 ? 2 : 1, z = R() < .5 ? -1 : 1, i = 0; i < n; i++, z = -z) br(x2, y2, a + z * (.45 + R() * .5), r * (.55 + R() * .15), lv + 2);
+    };
+    br(x, y, (R() - .5) * .08, .26, 0);
+    T.push({ x, y, H, th, d: dd, s });
+    d += (.1 + R() * .3) * M.sqrt(d / 3) + (d > 8 && R() < .06 ? 1 + R() : 0);
+  }
+  for (let d = 1.07; d < 15; d += .62 * (.8 + R() * .4))
+    F.push({ d, x: w * .4 - w * .365 * 1.07 / d, y: hz + G / d, ph: (.34 + R() * .08) * G / d, lean: (R() - .5) * .1 + (R() < .15 ? .14 : 0), sag: .03 + R() * .06 });
+  const Z = []; // a few faint stars, high and away from the moon
+  for (let i = 0; i < 40; i++) Z.push([w * (R() < .7 ? R() * .32 : .6 + R() * .4), h * (.05 + R() * R() * .45), R()]);
+  T.reverse(); F.reverse();
+
+  // sky and snow, a pixel at a time on a small raster
+  const Ly = o.layer(w, h, Y(o.k, 640 / w)), pw = Ly.pw, ph = Ly.ph, L = Ly.ctx, im = L.createImageData(pw, ph), D = im.data;
+  const hf = (u, d) => fbm(u * .22 + 3, d * .5, 3);
+  for (let i = 0; i < pw; i++) {
+    const x = (i + .5) * w / pw, li = lim(x), gx = (x - SX) / h, ax = Y(1, .4 + 2.8 * (A(x - cx) / w) ** 1.5), ga = E(-gx * gx * 3);
+    for (let j = 0, p = i * 4; j < ph; j++, p += pw * 4) {
+      const y = (j + .5) * h / ph, t = (y - hz) / G, gy = (y - SY) / h;
+      let c;
+      if (t < 0) {
+        const v = y / hz, r = gx * gx + gy * gy;
+        c = mix(mix(P.top, P.low, v ** 1.6), P.glow, E(-r * (N ? 10 : 4)) * .7 + E(-r * 70) * .3 + X(0, fbm(x / h * .5, y / h * 9, 3)) * .25 * v);
+      } else {
+        const d = 1 / X(t, .015), u = (x - cx) / G * d, e = .05, h0 = hf(u, d), a = ax * Y(1, t * 3);
+        const gu = (hf(u + e, d) - h0) / e * a, gd = (hf(u, d + e) - h0) / e * a;
+        const s = 1.2 * ((.5 * gu - .8 * gd + .35) / M.sqrt(gu * gu + gd * gd + 1) - .35);
+        c = mix(mix(P.far, P.near, M.sqrt(t)), P.lit, ga * (1 - t) ** 3 * .8);
+        c = mix(s > 0 ? mix(c, P.lit, Y(1, s)) : mix(c, P.blue, Y(.5, -s)), P.haze, X(0, 1 - t * 12) * .7);
+      }
+      c = legal(c, li);
+      D[p] = c[0]; D[p + 1] = c[1]; D[p + 2] = c[2]; D[p + 3] = 255;
+    }
+  }
+  L.putImageData(im, 0, 0);
+  for (const t of T) { // the trees' long shadows, soft on the raster
+    const u = (t.x - cx) * t.d / G, sd = X(1.3, t.d - 2 * t.th), k = (t.d - sd) / .85;
+    L.fillStyle = css(P.blue, P.sa * (1 - fog(t.d)));
+    L.beginPath(); L.moveTo(...pr(u - .03 * t.th, t.d)); L.lineTo(...pr(u + .03 * t.th, t.d));
+    L.lineTo(...pr(u - .5 * k + .2 * t.th, sd)); L.lineTo(...pr(u - .5 * k - .2 * t.th, sd)); L.fill();
+  }
+  K.drawImage(Ly.canvas, 0, 0, w, h);
+
+  if (N) { // the moon, dim, behind thin air
+    for (const [x, y, a] of Z) if (y > 42 && A(x - cx) > cw && A(x - SX) + A(y - SY) > h * .25) { K.fillStyle = css(fit([150, 158, 172], x, x), .25 + a * .5); K.fillRect(x, y, .9 * U, .9 * U); }
+    const r = h * .015, c = fit(P.moon, SX - r * 1.3, SX + r * 1.3), g = K.createRadialGradient(SX, SY, 0, SX, SY, r * 1.3);
+    g.addColorStop(0, css(c)); g.addColorStop(.7, css(c, .9)); g.addColorStop(1, css(c, 0));
+    K.fillStyle = g; K.beginPath(); K.arc(SX, SY, r * 1.3, 0, 7); K.fill();
+  }
+  // far hills on the horizon, then the row of trees, far to near
+  K.fillStyle = css(fit(P.wds, 0, w)); K.beginPath(); K.moveTo(0, hz + 2);
+  for (let x = 0; x <= w; x += 4) K.lineTo(x, hz - h * (X(0, fbm(x / w * 6, 1.7, 2) + .12) * .02 + o.noise(x / w * 90, 4) * .001));
+  K.lineTo(w, hz + 2); K.fill();
+  K.lineCap = "round";
+  for (const t of T) {
+    const c = fit(mix(P.tree, P.haze, fog(t.d)), t.x - t.H * .5, t.x + t.H * .5), s = t.s, cy = t.y - t.H * .62, g = K.createRadialGradient(t.x, cy, 0, t.x, cy, t.H * .4);
+    g.addColorStop(0, css(c, .1)); g.addColorStop(1, css(c, 0));
+    K.fillStyle = g; K.fillRect(t.x - t.H * .4, cy - t.H * .4, t.H * .8, t.H * .8);
+    for (let k = 0; k < 24; k++) {
+      const lw = t.H * .03 * .8 ** k;
+      if (lw * o.k < .04) break;
+      K.lineWidth = X(lw, .4 * U / o.k); K.strokeStyle = css(c, X(.3, 1 - X(0, k - 5) * .1)); K.beginPath();
+      for (let i = 0; i < s.length; i += 5) if (s[i] === k) { K.moveTo(s[i + 1], s[i + 2]); K.lineTo(s[i + 3], s[i + 4]); }
+      K.stroke();
+    }
+  }
+  const m = K.createLinearGradient(0, hz - h * .035, 0, hz + h * .05); // a low mist
+  m.addColorStop(0, css(P.haze, 0)); m.addColorStop(.45, css(P.haze, .4)); m.addColorStop(1, css(P.haze, 0));
+  K.fillStyle = m; K.fillRect(0, hz - h * .035, w, h * .085);
+
+  const at = (f, z) => [f.x + S(f.lean) * f.ph * z, f.y - C(f.lean) * f.ph * z];
+  for (let i = 0; i < F.length; i++) { // the fence, far to near: shadow, wires, post, snow cap
+    const f = F[i], q = F[i - 1], b = X(.7 * U, f.ph * .085), [tx, ty] = at(f, 1), [mx, my] = at(f, .5);
+    const c = fit(mix(P.wood, P.haze, X(0, fog(f.d) * 2.2 - .1)), (q || f).x - b, f.x + b);
+    const u = (f.x - cx) * f.d / G, sd = X(.75, f.d - .85 * f.ph * f.d / G * 2.2), a = pr(u - .5 * (f.d - sd) / .85, sd), g = K.createLinearGradient(f.x, f.y, a[0], a[1]);
+    g.addColorStop(0, css(P.blue, .55)); g.addColorStop(1, css(P.blue, 0));
+    K.strokeStyle = g; K.lineWidth = b; K.beginPath(); K.moveTo(f.x, f.y); K.lineTo(...a); K.stroke();
+    if (q) {
+      K.strokeStyle = css(c, .75); K.lineWidth = X(.5 * U, 1.3 * U / f.d);
+      for (const z of [.48, .84]) {
+        const [qx, qy] = at(q, z), [fx, fy] = at(f, z);
+        K.beginPath(); K.moveTo(qx, qy); K.quadraticCurveTo((qx + fx) / 2, (qy + fy) / 2 + A(fx - qx) * f.sag, fx, fy); K.stroke();
+      }
+    }
+    K.fillStyle = css(P.blue, .35); K.beginPath(); K.ellipse(f.x, f.y + b * .15, b * 1.8, b * .45, 0, 0, 7); K.fill();
+    K.fillStyle = css(c); K.beginPath(); K.moveTo(f.x - b * .5, f.y); K.lineTo(f.x + b * .5, f.y); K.lineTo(mx + b * .47, my);
+    K.lineTo(tx + b * .42, ty + b * .2); K.lineTo(tx - b * .4, ty - b * .1); K.fill();
+    K.fillStyle = css(fit(P.lit, tx - b, tx + b)); K.beginPath(); K.ellipse(tx, ty - b * .02, b * .52, b * .24, -.12, 0, 7); K.fill();
+  }
+}
+});
+</script>
+<script>
+"use strict";
+// Sea (sea)
+// Sea: a still sea under a low sun (by night, a low moon), horizon low,
+// sky and water in soft bands, a far sail and a strip of land at the right.
+BACKDROPS.push({
+  id: "sea",
+  name: "Sea",
+  res: 0.75,
+  grain: true,
+  paint(ctx, w, h, o) {
+    const D = o.dark, R = o.rand, N = o.noise, F = o.fbm, T = o.thumb, M = Math, E = M.exp;
+    const P = D ? {
+      top: [7, 19, 21], mid: [13, 31, 33], hz: [36, 59, 58], bd: [26, 47, 48], bl: [7, 18, 20],
+      glow: [72, 90, 86], gk: .5, far: [26, 46, 47], near: [5, 15, 17], pk: .35, ga: 1,
+      disc: [93, 101, 96], glint: [66, 82, 80], land: [7, 14, 16], land2: [13, 24, 26], sail: [9, 17, 19],
+      lit: [60, 76, 74], dim: [4, 10, 12]
+    } : {
+      top: [132, 190, 186], mid: [184, 219, 212], hz: [230, 240, 232], bd: [164, 202, 196], bl: [242, 248, 242],
+      glow: [255, 248, 232], gk: .85, far: [192, 218, 211], near: [100, 166, 158], pk: .5, ga: 1.5,
+      disc: [255, 253, 245], glint: [255, 252, 240], land: [116, 150, 148], land2: [152, 182, 178], sail: [128, 160, 158],
+      lit: [255, 255, 250], dim: [96, 146, 140]
+    };
+    const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+    const sm = t => (t = t < 0 ? 0 : t > 1 ? 1 : t, t * t * (3 - 2 * t));
+    const rgb = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+    const k = o.k, hz = M.round(h * .7 * k) / k, sx = w * .128, sy = hz - h * .085, sr = M.max(M.min(w, h) * .018, T ? 1.1 : 0);
+    // structure, from rand: the sky's bands
+    const bands = [];
+    for (let i = 0; i < 5; i++) bands.push([.36 + R() * .58, .022 + R() * .03, (R() - .4) * .9, R() * 90]);
+    // per column of the rasters: the bands' wander and strength
+    const RW = T ? w : M.round(M.min(260, M.max(120, w * .16))), cols = [];
+    for (let i = 0; i < RW; i++) {
+      const x = (i + .5) / RW * w, u = x / w;
+      cols.push({ x, m: .45 + .55 * sm(M.abs(u - .5) / .3), o: bands.map(b => N(u * 1.7, b[3]) * b[1] * .9), s: bands.map(b => .55 + .45 * N(u * 1.1, b[3] + 9)) });
+    }
+    const sky = (c, y) => {
+      const t = y / hz;
+      let q = t < .6 ? mix(P.top, P.mid, sm(t / .6)) : mix(P.mid, P.hz, sm((t - .6) / .4)), b = 0;
+      for (let j = 0; j < 5; j++) { const v = (t - bands[j][0] - c.o[j]) / bands[j][1]; b += bands[j][2] * E(-v * v) * c.s[j]; }
+      b = (b + F(c.x / w * 1.4, t * 12, 3) * .45 * c.m) * sm((t - .08) * 2.2) * (1 - .5 * sm((t - .9) / .1));
+      q = b > 0 ? mix(q, P.bd, M.min(1, b)) : mix(q, P.bl, M.min(1, -b));
+      const dx = (c.x - sx) / w, dy = (y - sy) / w, dd = M.sqrt(dx * dx * .45 + dy * dy * 2.5);
+      return mix(q, P.glow, M.min(1, P.gk * (.55 * E(-dd / .16) + .45 * E(-dd / .035))));
+    };
+    const water = (c, y) => {
+      const d = (y - hz) / (h - hz), z = 1 / (d + .06), X = (c.x - w / 2) / w * z;
+      const n1 = N(X * .7, z * 1.6), n2 = N(X * 2.6 + 3, z * 7) * sm(d * 4);
+      let q = sky(c, M.min(hz - .5, 2 * hz - y - (y - hz) * (.25 * n1 + .2 * n2)));
+      const s = N(X * .1 + 7, z * .8);
+      q = mix(q, mix(P.far, P.near, M.pow(d, .8)), M.max(0, M.min(1, .15 + .5 * M.pow(d, .8) + .1 * s)));
+      const v = (c.x - sx) / (w * (.01 + .05 * d)), pa = E(-v * v) * (.55 + .25 * n1 + .1 * n2) * (1 - .5 * d);
+      return mix(q, P.glint, M.min(1, pa * P.pk));
+    };
+    const raster = (y0, ch, rh, fn) => {
+      const L = o.layer(RW, rh, 1), img = L.ctx.createImageData(RW, rh), a = img.data;
+      for (let j = 0, p = 0; j < rh; j++) {
+        const y = y0 + (j + .5) / rh * ch;
+        for (let i = 0; i < RW; i++, p += 4) { const q = fn(cols[i], y); a[p] = q[0]; a[p + 1] = q[1]; a[p + 2] = q[2]; a[p + 3] = 255; }
+      }
+      L.ctx.putImageData(img, 0, 0);
+      ctx.drawImage(L.canvas, 0, y0, w, ch);
+    };
+    raster(0, hz, M.max(4, M.round(RW * hz / w * 2.2)), sky);
+    raster(hz, h - hz, M.max(3, M.round(RW * (h - hz) / w * 3.2)), water);
+    // the horizon: one fine line
+    ctx.fillStyle = rgb(D ? P.far : P.bd, .5);
+    ctx.fillRect(0, hz - .5, w, 1);
+    // the sun (the moon), faint, low at the left
+    const r2 = sr * 2.6, g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r2);
+    g.addColorStop(0, rgb(P.disc, .9)); g.addColorStop(.32, rgb(P.disc, .82)); g.addColorStop(.42, rgb(P.disc, .28));
+    g.addColorStop(.6, rgb(P.disc, .08)); g.addColorStop(1, rgb(P.disc, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, r2, 0, 7); ctx.fill();
+    if (D && !T) for (const [u, v, r] of [[-.3, -.05, .5], [.22, -.3, .32], [.38, .1, .2]]) {
+      const m = ctx.createRadialGradient(sx + u * sr, sy + v * sr, 0, sx + u * sr, sy + v * sr, r * sr);
+      m.addColorStop(0, "rgba(40,52,50,.16)"); m.addColorStop(1, "rgba(40,52,50,0)");
+      ctx.fillStyle = m; ctx.fillRect(sx - sr, sy - sr, sr * 2, sr * 2);
+    }
+    // a thin strip of land at the right edge, and its reflection
+    const ridge = (x0, ht, s) => {
+      ctx.beginPath(); ctx.moveTo(x0, hz);
+      for (let x = x0; x <= w + 4; x += w / 300) {
+        const u = (x - x0) / (w - x0);
+        ctx.lineTo(x, hz - ht * sm(u * 1.5) * (.78 + .3 * N(x / w * 6, s) + .1 * N(x / w * 17, s + 2) + .04 * N(x / w * 50, s + 1)));
+      }
+      ctx.lineTo(w + 4, hz); ctx.closePath(); ctx.fill();
+    };
+    const sx0 = w * .765, sh = h * .017;
+    const sail = () => {
+      ctx.beginPath();
+      ctx.moveTo(sx0, hz - sh * .12); ctx.lineTo(sx0 + sh * .03, hz - sh);
+      ctx.quadraticCurveTo(sx0 + sh * .3, hz - sh * .5, sx0 + sh * .44, hz - sh * .15); ctx.closePath();
+      ctx.moveTo(sx0 - sh * .04, hz - sh * .82); ctx.lineTo(sx0 - sh * .3, hz - sh * .16); ctx.lineTo(sx0 - sh * .06, hz - sh * .16); ctx.closePath();
+      ctx.rect(sx0 - sh * .34, hz - sh * .12, sh * .82, sh * .1); ctx.fill();
+    };
+    const scene = a => {
+      ctx.globalAlpha = a;
+      ctx.fillStyle = rgb(P.land2); ridge(w * .86, h * .03, 11);
+      ctx.fillStyle = rgb(P.land); ridge(w * .91, h * .021, 23);
+      ctx.fillStyle = rgb(P.sail); sail();
+    };
+    scene(1);
+    ctx.save(); ctx.translate(0, 2 * hz); ctx.scale(1, -1); scene(.35); ctx.restore();
+    ctx.globalAlpha = 1;
+    if (T) return;
+    // fine texture last: long thin ripples on the water, brighter in the path of light
+    const n = M.round(w * h / 2400);
+    for (let i = 0; i < n; i++) {
+      const d = M.pow(R(), 1.7), y = hz + 1 + d * (h - hz), len = w * (.01 + .06 * d) * (.3 + R()),
+        x = R() * (w + len) - len, a = R(), up = R() < .55;
+      ctx.fillStyle = rgb(up ? P.lit : P.dim, (.03 + .05 * a) * (1 - .4 * d) * (.35 + .65 * sm(M.abs(x + len / 2 - w / 2) / (.3 * w))) * (1 - sm((d - .9) / .1)));
+      ctx.fillRect(x, y, len, .5 + d);
+    }
+    // the path of light: short glints under the sun, narrow far off, wider near
+    for (let i = 0; i < 300; i++) {
+      const d = M.pow(R(), 1.3), s = w * (.005 + .035 * d), g = (R() + R() + R() - 1.5) * 1.6, len = w * (.003 + .02 * d) * (.4 + R()), a = R();
+      ctx.fillStyle = rgb(P.glint, P.ga * (.1 + .4 * a) * E(-g * g * .5) * (1 - .55 * d) * (1 - sm((d - .88) / .12)));
+      ctx.fillRect(sx + g * s - len / 2, hz + 1.5 + d * (h - hz - 2), len, .5 + d);
+    }
+  },
+});
+</script>
+<script>
+"use strict";
+// Glade (forest)
+// Glade: morning light in a beech and birch wood; trunks soft at the sides,
+// leaf light as bokeh, a pale clearing. By night the same wood, fireflies.
+BACKDROPS.push({
+  id: "forest",
+  name: "Glade",
+  res: 0.5,
+  grain: true,
+  paint(ctx, w, h, o) {
+    const D = o.dark, R = o.rand, N = o.noise, F = o.fbm, T = o.thumb;
+    const cl = (v, a, b) => v < a ? a : v > b ? b : v;
+    const ss = (a, b, v) => { const t = cl((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+    const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+    const LIN = [];
+    for (let i = 0; i < 256; i++) { const v = i / 255; LIN.push(v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4); }
+    const ch = q => LIN[cl(Math.round(q), 0, 255)];
+    const lum = c => .2126 * ch(c[0]) + .7152 * ch(c[1]) + .0722 * ch(c[2]);
+    // sky (the clearing), air, deep air, top light, ground, moss, bark, its lit side,
+    // birch, its shade, birch marks, leaves dark, mid, lit, the sun behind them
+    const [sky, air, deep, top, low, moss, bark, lit, birch, birS, mark, leafD, leaf, leaf2, sun] = (D
+      ? "37,49,40 20,28,21 13,19,14 16,22,18 10,14,10 16,23,16 8,11,8 13,17,13 27,33,28 15,19,15 10,12,9 6,9,6 9,13,9 14,20,15 33,45,40"
+      : "244,250,226 188,221,166 158,198,132 232,240,208 146,184,112 200,218,150 102,116,92 216,210,176 242,242,230 170,180,160 84,90,76 98,138,66 130,170,82 196,218,124 252,249,214"
+    ).split(" ").map(c => c.split(",").map(Number));
+    // the reading zones: a floor by day, a ceiling by night, with margin
+    const zc = Math.min(w - 48, 720) / 2 + 16, zb = Math.min(w - 48, 960) / 2 + 16;
+    const lim = x => {
+      if (T) return D ? 1 : 0;
+      const d = Math.abs(x - w / 2), a = ss(zc + 40, zc, d), b = ss(zb + 40, zb, d);
+      return D ? .2 - .082 * b - .062 * a : .07 + .135 * b + .135 * a;
+    };
+    // the canopy: out-of-focus leaves in the top corners, more on the left
+    const cmask = (xu, v) => Math.max(ss(.56, .04, Math.hypot(xu * 1.25, v * 1.1)), ss(.46, .03, Math.hypot((1 - xu) * 1.3, v * 1.2)));
+    // trunks, each side: [place from the edge, width (of h), depth, birch]
+    const tr = [];
+    [[[.035, .13, 0, 0], [.11, .07, .36, 1], [.185, .045, .6, 0], [.25, .04, .8, 1], [.315, .036, .93, 0]],
+     [[.045, .115, .04, 1], [.125, .066, .4, 0], [.2, .045, .64, 1], [.275, .04, .84, 0]]].forEach((side, sd) => side.forEach(([u0, wd, d, b]) => {
+      const u = u0 + (R() - .5) * .025;
+      const t = { x: sd ? w * (1 - u) : w * u, hw: wd * h * (.8 + R() * .4) / 2, d, b, lean: (R() - .5) * .045, ph: R() * 50, sd, hz: D ? .18 + .72 * d : .05 + .9 * d ** 1.2 };
+      if (!D && !T) { // pushed back into the air until the darkest bark clears the floor
+        const reach = t.hw * 2 + Math.abs(t.lean) * h / 2, need = lim(cl(w / 2, t.x - reach, t.x + reach)) + .012, dk = b ? mark : bark;
+        let lo = t.hz, hi = 1;
+        if (lum(mix(dk, deep, lo)) < need) { for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; lum(mix(dk, deep, m)) < need ? lo = m : hi = m; } t.hz = hi; }
+      }
+      tr.push(t);
+    }));
+    tr.sort((a, b) => b.d - a.d);
+    // the wood, per pixel, on a small layer: its blur is the upscale
+    const s = T ? o.k : 256 / w, L = o.layer(w, h, s), lw = L.pw, lh = L.ph, img = L.ctx.createImageData(lw, lh), px = img.data;
+    for (let j = 0, p = 0; j < lh; j++) {
+      const y = (j + .5) / lh * h, v = y / h;
+      // the far trunks thin out where the writing is
+      const rows = tr.map(t => { const hw = t.hw * (1 + .2 * v), x = t.x + t.lean * (y - h / 2) + N(v * 1.3, t.ph) * t.hw * .3; return [x, hw, hw * (.7 - .3 * t.d) + 1.2 / s, 1 - .7 * ss(.5, .75, t.d) * (T ? 0 : ss(zc + 40, zc, Math.abs(x - w / 2)))]; });
+      for (let i = 0; i < lw; i++, p += 4) {
+        const x = (i + .5) / lw * w, xu = x / w, u = xu - .5;
+        const g = Math.exp(-(u * u * 6.5 + (v - .38) * (v - .38) * 3.6));
+        let A = mix(air, deep, ss(.14, .46, Math.abs(u)) * .9);
+        A = mix(A, sky, g * .9);
+        A = mix(A, top, ss(.4, 0, v) * .4 * (1 - g * .6));
+        A = mix(A, sun, Math.exp(-((u + .12) ** 2 * 12 + (v - .06) ** 2 * 9)) * .55);
+        const an = N(x / h * 1.3 + 9, v * 1.3);
+        A = mix(A, an > 0 ? sky : deep, Math.abs(an) * .25);
+        let c = A, gd = 0;
+        const gy = .8 + .035 * N(x / h * 2.2, 5.5), gt = ss(gy - .08, gy + .14, v);
+        // mist low between the trunks, then the ground
+        const ground = () => {
+          c = mix(c, sky, Math.exp(-(((v - .74) / .08) ** 2)) * (.5 + .4 * N(x / h * 1.6 + 2, 6.1)) * .5);
+          if (gt <= 0) return;
+          let G = mix(low, moss, ss(-.2, .5, F(x / h * 4.5 + 3, v * 6, 3)) * .75);
+          c = mix(c, mix(G, A, Math.exp(-u * u * 7) * .55), gt);
+        };
+        for (let k = 0; k < tr.length; k++) {
+          const t = tr[k], r = rows[k];
+          if (!gd && t.d < .3) { ground(); gd = 1; }
+          const dx = x - r[0], ad = Math.abs(dx);
+          if (ad >= r[1] + r[2]) continue;
+          const cov = ss(r[1] + r[2], r[1] - r[2], ad) * r[3], sp = cl(dx / r[1], -1, 1) * (t.sd ? -1 : 1);
+          let tc = mix(bark, lit, ss(.05, 1.2, sp) * .9);
+          if (t.b) tc = mix(mix(birS, birch, ss(-.9, .45, sp)), mark, ss(.25, .8, N(dx / r[1] * .45 + t.ph, y / (r[1] * (.3 + .3 * (1 - t.d))))) * .8 * ss(.75, .25, t.d));
+          tc = mix(tc, A, t.hz + (1 - t.hz) * ss(.45, 0, v) * .35 * t.d);
+          c = mix(c, tc, cov);
+        }
+        if (!gd) ground();
+        const cm = cmask(xu, v);
+        if (cm > .02) {
+          const n1 = F(x / h * 3.6 + 7, v * 3.6 + 2, 5), dn = ss(-.2, .3, n1 + (cm - .6) * 1.6);
+          if (dn > 0) c = mix(c, mix(mix(leafD, leaf, ss(-.5, .35, n1)), leaf2, ss(0, .7, N(x / h * 7 + 1, v * 7 + 9)) * .8), dn * .92);
+        }
+        const lm = lim(x), l = lum(c);
+        if (D ? l > lm : l < lm) {
+          if (D) c = c.map(q => q * (lm / l) ** .44);
+          else { let lo = 0, hi = 1; for (let n = 0; n < 10; n++) { const m = (lo + hi) / 2; lum(mix(c, sky, m)) < lm ? lo = m : hi = m; } c = mix(c, sky, hi); }
+        }
+        px[p] = c[0]; px[p + 1] = c[1]; px[p + 2] = c[2]; px[p + 3] = 255;
+      }
+    }
+    L.ctx.putImageData(img, 0, 0);
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(L.canvas, 0, 0, w, h);
+    // soft discs: a flat face with a soft edge, or a glow that falls away
+    const sc = h / 900, disc = (x, y, r, col, a, glow) => {
+      const gr = ctx.createRadialGradient(x, y, 0, x, y, r), q = `rgba(${col},`;
+      if (glow) { gr.addColorStop(0, q + a + ")"); gr.addColorStop(.25, q + a * .45 + ")"); gr.addColorStop(.6, q + a * .1 + ")"); }
+      else { gr.addColorStop(0, q + a * .85 + ")"); gr.addColorStop(.72, q + a + ")"); }
+      gr.addColorStop(1, q + "0)");
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    };
+    // leaf light: bokeh in the canopy, a few down the sides
+    ctx.globalCompositeOperation = "screen";
+    for (let n = 0; n < 320; n++) {
+      const xu = R(), v = R() ** 1.3, r = (3 + R() ** 2 * 30) * sc, t = R(), a = .1 + R() * .32, keep = R();
+      if (keep > Math.max((cmask(xu, v) - .12) * 1.6, ss(.12, .02, Math.min(xu, 1 - xu)) * ss(.9, .4, v) * .25) || r < .6) continue;
+      disc(xu * w, v * h, r, D ? "50,66,58" : t < .55 ? "255,247,200" : "234,248,176", D ? a * .15 : a);
+    }
+    // fireflies, far apart at the sides, out of the column and the squares' row;
+    // the near ones large and out of focus, the far ones points with a glow
+    const ff = [];
+    for (let n = 0; n < 90 && ff.length < 8; n++) {
+      const x = w * (.03 + R() * .94), y = h * (.3 + R() * .62), z = R(), b = .75 + R() * .25;
+      if (Math.abs(x / w - .5) < .22 || (!T && x > w - 420 && y > h - 90) || ff.some(f => Math.hypot(f[0] - x, f[1] - y) < h * .2)) continue;
+      ff.push([x, y, Math.max((8 + z * z * 14) * sc, T ? 2 : 0), b, z > .75]);
+    }
+    if (D) {
+      ctx.globalCompositeOperation = "lighter";
+      for (const [x, y, r, b, near] of ff) {
+        const lm = lim(cl(w / 2, x - r, x + r)) * .9, ha = near ? .32 : .4, ca = near ? 0 : 1;
+        let f = b;
+        while (f > .05 && lum([24 + f * (ha * 170 + ca * 236), 32 + f * (ha * 200 + ca * 242), 26 + f * (ha * 80 + ca * 160)]) > lm) f *= .92;
+        disc(x, y, r * (near ? 2.4 : 2.6), "170,200,80", f * ha, 1);
+        if (!near) disc(x, y, Math.max(1.2, 6.5 * sc), "236,242,160", f, 1);
+      }
+    }
+    ctx.globalCompositeOperation = "source-over";
+  },
+});
+</script>
+<script>
+"use strict";
+// Dunes (dunes)
+// Dunes: ridges of sand in a low sun from the right; by night, under starlight.
+BACKDROPS.push({
+  id: "dunes",
+  name: "Dunes",
+  res: 0.5,
+  grain: true,
+  paint(ctx, w, h, o) {
+    const D = o.dark, R = o.rand, T = o.thumb, cx = w / 2, mx = Math.max, mn = Math.min;
+    const L = (a, b, t) => a + (b - a) * t;
+    const M = (a, b, t) => a.map((v, i) => L(v, b[i], t));
+    const C = (c, a = 1) => "rgba(" + c.map(Math.round) + "," + a + ")";
+    // 0 in the writing's column and a margin, 1 at the screen's edges: in
+    // pixels from the centre, as the reading zones are
+    const side = x => mx(0, mn(1, (Math.abs(x - cx) - 380) / mx(60, cx - 380)));
+    const P = D ? {
+      top: [13, 15, 21], hor: [32, 34, 43], glow: [46, 48, 60], ga: .5, haze: [34, 36, 45],
+      lit: [30, 28, 28], deep: [23, 22, 22], sh0: [17, 17, 20], sh1: [13, 13, 16],
+      rim: [150, 152, 166], ra: .22, sa: .06, rl: [120, 120, 132], rla: .08, rd: [0, 0, 0], rda: .2, star: [205, 210, 226]
+    } : {
+      top: [240, 232, 220], hor: [248, 225, 196], glow: [255, 234, 204], ga: 1, haze: [247, 226, 200],
+      lit: [240, 204, 153], deep: [229, 186, 134], sh0: [196, 156, 118], sh1: [172, 134, 100],
+      rim: [255, 246, 228], ra: .55, sa: .42, rl: [255, 244, 224], rla: .4, rd: [158, 114, 76], rda: .16
+    };
+    const J = a => (R() - .5) * a;
+    // peaks [x, y, sag, gamma, kx, ky, swing]: between two peaks the ridge
+    // sags, gentle on the windward (right) side, steep up the slip face; kx, ky
+    // set the knife edge's foot in the slip face's width and rise (ky < 0: in w, h)
+    const range = (y0, amp, step, sag) => {
+      const pk = [];
+      for (let x = -.12; x < 1.2; x += step * (.6 + R() * .8))
+        pk.push([x * w, (y0 - amp * (.3 + .7 * R()) * (.25 + .75 * (2 * x - 1) ** 2)) * h, sag * (.6 + R() * .8) * h, 1.2 + R() * .5, .6 + R(), .9 + R() * .5]);
+      return pk;
+    };
+    const pkx = a => a.map(([x, y, s, ...r]) => [x * w, y * h, s * h, ...r]);
+    const layers = [
+      { t: .12, hz: .55, pk: range(.6, .025, .15, .012) },
+      { t: .3, hz: .5, pk: range(.635, .055, .2, .022) },
+      { t: .6, hz: .3, rip: 1, pk: pkx([[-.25, .5, .06, 1.5, 0, 0], [.2 + J(.04), .56 + J(.02), .07, 1.5, .9, 1.4], [.46 + J(.04), .655, .015, 1.3, .8, 1], [.68 + J(.04), .675, .04, 1.5, 0, 0], [.89 + J(.03), .55 + J(.02), .05, 1.8, .45, 1.6], [1.3, .5, .05, 1.5, 0, 0]]) },
+      { t: 1, rip: 1, pk: pkx([[-.4, .66, .08, 1.5, 0, 0], [.1 + J(.02), .5 + J(.02), .5, 1.35, .27, -1.04, .015], [1.1, .63, .1, 1.5, .1, 1], [1.4, .7, 0, 1, 0, 0]]) }
+    ];
+    const stars = [];
+    for (let i = 0; i < 260; i++) stars.push([R() * w, R() ** 1.4 * h * .6, R()]);
+
+    // the sky, pale and warm, the glow of the low sun at the right
+    let g = ctx.createLinearGradient(0, 0, 0, h * .64);
+    g.addColorStop(0, C(P.top)); g.addColorStop(1, C(P.hor));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    ctx.save(); ctx.translate(w * .84, h * .6); ctx.scale(1, .45);
+    g = ctx.createRadialGradient(0, 0, 0, 0, 0, w * .55);
+    g.addColorStop(0, C(P.glow, P.ga)); g.addColorStop(.35, C(P.glow, P.ga * .45)); g.addColorStop(1, C(P.glow, 0));
+    ctx.fillStyle = g; ctx.fillRect(-w * 2, -h * 4, w * 4, h * 8);
+    ctx.restore();
+    if (D && !T) for (const [x, y, b] of stars) {
+      ctx.fillStyle = C(P.star, (.1 + .5 * b * b) * (1 - y / (h * .62)) * (.4 + .6 * side(x)));
+      const s = mx(1 / o.k, .5 + b);
+      ctx.fillRect(x, y, s, s);
+    }
+
+    const N = Math.ceil((w + 40) / (T ? 1.5 : 4)), dx = (w + 40) / N, X = n => n * dx - 20;
+    let c;
+    const hg = (x0, x1, f) => { // a horizontal gradient, its colour f(x)
+      const gr = c.createLinearGradient(x0, 0, x1, 0);
+      for (let i = 0; i <= 8; i++) gr.addColorStop(i / 8, f(L(x0, x1, i / 8)));
+      return gr;
+    };
+    for (const { pk, t, hz, rip } of layers) {
+      const m = t ** .8, Y = new Float32Array(N + 1), ly = o.layer(w, h);
+      let top = h, mid = 0;
+      const ridge = new Path2D(), body = new Path2D();
+      body.moveTo(-20, h + 20);
+      for (let n = 0, i = 0; n <= N; n++) {
+        const x = X(n);
+        while (i < pk.length - 2 && x > pk[i + 1][0]) i++;
+        const a = pk[i], b = pk[i + 1], u = mn(1, mx(0, (x - a[0]) / (b[0] - a[0]))), y = L(a[1], b[1], u) + a[2] * Math.sin(Math.PI * u ** a[3]);
+        Y[n] = y; body.lineTo(x, y); n ? ridge.lineTo(x, y) : ridge.moveTo(x, y); top = mn(top, y); mid += y / (N + 1);
+      }
+      body.lineTo(w + 20, h + 20); body.closePath();
+      // each ridge on a layer of its own: what follows lands only on its sand
+      const lit = M(P.haze, P.lit, m);
+      c = ly.ctx;
+      g = c.createLinearGradient(0, top, 0, h);
+      g.addColorStop(0, C(lit)); g.addColorStop(1, C(M(P.haze, P.deep, m)));
+      c.fillStyle = g; c.fill(body);
+      c.globalCompositeOperation = "source-atop";
+      // the windward crest takes the light: a soft sheen along the ridge
+      c.strokeStyle = C(P.rim, P.sa * m / 12);
+      for (let j = 1; j < 13; j++) { c.lineWidth = h * .001 * j * j * L(.4, 1, t); c.stroke(ridge); }
+
+      // wind ripples: they follow the ridge near the top, flatten towards the foot
+      if (rip && !T) {
+        const S = Y.slice(), r = Math.round(w * .03 / dx), f = 1 / (w * .045);
+        for (let p = 0; p < 2; p++) for (let n = 0; n <= N; n++) {
+          let s = 0, z = 0;
+          for (let j = mx(0, n - r); j <= mn(N, n + r); j += 2) { s += Y[j]; z++; }
+          S[n] = s / z;
+        }
+        const gL = hg(0, w, x => C(P.rl, P.rla * (.3 + .7 * side(x)))), gD = hg(0, w, x => C(P.rd, P.rda * (.3 + .7 * side(x))));
+        c.lineWidth = 1.3;
+        for (let d = h * .01, q = 0; d < h + 40 - top; q++) {
+          const per = mn(1, mx(0, (top + d - h * .55) / (h * .45))), gap = (2.5 + 13 * per * per) * L(.6, 1, t);
+          const p = new Path2D(), fl = mn(1, d / (h * .5)) * .75;
+          for (let n = 0; n <= N; n += 2) {
+            const x = X(n), y = L(S[n], mid, fl) + d + gap * .45 * o.noise(x * f, q * .37 + t * 9);
+            n ? p.lineTo(x, y) : p.moveTo(x, y);
+          }
+          c.globalAlpha = (.35 + .65 * per) * mn(1, d / (h * .05));
+          c.strokeStyle = gL; c.translate(0, -.8); c.stroke(p);
+          c.strokeStyle = gD; c.translate(0, 1.6); c.stroke(p);
+          c.translate(0, -.8);
+          d += gap;
+        }
+        c.globalAlpha = 1;
+      }
+
+      // slip faces: a curved triangle of shade under each crest, crisp at the
+      // knife edge, its foot sweeping back to where the ridge turns steep
+      for (let i = 1; i < pk.length; i++) {
+        const [px, py, , , kx, ky, sw = 0] = pk[i], x0 = pk[i - 1][0];
+        if (!ky || px < -60 || x0 > w + 60) continue;
+        let sn = -1;
+        for (let n = 0; n <= N; n++) { const x = X(n); if (x > x0 && x < px && (sn < 0 || Y[n] > Y[sn])) sn = n; }
+        if (sn >= 0) while (sn < N && X(sn + 1) < px && Y[sn] - Y[sn + 1] < .18 * dx) sn++;
+        const ax = sn < 0 ? x0 : X(sn), ay = sn < 0 ? py : Y[sn];
+        const W = mx(px - ax, w * .04), H = mx(ay - py, h * .03);
+        const ex = ky < 0 ? kx * w : px + kx * W, ey = ky < 0 ? -ky * h : py + ky * H;
+        const k = [px + (ex - px) * .12 + sw * w, L(py, ey, .35), px + (ex - px) * .55 - sw * w, L(py, ey, .8), ex, ey];
+        const f = new Path2D();
+        f.moveTo(ax, ay);
+        if (sn >= 0) for (let n = sn + 1; n <= N && X(n) < px; n++) f.lineTo(X(n), Y[n]);
+        f.lineTo(px, py);
+        f.bezierCurveTo(...k);
+        if (ey > h) { f.lineTo(-w, ey); f.lineTo(-w, ay); } else f.quadraticCurveTo(L(ax, ex, .45), ey + H * .05, ax, ay);
+        const st = L(.55, .9, m) * (t < 1 ? .45 + .55 * side(px) : 1);
+        c.fillStyle = hg(mn(ax, px) - 1, mx(px, ex) + 1, x => C(M(lit, M(P.haze, M(P.sh0, P.sh1, side(x)), m), st)));
+        c.fill(f);
+        // darkest just under the crest, lifting towards the foot
+        g = c.createLinearGradient(0, py, 0, ey);
+        g.addColorStop(0, C(D ? [0, 0, 0] : P.sh1, .14 * st * (.3 + .7 * side(px))));
+        g.addColorStop(.5, C(lit, 0));
+        g.addColorStop(1, C(lit, .3));
+        c.fillStyle = g; c.fill(f);
+        // the knife edge catches the light on its windward side
+        if (t > .5 && ey - py > h * .08) {
+          c.beginPath(); c.moveTo(px + .8, py); c.bezierCurveTo(...k.map((v, j) => v + (j % 2 ? 0 : .8)));
+          c.strokeStyle = C(P.rim, P.ra * m / mx(1, .8 / o.k)); c.lineWidth = mx(1.2, 1 / o.k); c.stroke();
+        }
+      }
+      if (hz) { // dust lies in the low ground between ridges
+        g = c.createLinearGradient(0, mid - h * .01, 0, mid + h * .07);
+        g.addColorStop(0, C(P.haze, 0)); g.addColorStop(1, C(P.haze, hz));
+        c.fillStyle = g; c.fillRect(-20, top, w + 40, h);
+      }
+      ctx.drawImage(ly.canvas, 0, 0, w, h);
+      // the ridge line, just traced
+      const lw = mx(1, 2 / o.k);
+      ctx.lineWidth = lw; ctx.strokeStyle = C(P.rim, P.ra * (D ? .8 : .4) * L(.4, 1, m) / lw); ctx.stroke(ridge);
+    }
+  },
+});
+</script>
+<script>
+"use strict";
+// Maple (maple)
+// Maple: a few Japanese maple leaves on a still, pale pond seen from above.
+// Three float, sharp, with soft shadows below; two have sunk and show
+// through the water, soft and veiled. The middle stays open.
+BACKDROPS.push({
+  id: "maple",
+  name: "Maple",
+  res: 1,
+  grain: true,
+  paint(ctx, w, h, o) {
+    const { dark: D, rand: R, fbm, layer, thumb: T } = o;
+    const { sin, cos, max, min } = Math;
+    const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+    const css = (c, a = 1) => `rgba(${c.map(Math.round)},${a})`;
+    const Q = q => { ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = q; };
+
+    // the water, painted small and drawn up: a soft sky light at the top left
+    const GR = D ? [[29, 27, 26], [19, 18, 17]] : [[242, 238, 232], [228, 221, 212]];
+    const G = layer(w, h, T ? o.k : .4), c = G.ctx;
+    let gr = c.createLinearGradient(0, 0, w, h);
+    gr.addColorStop(0, css(GR[0])); gr.addColorStop(1, css(GR[1]));
+    c.fillStyle = gr; c.fillRect(0, 0, w, h);
+    const blob = (x, y, rx, ry, col, a, i0 = 0) => {
+      c.save(); c.translate(x, y); c.scale(rx, ry);
+      const g = c.createRadialGradient(0, 0, i0, 0, 0, 1);
+      g.addColorStop(0, css(col, i0 ? 0 : a)); g.addColorStop(i0 ? 1 : .5, css(col, i0 ? a : a * .55)); i0 || g.addColorStop(1, css(col, 0));
+      c.fillStyle = g; c.fillRect(-1, -1, 2, 2); c.restore();
+    };
+    const M = max(w, h), K = D ? [0, 0, 0] : [170, 146, 124];
+    blob(w * .3, h * .12, M * .75, M * .55, D ? [58, 58, 62] : [255, 254, 251], D ? .22 : .7);
+    for (let i = 0; i < 5; i++) {
+      const a = R() * 6.28, rr = .4 + R() * .12;
+      blob(w * (.5 + cos(a) * rr), h * (.5 + sin(a) * rr), M * (.16 + R() * .12), M * (.12 + R() * .1),
+        i % 2 ? K : D ? [48, 46, 46] : [255, 253, 249], i % 2 ? (D ? .16 : .08) : (D ? .1 : .35));
+    }
+    blob(w / 2, h / 2, w * .75, h * .75, K, D ? .3 : .1, .45);
+    Q("medium"); ctx.drawImage(G.canvas, 0, 0, w, h); Q("high");
+
+    // one leaf of Acer palmatum: n slender lobes from one point, toothed edges
+    function shape(n) {
+      const lobes = [], S = [], pts = [], halves = [], veins = [];
+      for (let i = 0; i < n; i++) {
+        const f = i / (n - 1) * 2 - 1;
+        lobes.push({ a: f * 2.12 + (R() - .5) * .14, l: (1 - .48 * f * f) * (.92 + R() * .12), b: (R() - .5) * .14 + f * .05 });
+      }
+      for (let i = 0; i < n - 1; i++) {
+        const a = (lobes[i].a + lobes[i + 1].a) / 2, r = .34 + R() * .07;
+        S.push([sin(a) * r, -cos(a) * r]);
+      }
+      const B = [0, .07];
+      lobes.forEach((lb, i) => {
+        const dx = sin(lb.a), dy = -cos(lb.a), qx = -cos(lb.a), qy = -sin(lb.a), l = lb.l, W = .17 * Math.pow(l, .6), bb = lb.b * l;
+        const at = (s, t) => [dx * s + qx * t, dy * s + qy * t];
+        const tip = at(l, bb), P0 = i ? S[i - 1] : B, P3 = i < n - 1 ? S[i] : B;
+        const bez = (p, c1, c2, q, t) => { const u = 1 - t; return [0, 1].map(k => u * u * u * p[k] + 3 * u * u * t * c1[k] + 3 * u * t * t * c2[k] + t * t * t * q[k]); };
+        const N = 10, amp = .016 * l, ts = [];
+        for (let j = 0; j < N; j++) ts.push([j / N, 0], [(j + .72) / N, 1]);
+        ts.push([1, 0]);
+        const env = t => t < .1 ? 0 : min(1, (t - .1) / .2) * (1 - t * .6);
+        const edge = (s, p, c1, c2, q) => ([t, k]) => { const v = bez(p, c1, c2, q, s > 0 ? t : 1 - t), e = s * k * amp * env(t); return [v[0] + qx * e, v[1] + qy * e]; };
+        const left = ts.map(edge(1, P0, at(.52 * l, 1.15 * W), at(.84 * l, .28 * W + bb * .7), tip));
+        const right = ts.slice().reverse().map(edge(-1, tip, at(.84 * l, -.28 * W + bb * .7), at(.52 * l, -1.15 * W), P3));
+        pts.push(...left, ...right.slice(1));
+        halves.push([[qx, qy], [[0, 0], ...left]], [[-qx, -qy], [...right, [0, 0]]]);
+        veins.push([at(.45 * l, bb * .2), at(.92 * l, bb * .8)]);
+      });
+      return { pts, halves, veins, sx: (R() - .5) * .5, sl: .5 + R() * .25, nx: R() * 50 };
+    }
+
+    // the scene, in L: the leaf's size, kept outside the writing's column
+    const m = (w - min(w - 48, 720)) / 2, L = T ? h * .34 : min(h * .165, m * .55), top = T ? 0 : 40;
+    // centre, tips, stem, veins; and the mottling
+    const CR = D ? [[104, 50, 34], [92, 30, 34], [80, 34, 30], [140, 84, 62]] : [[240, 132, 78], [228, 68, 70], [214, 94, 72], [255, 216, 172]];
+    const AM = D ? [[106, 70, 40], [100, 52, 32], [90, 54, 34], [140, 100, 70]] : [[244, 168, 92], [236, 128, 64], [222, 140, 82], [255, 230, 190]];
+    const SC = D ? [[102, 46, 34], [90, 28, 34], [78, 30, 30], [136, 80, 64]] : [[238, 116, 72], [226, 66, 72], [210, 84, 72], [255, 210, 176]];
+    const OR = D ? [[108, 60, 36], [96, 40, 32]] : [[242, 160, 84], [236, 112, 56]];
+    const MO = D ? [128, 84, 44] : [255, 196, 112];
+    const leaf = (x, y, s, r, mi, p, sunk) => ({ x, y, s: s * L, r, mi, p, sunk, sh: shape(7) });
+    const all = [
+      leaf(w - .3 * L, h * .6, 1.2, -1.9, -1, AM, 1),
+      leaf(.2 * L, h * .3, 1.05, 1.4, 1, OR, 1),
+      leaf(1.05 * L, h - 1.45 * L, .62, -.35, -1, AM),
+      leaf(.32 * L, h - .5 * L, 1, .6, 1, CR),
+      leaf(w - .42 * L, top + .62 * L, .92, Math.PI + .75, 1, SC),
+    ];
+
+    const LT = [-.55, -.83]; // toward the light, the top left
+    const put = (c, f) => { c.save(); c.translate(f.x, f.y); c.rotate(f.r); c.scale(f.s * f.mi, f.s); };
+    const poly = (c, ps) => { c.beginPath(); ps.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.closePath(); };
+    const stem = (c, f, col, lw) => { c.beginPath(); c.moveTo(0, .04); c.quadraticCurveTo(f.sh.sx * .4, .1 + f.sh.sl * .5, f.sh.sx, .08 + f.sh.sl); c.lineWidth = lw; c.lineCap = "round"; c.strokeStyle = col; c.stroke(); };
+    function full(c, f, p, mo) {
+      put(c, f);
+      let g = c.createRadialGradient(0, 0, 0, 0, 0, 1), k = f.s * o.k;
+      g.addColorStop(.06, css(p[0])); g.addColorStop(.55, css(mix(p[0], p[1], .7))); g.addColorStop(1, css(p[1]));
+      // floating: a soft shadow on the bottom, then a close one, from the top-left light
+      for (const s of mo ? [[.12, .1, .15, D ? .55 : .24], [.03, .02, .035, D ? .45 : .16]] : [0]) {
+        if (s) { c.shadowColor = css(shade, s[3]); c.shadowBlur = s[0] * k; c.shadowOffsetX = s[1] * k; c.shadowOffsetY = s[2] * k; }
+        stem(c, f, css(p[2] || p[1]), .026);
+        poly(c, f.sh.pts); c.fillStyle = g; c.fill();
+      }
+      c.shadowColor = "transparent";
+      if (mo) { // a few warm, paler patches, as autumn leaves have
+        const t = layer(20, 20, 1), d = t.ctx.createImageData(20, 20);
+        for (let i = 0; i < 400; i++) {
+          const v = fbm(i % 20 / 7 + f.sh.nx, (i / 20 | 0) / 7, 3);
+          d.data.set([...MO, max(0, v - .05) * 420], i * 4);
+        }
+        t.ctx.putImageData(d, 0, 0); c.save(); c.clip(); c.drawImage(t.canvas, -1.1, -1.1, 2.2, 2.2); c.restore();
+      }
+      // each lobe folds along its midrib: one half to the light, one away
+      const cr = cos(-f.r), sr = sin(-f.r), lx = (LT[0] * cr - LT[1] * sr) * f.mi, ly = LT[0] * sr + LT[1] * cr;
+      for (const [q, ps] of f.sh.halves) {
+        const v = q[0] * lx + q[1] * ly;
+        c.fillStyle = v > 0 ? `rgba(255,246,232,${v * (D ? .07 : .2)})` : `rgba(70,16,12,${-v * (D ? .12 : .05)})`;
+        poly(c, ps); c.fill();
+      }
+      if (p[3]) {
+        g = c.createRadialGradient(0, 0, 0, 0, 0, 1);
+        g.addColorStop(0, css(p[3], D ? .45 : .6)); g.addColorStop(1, css(p[3], 0));
+        c.strokeStyle = g; c.lineWidth = .012; c.lineCap = "round";
+        for (const [a, b] of f.sh.veins) { c.beginPath(); c.moveTo(0, .02); c.quadraticCurveTo(a[0], a[1], b[0], b[1]); c.stroke(); }
+      }
+      c.restore();
+    }
+    // draw into a small layer around the leaf and back up: a soft focus
+    function soft(f, blur, fn) {
+      const r = f.s * 1.25 + blur * 6, ox = f.x + f.s * .04, oy = f.y + f.s * .08, z = 2 * r;
+      let a = layer(z, z, min(1, 2 / blur));
+      a.ctx.translate(r - ox, r - oy); fn(a.ctx);
+      for (const s of [.5, 2]) { const b = layer(z, z, min(1, s / blur)); b.ctx.imageSmoothingQuality = "high"; b.ctx.drawImage(a.canvas, 0, 0, z, z); a = b; }
+      ctx.drawImage(a.canvas, ox - r, oy - r, z, z);
+    }
+
+    const ground = mix(GR[0], GR[1], .5), shade = D ? [0, 0, 0] : [96, 60, 44];
+    for (const f of all) {
+      if (f.sunk) {
+        const p = f.p.slice(0, 2).map(c => mix(c, ground, D ? .5 : .55));
+        soft(f, f.s * .05, c => full(c, f, p));
+        continue;
+      }
+      full(ctx, f, f.p, 1);
+    }
+  },
+});
+</script>
+<script>
+"use strict";
+// Mist (mist)
+// Mist: rose and lilac dawn over ridge behind ridge, fog lying in the valleys.
+// By night the same hills, dark layers under a faint afterglow.
+BACKDROPS.push({
+  id: "mist",
+  name: "Mist",
+  res: 0.5,
+  grain: true,
+  paint(ctx, w, h, o) {
+    const D = o.dark, rand = o.rand, noise = o.noise, fbm = o.fbm;
+    const hx = s => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16));
+    const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+    const css = (c, a = 1) => `rgba(${c.map(Math.round)},${a})`;
+    const lin = v => (v /= 255) <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4;
+    const lum = c => .2126 * lin(c[0]) + .7152 * lin(c[1]) + .0722 * lin(c[2]);
+    // keep a colour on the readable side of T: no darker by day, no lighter by night
+    const TO = D ? [7, 6, 9] : [252, 246, 248];
+    const fit = (c, T) => { for (let n = 0; n < 90 && (D ? lum(c) > T : lum(c) < T); n++) c = mix(c, TO, .04); return c; };
+    const T7 = D ? .052 : .34, TE = D ? .09 : .26;
+    // the reading column's half width, with a margin; past it the limit eases off to TE at the edges
+    const ch = o.thumb ? w * .36 : Math.min(w - 48, 720) / 2 + 24;
+    const across = edge => {
+      const g = ctx.createLinearGradient(0, 0, w, 0);
+      for (let j = 0; j <= 24; j++) {
+        const d = Math.abs(j / 24 - .5) * w - w / 24, e = Math.max(0, Math.min(1, (d - ch) / Math.max(w * .3, w / 2 - ch)));
+        g.addColorStop(j / 24, css(fit(edge, T7 + (TE - T7) * e)));
+      }
+      return g;
+    };
+
+    // sky
+    const sky = (D ? ["#141217", "#17141b", "#211a22", "#30222b"] : ["#e0d4e6", "#e9d9e7", "#f4dde4", "#fae4df"]).map(s => fit(hx(s), T7));
+    let g = ctx.createLinearGradient(0, 0, 0, h * .64);
+    sky.forEach((c, i) => g.addColorStop(i / 3, css(c)));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    const gx = w * (.25 + rand() * .05), gy = h * .57;
+    const glow = (r, c, a, sy) => {
+      ctx.save();
+      ctx.translate(gx, gy);
+      ctx.scale(1, sy);
+      const rg = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+      rg.addColorStop(0, css(c, a));
+      rg.addColorStop(.35, css(c, a * .4));
+      rg.addColorStop(1, css(c, 0));
+      ctx.fillStyle = rg;
+      ctx.fillRect(-r, -r, 2 * r, 2 * r);
+      ctx.restore();
+    };
+    glow(w * .55, fit(hx(D ? "#4b2f3e" : "#f8d4d2"), T7), D ? .75 : .8, .45);
+    glow(w * .18, fit(hx(D ? "#523442" : "#fff0e4"), T7), D ? .5 : 1, .6);
+
+    // fog lying in each valley: broken streaks on a small alpha map, feathered top and bottom
+    const fogC = fit(hx(D ? "#3a3140" : "#f9e9ec"), T7), fw = Math.max(8, Math.min(180, w));
+    const wisp = (i, y0, bh, a, c = fogC, fq = 26) => {
+      const F = o.layer(w, bh, fw / w), id = F.ctx.createImageData(F.pw, F.ph), px = id.data;
+      for (let y = 0; y < F.ph; y++) {
+        const v = (y + .5) / F.ph, env = Math.sin(Math.PI * Math.min(1, v * 1.25)) ** 1.5 * a, Y = (y0 + v * bh) / h;
+        for (let x = 0; x < F.pw; x++) {
+          const u = (x + .5) / F.pw, n = fbm(u * 2.6 + i * 5.3, Y * fq + noise(u * 1.3, i) * 1.2, 4), k = (y * F.pw + x) * 4;
+          px[k] = c[0]; px[k + 1] = c[1]; px[k + 2] = c[2];
+          px[k + 3] = 255 * env * Math.max(0, Math.min(1, n * 2.4 + .2));
+        }
+      }
+      F.ctx.putImageData(id, 0, 0);
+      ctx.drawImage(F.canvas, 0, y0, w, bh);
+    };
+
+    // a few long threads of high cloud, lit from below
+    wisp(9, h * .14, h * .3, D ? .4 : .55, fit(hx(D ? "#2b1f28" : "#f9dde2"), T7), 11);
+
+    // the ridges, far to near: rose where the dawn reaches the far ones, lilac-mauve near
+    const col = D ? ["#2d2129", "#261c25", "#1f1720", "#19131b", "#140f17", "#100c13"]
+                  : ["#e2cbd9", "#d5b9d1", "#c6a5c8", "#b491bb", "#a17dad", "#8f6c9e"];
+    // treetops: two rows of crowns at different spacings, each crown its own height
+    const hs = k => { k = Math.imul(k ^ 0x9e3779b9, 0x85ebca6b); k ^= k >>> 13; k = Math.imul(k, 0xc2b2ae35); return ((k ^ k >>> 16) >>> 0) / 4294967296; };
+    const crown = (x, sp, sd) => { const q = x / sp, k = Math.floor(q), r = hs(k + sd); return (r < .2 ? .1 : .3 + .7 * r) * (1 - Math.abs(2 * (q - k) - 1)) ** 1.5; };
+    const N = 6, side = [0, -1, 1, -1, 1, -1], lift = [0, .05, .08, .13, .19, .27];
+    for (let i = 0; i < N; i++) {
+      const t = i / (N - 1), b = .555 + .33 * t ** 1.15, amp = .085 - .05 * t, fr = 4.2 - 1.6 * t, wr = .65 - .4 * t;
+      const ox = rand() * 40, oy = rand() * 40, trees = !o.thumb && i > 2, sp = h * (.004 + .0028 * (i - 3));
+      const n = Math.ceil(trees ? w / sp * 3 : Math.min(720, Math.max(40, w)));
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      for (let j = 0; j <= n; j++) {
+        const x = j / n * w, u = j / n, s = u * fr + ox;
+        const m = (1 - wr) * fbm(s, oy, 4) + wr * (1 - 2 * Math.abs(noise(s * .5, oy + 3)));
+        let y = h * (b - amp * m - lift[i] * (side[i] < 0 ? 1 - u : side[i] > 0 ? u : 0) ** 2.4);
+        if (trees) { // a ragged line of treetops along the nearer crests, in patches
+          y -= sp * 1.6 * Math.max(0, noise(u * 4, oy + 9) + .45) * Math.max(crown(x, sp, i * 999), .85 * crown(x + sp * .4, sp * .71, i * 777 + 5));
+        }
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(w, h);
+      ctx.closePath();
+      ctx.fillStyle = across(hx(col[i]));
+      ctx.fill();
+      const fy = h * (b - amp * .4), fd = h * (.08 + .07 * t), fg = ctx.createLinearGradient(0, fy, 0, fy + fd);
+      fg.addColorStop(0, css(fogC, 0));
+      fg.addColorStop(1, css(fogC, i < N - 1 ? .92 : .5));
+      ctx.fillStyle = fg;
+      ctx.fill();
+      ctx.save();
+      ctx.clip();
+      if (i < N - 1) wisp(i, fy + fd * .2, fd * 1.1, .8);
+      if (i > 3) wisp(i + 20, h * (b - lift[i] * .8), h * lift[i] * .7, .45); // fog drifting across the near slopes
+      ctx.restore();
+    }
+
+    // by night a few faint stars, high up, where no ridge reaches
+    const star = fit(hx("#4a4552"), T7);
+    for (let i = 0; i < 70; i++) {
+      const x = rand() * w, y = h * (.06 + .34 * rand() ** 1.4), r = .5 + rand() * .7, a = .25 + .75 * rand() * (1 - y / h * 2);
+      if (D && !o.thumb) { ctx.fillStyle = css(star, a); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+    }
+  },
+});
+</script>
+<script>
+"use strict";
+// Wash (wash)
+// Wash: watercolour washes of ultramarine, indigo and violet bleed in from the
+// edges and corners and fade to bare cold-pressed paper in the middle. By day
+// pigment is absorbance on white paper, so washes glaze where they overlap;
+// hard edges dry to a tide-line, blooms push pigment out to a scalloped rim,
+// pigment granulates into the tooth. By night: deep pigment on dark paper.
+BACKDROPS.push({
+  id: "wash",
+  name: "Wash",
+  res: 0.5,
+  grain: true,
+  paint(ctx, w, h, o) {
+    const { dark, rand, noise, fbm, thumb } = o, E = Math.exp, Q = Math.sqrt, a = w / h, tx = thumb ? 0 : 1;
+    // one raster for the sheet, at most ~450k pixels; pc = one raster pixel in screen heights
+    const s = Math.min(o.k, Q(4.5e5 / (w * h))), ly = o.layer(w, h, s), W = ly.pw, H = ly.ph;
+    const img = ly.ctx.createImageData(W, H), d = img.data, pc = 1 / (s * h), sx = a / W, sy = 1 / H;
+    const ss = (e0, e1, x) => (x = (x - e0) / (e1 - e0), x < 0 ? 0 : x > 1 ? 1 : x * x * (3 - 2 * x));
+    const lin = v => (v /= 255) <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4;
+    const LUT = new Uint8ClampedArray(4097);
+    for (let i = 0; i <= 4096; i++) { const v = i / 4096; LUT[i] = 255 * (v <= .0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - .055) + .5; }
+    // pigments 0 French ultramarine, 1 indanthrone, 2 blue violet: by day the
+    // absorbance of one unit of wash, by night its masstone in low light
+    const PG = dark ? [[21, 27, 64], [16, 19, 42], [31, 23, 60]].map(c => c.map(lin))
+      : [[.20, .28, .78], [.15, .18, .56], [.30, .24, .80]].map(t => t.map(v => -Math.log(v)));
+    // on a squarer screen the washes keep their reach as a share of the width
+    const J = v => (rand() - .5) * v, sc = Math.min(1, a / 1.6), SX = x => x < a / 2 ? x * sc : a - (a - x) * sc;
+    // washes: centre (off the sheet), radii, strength, pigment a→b, warp,
+    // hardness bias, tide, granulation, mix bias, flat (1) or graded (0)
+    const WS = [
+      [-.14, -.10, .60, .62, 1.05, 0, 1, .22, -.5, .9, .6, -.2, .2],
+      [-.40, .60, .52, .62, .4, 0, 2, .2, .45, 1.2, .5, -.55, .75],
+      [.10, 1.30, .62, .48, .7, 1, 0, .2, -.45, .8, .35, .1, .3],
+      [a + .10, 1.10, .62, .55, 1.05, 2, 0, .2, -.5, .9, .45, -.3, .2],
+      [a + .38, .50, .58, .62, .5, 2, 0, .2, .4, 1.2, .4, -.4, .7],
+      [a + .12, -.22, .46, .42, .45, 0, 2, .18, .2, 1, .5, .2, .5],
+      [a * .5, 1.45, .66, .50, .2, 2, 1, .14, -.4, .7, .25, 0, .6],
+    ].map(q => ({ cx: SX(q[0] + J(.04)), cy: q[1] + J(.04), rx: q[2] * sc, ry: q[3], st: q[4], pa: PG[q[5]], pb: PG[q[6]],
+      wp: q[7], hb: q[8], td: q[9], gr: q[10], mb: q[11], lo: q[12], re: (q[2] + q[3]) / 2, cut: -q[7] - .25, ox: rand() * 50, oy: rand() * 50 }));
+    const nW = WS.length;
+    // blooms (back-runs): a paler pool inside a ring of small lobes, so its rim is scalloped
+    const BL = [[.1, .17, .075], [a - .17, .84, .08], [a - .07, .45, .05]].map(([x, y, r]) => ({ x: SX(x), y, r, o: rand() * 50 }));
+    // the smooth fields on a coarse grid: each wash's signed depth and edge hardness, the wetness
+    const G = Math.max(1, Math.round(.009 / pc)), gw = Math.ceil(W / G) + 2, gh = Math.ceil(H / G) + 2, gn = gw * gh;
+    const FF = new Float32Array(gn * nW), HH = new Float32Array(gn * nW), WT = new Float32Array(gn), FW = new Float32Array(gn), MK = new Uint8Array(gn);
+    for (let n = 0; n < gn; n++) {
+      const X = ((n % gw) * G + .5) * sx, Y = ((n / gw | 0) * G + .5) * sy, fw = FW[n] = fbm(X * 7, Y * 7, 3);
+      WT[n] = fbm(X * 2.2 + 9, Y * 2.2 + 3, 2);
+      for (let i = 0; i < nW; i++) {
+        const q = WS[i], dx = (X - q.cx) / q.rx, dy = (Y - q.cy) / q.ry, e = 1 - Q(dx * dx + dy * dy);
+        let f = -1, hd = 0;
+        if (e > q.cut) {
+          f = (e + q.wp * fbm(X * 2.4 + q.ox, Y * 2.4 + q.oy, 3) + .05 * fw) * q.re;
+          hd = ss(-.2, .3, noise(X * 1.4 + q.oy, Y * 1.4 + q.ox) + q.hb);
+          if (f > -.08) MK[n] = 1;
+        }
+        FF[n * nW + i] = f; HH[n * nW + i] = hd;
+      }
+    }
+    const P = (dark ? [54, 55, 62] : [247, 245, 240]).map(lin), LP = .2126 * P[0] + .7152 * P[1] + .0722 * P[2];
+    // tide-line: decay length inward and strength (wider and fainter on a coarse raster)
+    const hp = thumb ? 900 : h, TT = Math.max(4 / hp, 1.1 * pc), TA = .6 * (4 / hp) / TT;
+    const F1 = hp / 8, F2 = Math.min(hp / 3.6, .35 / pc), F3 = hp / 30, ga = thumb ? 1.3 : 1, so = thumb ? .07 : 0, prow = new Float32Array(W);
+    for (let y = 0, p = 0; y < H; y++) {
+      const Y = (y + .5) * sy, iy = y / G | 0, fy = y / G - iy;
+      let tl = 0;
+      for (let x = 0; x < W; x++, p += 4) {
+        const X = (x + .5) * sx, ix = x / G | 0, fx = x / G - ix, n0 = iy * gw + ix;
+        // cold-pressed tooth: a height field, lit from the upper left; z: a speck of grit
+        let t = 0, c = 0, z = 0;
+        if (tx) {
+          c = noise(X * F1, Y * F1); t = .65 * c + .35 * noise(X * F2 + 31, Y * F2 + 17);
+          z = Math.imul(x * 1973 ^ y * 9277, 0x2c1b3c6d); z = ((z ^ z >>> 15) & 1023) / 1023 - .5;
+        }
+        const sh = 1 + .05 * (2 * t - tl - prow[x]);
+        tl = t; prow[x] = t;
+        let Ar = 0, Ag = 0, Ab = 0, Dt = 0;
+        if (MK[n0] | MK[n0 + 1] | MK[n0 + gw] | MK[n0 + gw + 1]) {
+          const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy, n1 = n0 + 1, n2 = n0 + gw, n3 = n2 + 1;
+          const wet = WT[n0] * w00 + WT[n1] * w10 + WT[n2] * w01 + WT[n3] * w11, fw = FW[n0] * w00 + FW[n1] * w10 + FW[n2] * w01 + FW[n3] * w11;
+          const fe = tx ? noise(X * F3 + 5, Y * F3 + 9) : 0; // feathering of the soft edges
+          for (let i = 0; i < nW; i++) {
+            const k0 = n0 * nW + i, k1 = n1 * nW + i, k2 = n2 * nW + i, k3 = n3 * nW + i;
+            const sd = FF[k0] * w00 + FF[k1] * w10 + FF[k2] * w01 + FF[k3] * w11 + .003 * t + so;
+            if (sd < -.07) continue;
+            const q = WS[i], hd = HH[k0] * w00 + HH[k1] * w10 + HH[k2] * w01 + HH[k3] * w11;
+            const hs = Math.min(1, Math.max(0, sd / pc + .5)), sf = ss(-.045, .05, sd + .025 * fe);
+            let D = (sf + (hs - sf) * hd) * (q.lo + (1 - q.lo) * ss(-.02, .35, sd)) * (1 + .4 * wet + .12 * fw);
+            if (hd > 0 && sd > -pc) D += hd * hs * q.td * TA * E(-Math.max(sd, 0) / TT);
+            if (D < .002) continue;
+            D *= ga * q.st * (1 + tx * q.gr * (.9 * z - .45 * c));
+            const m = ss(-.5, .5, 1.6 * wet + q.mb), A = q.pa, B = q.pb;
+            Ar += D * (A[0] + (B[0] - A[0]) * m); Ag += D * (A[1] + (B[1] - A[1]) * m); Ab += D * (A[2] + (B[2] - A[2]) * m); Dt += D;
+          }
+          if (Dt > 0) for (const b of BL) {
+            const dx = X - b.x, dy = Y - b.y, r2 = (dx * dx + dy * dy) / (b.r * b.r);
+            if (r2 > 2.6) continue;
+            const u = X / b.r + b.o, v = Y / b.r, qq = Q(r2) + .36 * fbm(u * 1.1, v * 1.1, 4) + .02 * c;
+            const bw = Math.max(.05, 1.2 * pc / b.r), ba = (.5 + .5 * ss(-.3, .3, noise(u * .9 + 3, v * .9))) * .024 / bw;
+            const M = qq < 1 ? .66 + .34 * ss(.2, 1, qq) + ba * E((qq - 1) / bw) : 1 + ba * E(-(((qq - 1) / (.4 * bw)) ** 2));
+            Ar *= M; Ag *= M; Ab *= M; Dt *= M;
+          }
+        }
+        let r, g, bl;
+        if (dark) {
+          // low light: the paper falls off toward the corners; pigment pulls it toward its masstone
+          const u = (X / a - .5) * 2, v = (Y - .5) * 2, f = sh * (1 - .2 * ss(.3, 1.6, u * u + v * v)), al = 1 - E(-1.1 * Dt), m = Dt > 0 ? 1 / Dt : 0, k = f * E(-.35 * Dt);
+          r = (P[0] + (Ar * m - P[0]) * al) * k; g = (P[1] + (Ag * m - P[1]) * al) * k; bl = (P[2] + (Ab * m - P[2]) * al) * k;
+        } else {
+          r = P[0] * sh * E(-Ar); g = P[1] * sh * E(-Ag); bl = P[2] * sh * E(-Ab);
+          if (tx && Dt > 0) {
+            // keep the ink readable: a soft floor on the luminance, by distance from the middle
+            const xc = Math.abs((x + .5) / s - w / 2) - 2 / s;
+            const Lf = 1.05 * (xc < 360 ? .3 : xc < 480 ? .3 - .12 * ss(360, 480, xc) : .18 - .13 * ss(480, 720, xc)) + .006;
+            const Lp = LP * sh, L = .2126 * r + .7152 * g + .0722 * bl, k = (Lp - L) / (Lp - Lf);
+            if (k > .3) {
+              const f = 1 / Q(Q(1 + k ** 4));
+              r = P[0] * sh + (r - P[0] * sh) * f; g = P[1] * sh + (g - P[1] * sh) * f; bl = P[2] * sh + (bl - P[2] * sh) * f;
+            }
+          }
+        }
+        d[p] = LUT[Math.min(4096, r * 4096 | 0)]; d[p + 1] = LUT[Math.min(4096, g * 4096 | 0)]; d[p + 2] = LUT[Math.min(4096, bl * 4096 | 0)]; d[p + 3] = 255;
+      }
+    }
+    ly.ctx.putImageData(img, 0, 0);
+    ctx.drawImage(ly.canvas, 0, 0, w, h);
+  },
+});
+</script>
 <script src="/platinum/dialog.js"></script>
 <script src="/platinum/menu.js"></script>
 <script>
@@ -811,13 +1986,16 @@ function render() {
 const TYPE_URL = "/v1/apps/" + encodeURIComponent(APP) + "/data/settings.json";
 const TYPE_KEY = "exe-notes-type:" + APP;
 const SIZES = [[10, 14], [11, 15], [12, 16], [14, 19], [16, 21], [18, 24], [20, 27], [24, 32]];
-let type = { size: 12, face: "sans" };
+// backdrop: full screen's background, "paper" or a painter's id
+let type = { size: 12, face: "sans", backdrop: "paper" };
 let settings = {};      // the file as read: what this Notes does not know goes back as it came
 let typeLoaded = false; // no save before the file was read, so a failed GET is never overwritten
 let typeAhead = false;  // chosen here before the file was read: saved, not replaced, once it is
 function setType(t) {
   if (t && SIZES.some(([s]) => s === t.size)) type.size = t.size;
   if (t && ["sans", "serif", "mono"].includes(t.face)) type.face = t.face;
+  // a painter this Notes does not know (a newer desk's) is kept, and shown as paper
+  if (t && typeof t.backdrop === "string" && /^[a-z0-9-]{1,24}$/.test(t.backdrop)) type.backdrop = t.backdrop;
 }
 try { setType(JSON.parse(localStorage.getItem(TYPE_KEY) || "{}")); } catch (e) {}
 function applyType(keep) {
@@ -836,6 +2014,7 @@ function applyType(keep) {
     b.disabled = !!offline;
   }
   if (keep) try { localStorage.setItem(TYPE_KEY, JSON.stringify(type)); } catch (e) {}
+  backdropChanged();
 }
 // The file's own save, apart from the notes': debounced, serialized, flushed
 // with keepalive when the window goes. A failed one is not said at the
@@ -884,9 +2063,9 @@ async function loadType() {
     const first = !typeLoaded;
     typeLoaded = true;
     if (first && typeAhead) { typeAhead = false; saveType(); return; }
-    const was = type.size + type.face;
+    const was = JSON.stringify(type);
     setType(d);
-    if (type.size + type.face === was) return;
+    if (JSON.stringify(type) === was) return;
     applyType(true);
     if (view === "board") renderBoard(); // a title may wrap otherwise in the other face
   } catch (e) {
@@ -1131,6 +2310,127 @@ document.addEventListener("pointermove", e => {
 document.addEventListener("pointerdown", wake, true);
 bar.addEventListener("focusin", wake);
 
+// ---- Full Screen's backgrounds ----
+// OmmWriter's way: behind the writing, the note's own paper or one of
+// eight pictures (the painters above), chosen from a row of small squares
+// at the screen's bottom right that comes and goes with the toolbar. A
+// picture is painted for the screen as full screen begins, again when the
+// screen's size or the appearance changes, and let go when it ends (a
+// whole screen's canvas is tens of megabytes). A new choice fades in over
+// the last one. The choice is the same on every desk: settings.json's
+// `backdrop`, beside the size and the face.
+var dockEl = null; // the row, once built: applyType runs before this section does
+const BD_ORDER = ["paper", "ink", "snow", "sea", "forest", "dunes", "maple", "mist", "wash"];
+const bdBox = $("#bd"), bdCanvases = [...bdBox.querySelectorAll("canvas")];
+let bdFront = 0, bdKey = "", bdT = null;
+const bdDark = () => typeof exeDark === "function" && !!exeDark();
+const painter = id => BACKDROPS.find(b => b.id === id) || null;
+const inFocus = () => document.body.classList.contains("focus");
+function bdRelease() {
+  for (const c of bdCanvases) { for (const a of c.getAnimations()) a.cancel(); c.classList.remove("up"); c.width = c.height = 1; }
+  bdBox.classList.remove("grain");
+  bdKey = "";
+}
+// Paint the chosen picture for this screen, unless it is up already. `fade`:
+// the new one comes in over the old (or over the paper) as a choice does.
+function showBackdrop(fade) {
+  const bd = painter(type.backdrop);
+  if (!inFocus()) { bdRelease(); return; }
+  const key = bd ? [bd.id, innerWidth, innerHeight, devicePixelRatio, bdDark()].join() : "paper";
+  if (key === bdKey) return;
+  bdKey = key;
+  const front = bdCanvases[bdFront], back = bdCanvases[1 - bdFront];
+  const calm = !fade || matchMedia("(prefers-reduced-motion: reduce)").matches;
+  for (const c of bdCanvases) for (const a of c.getAnimations()) a.finish();
+  if (!bd) {
+    // the paper: the picture fades out over the pad's own paper
+    bdBox.classList.remove("grain");
+    if (calm || !front.classList.contains("up")) { bdRelease(); bdKey = "paper"; return; }
+    front.classList.remove("up"); // down at once: a picture chosen meanwhile fades in over the paper
+    const a = front.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 360, easing: "ease-in-out" });
+    a.onfinish = () => { if (bdKey === "paper") { bdRelease(); bdKey = "paper"; } };
+    return;
+  }
+  try { paintBackdrop(back, bd, innerWidth, innerHeight, bdDark()); }
+  catch (e) { console.error("notes: backdrop " + bd.id + " failed to paint:", e); bdRelease(); bdKey = key; return; }
+  bdBox.classList.toggle("grain", !!bd.grain);
+  back.classList.add("up");
+  bdFront = 1 - bdFront;
+  const done = () => { front.classList.remove("up"); front.width = front.height = 1; };
+  if (calm || !front.classList.contains("up")) {
+    if (!calm) back.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 360, easing: "ease-in-out" });
+    done();
+    return;
+  }
+  back.style.zIndex = "2"; // over the old one while it comes in
+  const a = back.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 360, easing: "ease-in-out" });
+  a.onfinish = a.oncancel = () => { back.style.zIndex = ""; if (bdCanvases[bdFront] === back) done(); };
+}
+// the row: the paper and each picture in miniature, painted by its painter
+function buildDock() {
+  dockEl = $("#dock");
+  for (const id of BD_ORDER) {
+    const bd = painter(id);
+    if (id !== "paper" && !bd) continue;
+    const b = document.createElement("button");
+    b.type = "button"; b.dataset.bd = id;
+    b.title = bd ? bd.name : "Paper";
+    b.setAttribute("role", "radio");
+    b.append(bd ? document.createElement("canvas") : Object.assign(document.createElement("span"), { className: "paper" }));
+    b.addEventListener("mousedown", e => e.preventDefault()); // the caret stays in the note
+    b.onclick = () => {
+      if (offline || type.backdrop === id) return;
+      type.backdrop = id;
+      applyType(true);
+      saveType();
+    };
+    dockEl.append(b);
+  }
+  dockEl.addEventListener("focusin", wake);
+}
+let thumbsKey = "";
+function paintThumbs() {
+  const key = String(bdDark()) + devicePixelRatio;
+  if (!dockEl || key === thumbsKey) return;
+  thumbsKey = key;
+  for (const b of dockEl.children) {
+    const bd = painter(b.dataset.bd), c = b.querySelector("canvas");
+    if (bd && c) try { paintBackdrop(c, bd, 30, 18, bdDark(), undefined, true); } catch (e) { console.error("notes: backdrop " + bd.id + " square:", e); }
+  }
+}
+// the row says the choice, the paper square wears the open note's colour
+function syncDock() {
+  if (!dockEl) return;
+  const chosen = painter(type.backdrop) ? type.backdrop : "paper";
+  const tint = [...$("#pad").classList].find(c => c.startsWith("tint-")) || "";
+  for (const b of dockEl.children) {
+    const on = b.dataset.bd === chosen;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-checked", String(on));
+    b.disabled = !!offline;
+    if (b.dataset.bd === "paper") b.firstChild.className = "paper " + tint;
+  }
+}
+function backdropChanged() {
+  if (!dockEl) return;
+  syncDock();
+  showBackdrop(true);
+}
+buildDock();
+syncDock();
+document.addEventListener("fullscreenchange", () => { if (inFocus()) { paintThumbs(); syncDock(); } showBackdrop(false); });
+document.addEventListener("webkitfullscreenchange", () => { if (inFocus()) { paintThumbs(); syncDock(); } showBackdrop(false); });
+addEventListener("resize", () => {
+  if (!inFocus()) return;
+  clearTimeout(bdT);
+  bdT = setTimeout(() => { paintThumbs(); showBackdrop(false); }, 120);
+});
+// the desk's appearance changed: night pictures by night, day by day
+document.documentElement.addEventListener("exe-scheme", () => {
+  thumbsKey = "";
+  if (inFocus()) { paintThumbs(); showBackdrop(false); }
+});
+
 // The open note's date at the sheet's foot beside the dog-ear: the longest
 // form that keeps 16px (the HIG's room between groups) from the page
 // number, else none
@@ -1171,6 +2471,7 @@ function applySheet() {
     b.classList.toggle("on", b.dataset.c === name);
     b.disabled = !loaded || !n || !!offline;
   }
+  syncDock(); // full screen's paper square wears the note's colour too
 }
 // Light, Dark or Auto changed, or the system did: the paper has its other
 // colour now, and the flap is drawn again on it
