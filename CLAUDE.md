@@ -114,6 +114,13 @@ AppName/            folder name = app identity (must match ^[A-Za-z0-9][A-Za-z0-
   to the app's iframe on close and `{exe:"show"}` when it is reopened. An
   app with loops, timers or a simulation pauses on hide (and flushes any
   pending save) and resumes on show; a plain document app can ignore both.
+  An open window that cannot be seen (rolled up; under the CDE look also
+  minimized to an icon or on another workspace) gets `{exe:"unseen"}`,
+  and `{exe:"seen"}` when it can be seen again: only a change is sent,
+  never while the window is closed, and a page that loads anew starts
+  seen. It is no close: an app with motion of its own (an animation
+  loop) stops the motion and keeps its state and its fetching, so it is
+  current when it comes back (Activity Monitor); most apps ignore it.
   `{exe:"close"}` puts the app's own window away, for an app with an OK
   or Done button of its own.
   The frame allows fullscreen, so an app may call
