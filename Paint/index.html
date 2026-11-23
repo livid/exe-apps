@@ -790,7 +790,7 @@ function floodFill(sx, sy) {
 // ---- selection (marquee): marching ants, drag inside to move --------------
 let sel = null;      // {x,y,w,h} normalized
 let floating = null; // {img: ImageData, x, y} lifted pixels riding the overlay
-let ants = 0;
+let ants = 0, antsT = 0;
 function drawOverlay() {
   octx.clearRect(0, 0, W, H);
   if (floating) octx.putImageData(floating.img, floating.x, floating.y);
@@ -805,8 +805,12 @@ function drawOverlay() {
     octx.strokeRect(fx + .5, fy + .5, sel.w - 1, sel.h - 1);
     octx.restore();
   }
+  // the ants march while there is a selection, and the clock stops with it
+  if (sel && !antsT) antsT = setInterval(() => {
+    if (!sel) { clearInterval(antsT); antsT = 0; return; }
+    ants = (ants + 1) % 8; drawOverlay();
+  }, 120);
 }
-setInterval(() => { if (sel) { ants = (ants + 1) % 8; drawOverlay(); } }, 120);
 
 function liftSelection() {
   if (!sel || floating) return;
